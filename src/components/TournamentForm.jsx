@@ -80,10 +80,9 @@ const TournamentForm = ({ tournament, onSave, onCancel }) => {
 
                 {/* Data Fine */}
                 <div className="space-y-2">
-                    <label className="text-sm font-medium ml-4 text-gray-400">Data Fine</label>
+                    <label className="text-sm font-medium ml-4 text-gray-400">Data Fine (Opzionale)</label>
                     <input
                         type="date"
-                        required
                         value={formData.data_fine}
                         onChange={(e) => setFormData({ ...formData, data_fine: e.target.value })}
                         className="w-full px-4 py-3 rounded-xl neumorphic-in focus:outline-none invert brightness-90 grayscale"
