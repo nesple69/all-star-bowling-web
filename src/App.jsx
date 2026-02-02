@@ -40,11 +40,15 @@ const App = () => {
 
   // Fetch Data
   const fetchData = async () => {
-    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-      alert('ATTENZIONE: Le chiavi di Supabase non sono configurate su Vercel! Controlla le Environment Variables.');
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!url || url === '' || url.includes('YOUR_')) {
+      alert('ERRORE CRITICO: URL di Supabase mancante o non valido su Vercel!');
       setLoading(false);
       return;
     }
+
     try {
       setLoading(true);
       const { data: p, error: ep } = await supabase.from('players').select('*');
@@ -286,6 +290,13 @@ const App = () => {
                           <td className="py-4 text-right pr-4 font-black text-blue-400">{p.media}</td>
                         </tr>
                       ))}
+                      {playersWithStats.length === 0 && (
+                        <tr>
+                          <td colSpan="6" className="py-12 text-center text-gray-500 italic">
+                            Nessun atleta trovato nel database.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
