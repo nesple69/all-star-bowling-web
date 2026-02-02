@@ -207,7 +207,8 @@ const App = () => {
         </div>
       </nav>
 
-      <main className="pb-24 md:pb-0 md:pl-4 p-0 md:pt-0 md:px-8 w-full">
+      <main className="flex-1 pb-24 md:pb-0 p-0 md:pt-0 md:px-6 min-w-0">
+        <div className="text-[10px] text-red-500 font-mono pl-4 opacity-50">v1.7-TOP-ALIGN</div>
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
