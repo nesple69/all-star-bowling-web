@@ -8,14 +8,20 @@
   }
 }
 
-.neumorphic-out {
-  @apply shadow-neumorphicout bg-background;
-}
+@layer components {
+  .neumorphic-out {
+    @apply shadow-neumorphicout bg-background;
+  }
 
-.neumorphic-in {
-  @apply shadow-neumorphicin bg-background;
-}
+  .neumorphic-in {
+    @apply shadow-neumorphicin bg-background;
+  }
 
-.neumorphic-btn {
-  @apply neumorphic-out hover:neumorphic-in transition-all duration-300 active:scale-95;
+  .neumorphic-btn {
+    @apply neumorphic-out transition-all duration-300 active:scale-95;
+  }
+
+  .neumorphic-btn:hover {
+    @apply shadow-neumorphicin;
+  }
 }
