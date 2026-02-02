@@ -174,7 +174,7 @@ const App = () => {
   return (
     <div className="min-h-screen bg-background text-gray-200 md:flex">
       {/* Sidebar Navigation */}
-      <nav className="fixed bottom-0 left-0 w-full md:relative md:w-64 md:h-screen p-4 bg-background z-50">
+      <nav className="fixed bottom-0 left-0 w-full md:relative md:w-64 md:h-screen p-0 md:p-4 bg-background z-50">
         <div className="h-full rounded-3xl neumorphic-out flex flex-col md:p-6 p-2 justify-around md:justify-start gap-6">
           {[
             { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -218,7 +218,7 @@ const App = () => {
           <div className="animate-fadeIn">
             {/* Dashboard */}
             {activeTab === 'dashboard' && (
-              <div className="space-y-8">
+              <div className="space-y-8 pt-0">
                 {expiringCertificates.length > 0 && (
                   <div className="p-6 rounded-2xl bg-red-400/10 border border-red-400/20 neumorphic-out">
                     <div className="flex items-center gap-3 mb-4 text-red-400">
@@ -295,7 +295,7 @@ const App = () => {
 
             {/* Players Area */}
             {activeTab === 'players' && (
-              <div className="space-y-6">
+              <div className="space-y-6 pt-0">
                 <div className="p-4 md:p-6 rounded-3xl neumorphic-out overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
