@@ -210,8 +210,8 @@ const App = () => {
         </div>
       </nav>
 
-      <main className="pb-24 md:pb-0 md:pl-8 p-4 md:p-8 w-full">
-        <header className="flex justify-between items-center mb-12">
+      <main className="pb-24 md:pb-0 md:pl-8 p-4 md:pt-4 md:px-8 w-full">
+        <header className="flex justify-between items-center mb-6">
           <h2 className="text-3xl font-bold capitalize">{activeTab}</h2>
         </header>
 
