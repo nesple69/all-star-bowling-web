@@ -111,9 +111,15 @@ const App = () => {
 
   // Handlers
   const handleSavePlayer = async (formData) => {
+    // Clean dates to avoid "invalid input syntax for type date: \"\""
+    const cleanedData = {
+      ...formData,
+      data_scadenza_medica: formData.data_scadenza_medica === '' ? null : formData.data_scadenza_medica
+    };
+
     const { error } = editingPlayer
-      ? await supabase.from('players').update(formData).eq('id', editingPlayer.id)
-      : await supabase.from('players').insert([formData]);
+      ? await supabase.from('players').update(cleanedData).eq('id', editingPlayer.id)
+      : await supabase.from('players').insert([cleanedData]);
     if (error) alert(error.message);
     else { fetchData(); setShowPlayerForm(false); setEditingPlayer(null); }
   };
