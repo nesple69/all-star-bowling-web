@@ -32,13 +32,13 @@ const PlayerForm = ({ player, onSave, onCancel }) => {
             const filePath = `certificates/${fileName}`;
 
             const { error: uploadError } = await supabase.storage
-                .from('medical-certificates')
+                .from('medical_certificates')
                 .upload(filePath, file);
 
             if (uploadError) throw uploadError;
 
             const { data: { publicUrl } } = supabase.storage
-                .from('medical-certificates')
+                .from('medical_certificates')
                 .getPublicUrl(filePath);
 
             setFormData({ ...formData, certificato_url: publicUrl });
