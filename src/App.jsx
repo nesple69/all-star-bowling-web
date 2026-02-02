@@ -33,6 +33,7 @@ const App = () => {
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [selectedPlayerForDetail, setSelectedPlayerForDetail] = useState(null);
   const [selectedAccountingPlayer, setSelectedAccountingPlayer] = useState(null);
+  const [selectedTournament, setSelectedTournament] = useState(null);
 
   // Auth State
   useEffect(() => {
@@ -454,60 +455,141 @@ const App = () => {
 
             {/* Tournaments Area */}
             {activeTab === 'tournaments' && (
-              <div className="space-y-6">
-                <div className="p-4 md:p-6 rounded-3xl neumorphic-out overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="text-gray-400 border-b border-white/5">
-                        <th className="pb-4 pl-4 font-medium text-xs md:text-base">Torneo</th>
-                        <th className="pb-4 font-medium text-xs md:text-base text-center">Data</th>
-                        <th className="pb-4 font-medium text-xs md:text-base text-center">Sede</th>
-                        <th className="pb-4 font-medium text-xs md:text-base text-center">Partite</th>
-                        <th className="pb-4 font-medium text-xs md:text-base text-center text-blue-400">PDF</th>
-                        {isAdmin && <th className="pb-4 pr-4"></th>}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {tournaments.sort((a, b) => new Date(b.data_inizio) - new Date(a.data_inizio)).map(t => (
-                        <tr key={t.id} className="group hover:bg-white/5 transition-colors">
-                          <td className="py-4 pl-4 font-bold">{t.nome}</td>
-                          <td className="py-4 text-center font-mono text-xs">
-                            {new Date(t.data_inizio).toLocaleDateString()}
-                          </td>
-                          <td className="py-4 text-center text-sm text-gray-400">{t.sede}</td>
-                          <td className="py-4 text-center font-mono">{t.numero_partite}</td>
-                          <td className="py-4 text-center">
-                            {t.locandina_url ? (
-                              <a href={t.locandina_url} target="_blank" rel="noreferrer" className="p-2 inline-block rounded-lg neumorphic-btn text-blue-400 scale-75">
-                                <FileText className="w-4 h-4" />
-                              </a>
-                            ) : '-'}
-                          </td>
-                          {isAdmin && (
-                            <td className="py-4 pr-4">
-                              <div className="flex justify-end gap-2">
-                                <button onClick={() => { setEditingTournament(t); setShowTournamentForm(true); }} className="p-2 rounded-lg neumorphic-btn text-blue-400 hover:scale-110 transition-transform">
-                                  <Pencil className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => handleDeleteTournament(t.id)} className="p-2 rounded-lg neumorphic-btn text-red-500 hover:scale-110 transition-transform">
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
+              selectedTournament ? (
+                <div className="space-y-6">
+                  <button
+                    onClick={() => setSelectedTournament(null)}
+                    className="mb-4 px-4 py-2 rounded-lg neumorphic-btn text-blue-400 hover:scale-105 transition-transform flex items-center gap-2"
+                  >
+                    ← Torna ai Tornei
+                  </button>
+                  <div className="p-4 md:p-6 rounded-3xl neumorphic-out">
+                    <h2 className="text-2xl font-bold mb-6 text-blue-400">{selectedTournament.nome}</h2>
+                    <div className="text-sm text-gray-400 mb-6 flex gap-6">
+                      <span>📅 {new Date(selectedTournament.data_inizio).toLocaleDateString()}</span>
+                      <span>📍 {selectedTournament.sede}</span>
+                      <span>🎳 {selectedTournament.numero_partite} partite</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="text-gray-400 border-b border-white/5">
+                            <th className="pb-4 pl-4 font-medium text-xs md:text-base">Pos.</th>
+                            <th className="pb-4 font-medium text-xs md:text-base">Atleta</th>
+                            <th className="pb-4 font-medium text-xs md:text-base text-center">Birilli</th>
+                            <th className="pb-4 font-medium text-xs md:text-base text-center">Partite</th>
+                            <th className="pb-4 font-medium text-xs md:text-base text-center">Media</th>
+                            <th className="pb-4 pr-4 font-medium text-xs md:text-base text-center">Data</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {results
+                            .filter(r => r.id_torneo === selectedTournament.id)
+                            .map(r => {
+                              const player = players.find(p => p.id === r.id_giocatore);
+                              return { ...r, player };
+                            })
+                            .filter(r => r.player)
+                            .sort((a, b) => b.birilli - a.birilli)
+                            .map((r, index) => {
+                              const media = r.partite > 0 ? (r.birilli / r.partite).toFixed(2) : '0.00';
+                              return (
+                                <tr key={r.id} className="group hover:bg-white/5 transition-colors">
+                                  <td className="py-4 pl-4 font-black text-blue-400 text-lg">#{index + 1}</td>
+                                  <td className="py-4 font-bold">{r.player.nome} {r.player.cognome}</td>
+                                  <td className="py-4 text-center font-mono text-green-400 font-bold">{r.birilli}</td>
+                                  <td className="py-4 text-center font-mono">{r.partite}</td>
+                                  <td className="py-4 text-center font-black text-blue-400">{media}</td>
+                                  <td className="py-4 pr-4 text-center text-xs text-gray-400">
+                                    {r.data ? new Date(r.data).toLocaleDateString() : '-'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          {results.filter(r => r.id_torneo === selectedTournament.id).length === 0 && (
+                            <tr>
+                              <td colSpan="6" className="py-12 text-center text-gray-500 italic">
+                                Nessun risultato registrato per questo torneo.
+                              </td>
+                            </tr>
                           )}
-                        </tr>
-                      ))}
-                      {tournaments.length === 0 && (
-                        <tr>
-                          <td colSpan={isAdmin ? 6 : 5} className="py-12 text-center text-gray-500 italic">
-                            Nessun torneo registrato.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="p-4 md:p-6 rounded-3xl neumorphic-out overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="text-gray-400 border-b border-white/5">
+                          <th className="pb-4 pl-4 font-medium text-xs md:text-base">Torneo</th>
+                          <th className="pb-4 font-medium text-xs md:text-base text-center">Data</th>
+                          <th className="pb-4 font-medium text-xs md:text-base text-center">Sede</th>
+                          <th className="pb-4 font-medium text-xs md:text-base text-center">Partite</th>
+                          <th className="pb-4 font-medium text-xs md:text-base text-center text-blue-400">PDF</th>
+                          {isAdmin && <th className="pb-4 pr-4"></th>}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {tournaments.sort((a, b) => new Date(b.data_inizio) - new Date(a.data_inizio)).map(t => (
+                          <tr
+                            key={t.id}
+                            className="group hover:bg-white/5 transition-colors cursor-pointer"
+                            onClick={() => setSelectedTournament(t)}
+                          >
+                            <td className="py-4 pl-4 font-bold">{t.nome}</td>
+                            <td className="py-4 text-center font-mono text-xs">
+                              {new Date(t.data_inizio).toLocaleDateString()}
+                            </td>
+                            <td className="py-4 text-center text-sm text-gray-400">{t.sede}</td>
+                            <td className="py-4 text-center font-mono">{t.numero_partite}</td>
+                            <td className="py-4 text-center">
+                              {t.locandina_url ? (
+                                <a
+                                  href={t.locandina_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-2 inline-block rounded-lg neumorphic-btn text-blue-400 scale-75"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <FileText className="w-4 h-4" />
+                                </a>
+                              ) : '-'}
+                            </td>
+                            {isAdmin && (
+                              <td className="py-4 pr-4">
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setEditingTournament(t); setShowTournamentForm(true); }}
+                                    className="p-2 rounded-lg neumorphic-btn text-blue-400 hover:scale-110 transition-transform"
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteTournament(t.id); }}
+                                    className="p-2 rounded-lg neumorphic-btn text-red-500 hover:scale-110 transition-transform"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                        {tournaments.length === 0 && (
+                          <tr>
+                            <td colSpan={isAdmin ? 6 : 5} className="py-12 text-center text-gray-500 italic">
+                              Nessun torneo registrato.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
             )}
 
             {/* Accounting (Admin Only) */}
