@@ -210,10 +210,7 @@ const App = () => {
         </div>
       </nav>
 
-      <main className="pb-24 md:pb-0 md:pl-8 p-4 md:pt-0 md:px-8 w-full">
-        <header className="flex justify-between items-center pt-4 mb-2">
-          <h2 className="text-xl font-bold capitalize text-gray-500 tracking-tight">{activeTab}</h2>
-        </header>
+      <main className="pb-24 md:pb-0 md:pl-8 p-4 md:pt-6 md:px-8 w-full">
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
@@ -241,19 +238,19 @@ const App = () => {
                   </div>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  <div className="p-8 rounded-3xl neumorphic-out text-center">
-                    <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">Atleti</p>
-                    <p className="text-5xl font-black text-blue-400">{players.length}</p>
+                  <div className="p-6 rounded-3xl neumorphic-out text-center">
+                    <p className="text-gray-400 text-[10px] uppercase tracking-widest mb-1">Atleti</p>
+                    <p className="text-4xl font-black text-blue-400">{players.length}</p>
                   </div>
-                  <div className="p-8 rounded-3xl neumorphic-out text-center">
-                    <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">Media Team</p>
-                    <p className="text-5xl font-black text-purple-400">
+                  <div className="p-6 rounded-3xl neumorphic-out text-center">
+                    <p className="text-gray-400 text-[10px] uppercase tracking-widest mb-1">Media Team</p>
+                    <p className="text-4xl font-black text-purple-400">
                       {(playersWithStats.reduce((sum, p) => sum + parseFloat(p.media), 0) / (players.length || 1)).toFixed(2)}
                     </p>
                   </div>
-                  <div className="p-8 rounded-3xl neumorphic-out text-center text-green-400">
-                    <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">Saldo</p>
-                    <p className="text-5xl font-black">€{balance.total.toLocaleString('it-IT')}</p>
+                  <div className="p-6 rounded-3xl neumorphic-out text-center text-green-400">
+                    <p className="text-gray-400 text-[10px] uppercase tracking-widest mb-1">Saldo</p>
+                    <p className="text-4xl font-black">€{balance.total.toLocaleString('it-IT')}</p>
                   </div>
                 </div>
               </div>
@@ -262,7 +259,7 @@ const App = () => {
             {/* Ranking */}
             {activeTab === 'ranking' && (
               <div className="space-y-6">
-                <div className="p-8 rounded-3xl neumorphic-out overflow-x-auto">
+                <div className="p-4 md:p-6 rounded-3xl neumorphic-out overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="text-gray-400 border-b border-white/5">
@@ -301,7 +298,7 @@ const App = () => {
             {/* Players Area */}
             {activeTab === 'players' && (
               <div className="space-y-6">
-                <div className="p-8 rounded-3xl neumorphic-out overflow-x-auto">
+                <div className="p-4 md:p-6 rounded-3xl neumorphic-out overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="text-gray-400 border-b border-white/5">
