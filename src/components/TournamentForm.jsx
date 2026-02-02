@@ -23,13 +23,13 @@ const TournamentForm = ({ tournament, onSave, onCancel }) => {
             const filePath = `posters/${fileName}`;
 
             const { error: uploadError } = await supabase.storage
-                .from('tournaments')
+                .from('tornei')
                 .upload(filePath, file);
 
             if (uploadError) throw uploadError;
 
             const { data: { publicUrl } } = supabase.storage
-                .from('tournaments')
+                .from('tornei')
                 .getPublicUrl(filePath);
 
             setFormData({ ...formData, locandina_url: publicUrl });
