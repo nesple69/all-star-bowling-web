@@ -5,6 +5,7 @@ import TournamentForm from './components/TournamentForm';
 import PlayerDetail from './components/PlayerDetail';
 import ResultForm from './components/ResultForm';
 import TransactionForm from './components/TransactionForm';
+import AccountingPlayerDetail from './components/AccountingPlayerDetail';
 import {
   LayoutDashboard, Users, Trophy, Wallet, LogIn, LogOut,
   AlertTriangle, Plus, Search, TrendingUp, Target, MapPin,
@@ -31,6 +32,7 @@ const App = () => {
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [selectedPlayerForDetail, setSelectedPlayerForDetail] = useState(null);
+  const [selectedAccountingPlayer, setSelectedAccountingPlayer] = useState(null);
 
   // Auth State
   useEffect(() => {
@@ -164,6 +166,12 @@ const App = () => {
     else { fetchData(); setShowTransactionForm(false); setEditingTransaction(null); }
   };
 
+  const handleSavePlayerTransaction = async (formData) => {
+    const { error } = await supabase.from('transactions').insert([formData]);
+    if (error) alert(error.message);
+    else fetchData();
+  };
+
   const handleDeletePlayer = async (id) => {
     if (!window.confirm('Eliminare definitivamente questo giocatore?')) return;
     const { error } = await supabase.from('players').delete().eq('id', id);
@@ -255,7 +263,7 @@ const App = () => {
         </div>
       </nav>
 
-      <main className="flex-1 pb-32 md:pb-32 p-0 md:pt-10 md:px-6 min-w-0 tracking-tight">
+      <main className="flex-1 pb-32 md:pb-32 p-0 md:pt-6 md:px-6 min-w-0 tracking-tight">
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
@@ -499,52 +507,46 @@ const App = () => {
 
             {/* Accounting (Admin Only) */}
             {activeTab === 'accounting' && isAdmin && (
-              <div className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-center">
-                  <div className="p-8 rounded-3xl neumorphic-out border border-green-500/10">
-                    <ArrowUpCircle className="w-8 h-8 mx-auto text-green-400 mb-2" />
-                    <h3 className="text-lg font-bold">Entrate</h3>
-                    <p className="text-4xl font-black text-green-400">€{balance.income.toLocaleString()}</p>
-                  </div>
-                  <div className="p-8 rounded-3xl neumorphic-out border border-red-500/10">
-                    <ArrowDownCircle className="w-8 h-8 mx-auto text-red-400 mb-2" />
-                    <h3 className="text-lg font-bold">Uscite</h3>
-                    <p className="text-4xl font-black text-red-400">€{balance.expenses.toLocaleString()}</p>
-                  </div>
-                </div>
-                <div className="p-8 rounded-3xl neumorphic-out">
-                  <h3 className="text-xl font-bold mb-6">Operazioni Recenti</h3>
-                  <div className="space-y-4">
-                    {transactions.map(t => (
-                      <div key={t.id} className="flex justify-between items-center p-4 rounded-xl neumorphic-in">
-                        <div>
-                          <p className="font-bold">{t.descrizione}</p>
-                          <p className="text-[10px] text-gray-500">{new Date(t.data).toLocaleDateString()}</p>
-                        </div>
-                        <p className={`font-black ${t.tipo === 'entrate' ? 'text-green-400' : 'text-red-400'}`}>
-                          {t.tipo === 'entrate' ? '+' : '-'} €{t.importo}
-                        </p>
-                        <div className="flex gap-2 ml-4">
-                          <button
-                            onClick={() => { setEditingTransaction(t); setShowTransactionForm(true); }}
-                            className="p-2 rounded-lg neumorphic-btn text-blue-400"
-                            title="Modifica"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTransaction(t.id)}
-                            className="p-2 rounded-lg neumorphic-btn text-red-500"
-                            title="Elimina"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+              selectedAccountingPlayer ? (
+                <AccountingPlayerDetail
+                  player={selectedAccountingPlayer}
+                  transactions={transactions}
+                  onBack={() => setSelectedAccountingPlayer(null)}
+                  onAddTransaction={handleSavePlayerTransaction}
+                  onDeleteTransaction={handleDeleteTransaction}
+                />
+              ) : (
+                <div className="space-y-6">
+                  <div className="p-4 md:p-6 rounded-3xl neumorphic-out overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="text-gray-400 border-b border-white/5">
+                          <th className="pb-4 pl-4 font-medium text-xs">Atleta</th>
+                          <th className="pb-4 font-medium text-xs text-center">Tessera</th>
+                          <th className="pb-4 font-medium text-xs text-right pr-4">Saldo</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {players.map(p => {
+                          const balance = transactions
+                            .filter(t => t.id_giocatore === p.id)
+                            .reduce((acc, t) => t.tipo === 'entrate' ? acc + t.importo : acc - t.importo, 0);
+
+                          return (
+                            <tr key={p.id} onClick={() => setSelectedAccountingPlayer(p)} className="group hover:bg-white/5 transition-colors cursor-pointer">
+                              <td className="py-4 pl-4 font-bold">{p.nome} {p.cognome}</td>
+                              <td className="py-4 text-center font-mono text-gray-500">{p.numero_tessera}</td>
+                              <td className={`py-4 pr-4 text-right font-black font-mono ${balance < 10 ? 'text-red-500' : 'text-green-500'}`}>
+                                € {balance.toFixed(2)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              </div>
+              )
             )}
           </div>
         )}
