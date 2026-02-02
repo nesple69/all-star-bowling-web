@@ -119,9 +119,16 @@ const App = () => {
   };
 
   const handleSaveTournament = async (formData) => {
+    // Clean dates to avoid "invalid input syntax for type date: \"\""
+    const cleanedData = {
+      ...formData,
+      data_inizio: formData.data_inizio === '' ? null : formData.data_inizio,
+      data_fine: formData.data_fine === '' ? null : formData.data_fine
+    };
+
     const { error } = editingTournament
-      ? await supabase.from('tournaments').update(formData).eq('id', editingTournament.id)
-      : await supabase.from('tournaments').insert([formData]);
+      ? await supabase.from('tournaments').update(cleanedData).eq('id', editingTournament.id)
+      : await supabase.from('tournaments').insert([cleanedData]);
     if (error) alert(error.message);
     else { fetchData(); setShowTournamentForm(false); setEditingTournament(null); }
   };
