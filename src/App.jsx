@@ -175,10 +175,6 @@ const App = () => {
       {/* Sidebar Navigation */}
       <nav className="fixed bottom-0 left-0 w-full md:relative md:w-64 md:h-screen p-4 bg-background z-50">
         <div className="h-full rounded-3xl neumorphic-out flex flex-col md:p-6 p-2 justify-around md:justify-start gap-6">
-          <h1 className="hidden md:block text-xl font-bold text-center text-blue-400 mb-8 mt-4">
-            ALL STAR <br /> BOWLING TEAM
-          </h1>
-
           {[
             { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { id: 'ranking', icon: TrendingUp, label: 'Classifiche' },
@@ -210,7 +206,7 @@ const App = () => {
         </div>
       </nav>
 
-      <main className="pb-24 md:pb-0 md:pl-8 p-4 md:pt-4 md:px-8 w-full">
+      <main className="pb-24 md:pb-0 md:pl-4 p-0 md:pt-0 md:px-8 w-full">
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
