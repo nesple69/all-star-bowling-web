@@ -251,7 +251,7 @@ const App = () => {
 
           {/* TEAM LOGO */}
           <div className="flex-1 hidden md:flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity">
-            <img src="/team-logo.png" alt="All Star Team Logo" className="w-full max-w-[140px] object-contain drop-shadow-2xl" />
+            <img src="/team-logo.png" alt="All Star Team Logo" className="w-full max-w-[140px] object-contain" />
           </div>
 
           <div className="md:mt-0">
