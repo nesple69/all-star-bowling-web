@@ -266,14 +266,6 @@ const App = () => {
             {/* Ranking */}
             {activeTab === 'ranking' && (
               <div className="space-y-6">
-                {showResultForm && (
-                  <ResultForm
-                    players={players}
-                    tournaments={tournaments}
-                    onSave={handleSaveResult}
-                    onCancel={() => setShowResultForm(false)}
-                  />
-                )}
                 <div className="p-8 rounded-3xl neumorphic-out overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
@@ -313,66 +305,58 @@ const App = () => {
             {/* Players Area */}
             {activeTab === 'players' && (
               <div className="space-y-6">
-                {showPlayerForm ? (
-                  <PlayerForm player={editingPlayer} onSave={handleSavePlayer} onCancel={() => setShowPlayerForm(false)} />
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {players.map(p => (
-                      <div key={p.id} onClick={() => setSelectedPlayerForDetail(p)} className="p-6 rounded-3xl neumorphic-out group cursor-pointer hover:scale-[1.02] transition-all">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="text-xl font-bold">{p.nome} {p.cognome}</h3>
-                            <p className="text-sm text-gray-400">{p.categoria}</p>
-                          </div>
-                          {isAdmin && (
-                            <button onClick={(e) => { e.stopPropagation(); setEditingPlayer(p); setShowPlayerForm(true); }} className="p-2 rounded-lg neumorphic-btn opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Plus className="w-4 h-4 rotate-45" />
-                            </button>
-                          )}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {players.map(p => (
+                    <div key={p.id} onClick={() => setSelectedPlayerForDetail(p)} className="p-6 rounded-3xl neumorphic-out group cursor-pointer hover:scale-[1.02] transition-all">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="text-xl font-bold">{p.nome} {p.cognome}</h3>
+                          <p className="text-sm text-gray-400">{p.categoria}</p>
                         </div>
-                        <div className="mt-4 space-y-1">
-                          {p.settore_aziendale && <div className="text-[10px] text-purple-400 flex items-center gap-1 uppercase"><MapPin className="w-3 h-3" /> {p.nome_azienda}</div>}
-                          {p.settore_seniores && <div className="text-[10px] text-yellow-500 flex items-center gap-1 uppercase"><Trophy className="w-3 h-3" /> {p.fascia_seniores}</div>}
-                        </div>
+                        {isAdmin && (
+                          <button onClick={(e) => { e.stopPropagation(); setEditingPlayer(p); setShowPlayerForm(true); }} className="p-2 rounded-lg neumorphic-btn opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Plus className="w-4 h-4 rotate-45" />
+                          </button>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <div className="mt-4 space-y-1">
+                        {p.settore_aziendale && <div className="text-[10px] text-purple-400 flex items-center gap-1 uppercase"><MapPin className="w-3 h-3" /> {p.nome_azienda}</div>}
+                        {p.settore_seniores && <div className="text-[10px] text-yellow-500 flex items-center gap-1 uppercase"><Trophy className="w-3 h-3" /> {p.fascia_seniores}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
             {/* Tournaments Area */}
             {activeTab === 'tournaments' && (
               <div className="space-y-6">
-                {showTournamentForm ? (
-                  <TournamentForm tournament={editingTournament} onSave={handleSaveTournament} onCancel={() => setShowTournamentForm(false)} />
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {tournaments.sort((a, b) => new Date(b.data_inizio) - new Date(a.data_inizio)).map(t => (
-                      <div key={t.id} className="p-6 rounded-3xl neumorphic-out relative group">
-                        <div className="flex justify-between items-start mb-4">
-                          <Trophy className="w-8 h-8 text-yellow-500" />
-                          {isAdmin && (
-                            <button onClick={() => { setEditingTournament(t); setShowTournamentForm(true); }} className="p-2 rounded-lg neumorphic-btn">
-                              <Plus className="w-4 h-4 rotate-45" />
-                            </button>
-                          )}
-                        </div>
-                        <h3 className="text-lg font-bold mb-2">{t.nome}</h3>
-                        <div className="space-y-2 text-sm text-gray-400">
-                          <p className="flex items-center gap-2"><Calendar className="w-4 h-4" /> {new Date(t.data_inizio).toLocaleDateString()} - {new Date(t.data_fine).toLocaleDateString()}</p>
-                          <p className="flex items-center gap-2"><MapPin className="w-4 h-4" /> {t.sede}</p>
-                          <p className="flex items-center gap-2"><Target className="w-4 h-4" /> {t.numero_partite} Partite</p>
-                        </div>
-                        {t.locandina_url && (
-                          <a href={t.locandina_url} target="_blank" rel="noreferrer" className="mt-4 block py-2 text-center rounded-xl bg-blue-500/10 text-blue-400 text-xs font-bold border border-blue-400/20 hover:bg-blue-500/20 transition-all">
-                            SFOGLIA LOCANDINA PDF
-                          </a>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {tournaments.sort((a, b) => new Date(b.data_inizio) - new Date(a.data_inizio)).map(t => (
+                    <div key={t.id} className="p-6 rounded-3xl neumorphic-out relative group">
+                      <div className="flex justify-between items-start mb-4">
+                        <Trophy className="w-8 h-8 text-yellow-500" />
+                        {isAdmin && (
+                          <button onClick={() => { setEditingTournament(t); setShowTournamentForm(true); }} className="p-2 rounded-lg neumorphic-btn">
+                            <Plus className="w-4 h-4 rotate-45" />
+                          </button>
                         )}
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <h3 className="text-lg font-bold mb-2">{t.nome}</h3>
+                      <div className="space-y-2 text-sm text-gray-400">
+                        <p className="flex items-center gap-2"><Calendar className="w-4 h-4" /> {new Date(t.data_inizio).toLocaleDateString()} - {new Date(t.data_fine).toLocaleDateString()}</p>
+                        <p className="flex items-center gap-2"><MapPin className="w-4 h-4" /> {t.sede}</p>
+                        <p className="flex items-center gap-2"><Target className="w-4 h-4" /> {t.numero_partite} Partite</p>
+                      </div>
+                      {t.locandina_url && (
+                        <a href={t.locandina_url} target="_blank" rel="noreferrer" className="mt-4 block py-2 text-center rounded-xl bg-blue-500/10 text-blue-400 text-xs font-bold border border-blue-400/20 hover:bg-blue-500/20 transition-all">
+                          SFOGLIA LOCANDINA PDF
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -417,6 +401,33 @@ const App = () => {
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
       `}</style>
+
+      {/* MODALS */}
+      {(showPlayerForm || showTournamentForm || showResultForm) && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => {
+            setShowPlayerForm(false);
+            setShowTournamentForm(false);
+            setShowResultForm(false);
+          }}></div>
+          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            {showPlayerForm && (
+              <PlayerForm player={editingPlayer} onSave={handleSavePlayer} onCancel={() => setShowPlayerForm(false)} />
+            )}
+            {showTournamentForm && (
+              <TournamentForm tournament={editingTournament} onSave={handleSaveTournament} onCancel={() => setShowTournamentForm(false)} />
+            )}
+            {showResultForm && (
+              <ResultForm
+                players={players}
+                tournaments={tournaments}
+                onSave={handleSaveResult}
+                onCancel={() => setShowResultForm(false)}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
