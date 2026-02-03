@@ -427,6 +427,7 @@ const App = () => {
                 </div>
 
                 <div className="space-y-6">
+                  <h3 className="text-center text-gray-400 font-bold tracking-wide uppercase text-sm">Giocatori iscritti</h3>
                   <div className="flex flex-wrap gap-3 justify-center">
                     {categoryStats.map(cat => (
                       <button
