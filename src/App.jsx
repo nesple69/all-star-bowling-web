@@ -116,7 +116,12 @@ const App = () => {
         totalePartite: totalGames,
         totaleTornei: totalTournaments
       };
-    }).sort((a, b) => b.cognome.localeCompare(a.cognome));
+    }).sort((a, b) => {
+      const mediaA = parseFloat(a.media);
+      const mediaB = parseFloat(b.media);
+      if (mediaB !== mediaA) return mediaB - mediaA;
+      return b.totaleBirilli - a.totaleBirilli;
+    });
   }, [players, results]);
 
   // Handlers
