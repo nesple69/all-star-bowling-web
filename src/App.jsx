@@ -336,16 +336,10 @@ const App = () => {
                     </div>
                   </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="p-6 rounded-3xl neumorphic-out text-center">
                     <p className="text-gray-400 text-[10px] uppercase tracking-widest mb-1">Atleti</p>
                     <p className="text-4xl font-black text-blue-400">{players.length}</p>
-                  </div>
-                  <div className="p-6 rounded-3xl neumorphic-out text-center">
-                    <p className="text-gray-400 text-[10px] uppercase tracking-widest mb-1">Media Team</p>
-                    <p className="text-4xl font-black text-purple-400">
-                      {(playersWithStats.reduce((sum, p) => sum + parseFloat(p.media), 0) / (players.length || 1)).toFixed(2)}
-                    </p>
                   </div>
                   <div className="p-6 rounded-3xl neumorphic-out text-center text-green-400">
                     <p className="text-gray-400 text-[10px] uppercase tracking-widest mb-1">Saldo</p>
