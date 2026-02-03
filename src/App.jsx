@@ -344,10 +344,13 @@ const App = () => {
             {activeTab === 'dashboard' && (
               <div className="space-y-8 pt-0">
                 {expiringCertificates.length > 0 && (
-                  <div className="p-6 rounded-2xl bg-red-400/10 border border-red-400/20 neumorphic-out">
-                    <div className="flex items-center gap-3 mb-4 text-red-400">
-                      <AlertTriangle className="w-6 h-6" />
-                      <h3 className="text-lg font-bold">Certificati in Scadenza</h3>
+                  <div className="mb-8 p-7 rounded-[2.5rem] bg-red-500/5 border border-red-500/10 backdrop-blur-md relative overflow-hidden group">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500/0 via-red-500/40 to-red-500/0 opacity-50"></div>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="p-2.5 rounded-xl bg-red-500/20">
+                        <AlertTriangle className="w-5 h-5 text-red-500" />
+                      </div>
+                      <h3 className="text-lg font-black text-red-400 uppercase tracking-wider">Certificati in Scadenza</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {expiringCertificates.map(p => {
@@ -357,10 +360,13 @@ const App = () => {
                         const emailBody = `Ciao ${p.nome},\n\nIl giorno ${expiryDate} ti scadrà il certificato medico. Per poter continuare la tua attività sportiva devi avere un certificato medico in corso di validità.\n\nTi prego di prendere un appuntamento per aggiornare il tuo certificato e di farmelo avere.\n\nGrazie per la collaborazione.\n\nIl Presidente\nNedo Splendiani`;
 
                         return (
-                          <div key={p.id} className="p-4 rounded-xl neumorphic-in">
-                            <div className="flex justify-between items-start mb-3">
-                              <p className="font-bold">{p.nome} {p.cognome}</p>
-                              <p className="text-xs text-red-500">{new Date(p.data_scadenza_medica).toLocaleDateString('it-IT')}</p>
+                          <div key={p.id} className="p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group/cert">
+                            <div className="flex justify-between items-start mb-4">
+                              <div>
+                                <p className="font-bold text-gray-200">{p.nome} {p.cognome}</p>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Scadenza Medica</p>
+                              </div>
+                              <p className="text-xs font-black text-red-400 bg-red-400/10 px-2 py-1 rounded-lg">{expiryDate}</p>
                             </div>
                             <div className="flex items-center gap-2">
                               {p.telefono && (
@@ -368,28 +374,28 @@ const App = () => {
                                   href={`https://wa.me/39${p.telefono.replace(/\s/g, '')}?text=${encodeURIComponent(message)}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="flex-1 px-3 py-2 rounded-lg neumorphic-btn text-green-400 hover:scale-105 transition-transform text-xs font-medium flex items-center justify-center gap-1"
+                                  className="flex-1 px-3 py-2.5 rounded-xl glass-btn text-green-400 text-xs font-bold flex items-center justify-center gap-1.5"
                                   title="Invia WhatsApp"
                                 >
-                                  📱 WhatsApp
+                                  WhatsApp
                                 </a>
                               )}
                               {p.email && (
                                 <a
                                   href={`mailto:${p.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`}
-                                  className="flex-1 px-3 py-2 rounded-lg neumorphic-btn text-blue-400 hover:scale-105 transition-transform text-xs font-medium flex items-center justify-center gap-1"
+                                  className="flex-1 px-3 py-2.5 rounded-xl glass-btn text-blue-400 text-xs font-bold flex items-center justify-center gap-1.5"
                                   title="Invia Email"
                                 >
-                                  ✉️ Email
+                                  Email
                                 </a>
                               )}
                               {isAdmin && (
                                 <button
                                   onClick={() => { setEditingPlayer(p); setShowPlayerForm(true); }}
-                                  className="p-2 rounded-lg neumorphic-btn text-gray-400 hover:scale-105 transition-transform"
+                                  className="p-2.5 rounded-xl glass-btn text-gray-400 hover:text-white"
                                   title="Modifica"
                                 >
-                                  <Pencil className="w-3 h-3" />
+                                  <Pencil className="w-3.5 h-3.5" />
                                 </button>
                               )}
                             </div>
@@ -401,25 +407,40 @@ const App = () => {
                 )}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   {recentTournamentsStats.map(t => (
-                    <div key={t.id} className="p-6 rounded-3xl neumorphic-out">
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-bold text-blue-400">{t.nome}</h3>
-                        <span className="text-xs text-gray-400">{new Date(t.data_inizio).toLocaleDateString()}</span>
+                    <div key={t.id} className="p-7 rounded-[2.5rem] glass-card relative overflow-hidden group">
+                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500/0 via-blue-500/40 to-blue-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+                      <div className="flex justify-between items-center mb-6">
+                        <div>
+                          <h3 className="text-xl font-black text-white tracking-tight group-hover:text-blue-400 transition-colors">{t.nome}</h3>
+                          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mt-1">Classifica Finale</p>
+                        </div>
+                        <div className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                          {new Date(t.data_inizio).toLocaleDateString('it-IT', { month: 'short', year: 'numeric' })}
+                        </div>
                       </div>
-                      <div className="space-y-3">
+                      <div className="space-y-2.5">
                         {t.topResults.map((r, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-3 rounded-xl neumorphic-in">
-                            <div className="flex items-center gap-3">
-                              <span className={`text-lg font-black ${r.posizione === 1 ? 'text-yellow-500' : r.posizione === 2 ? 'text-gray-400' : r.posizione === 3 ? 'text-orange-600' : 'text-blue-400'}`}>
-                                #{r.posizione || idx + 1}
-                              </span>
-                              <span className="font-bold">{r.player.nome} {r.player.cognome}</span>
+                          <div key={idx} className="flex items-center justify-between p-3.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all duration-300 group/row">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shadow-inner transition-transform group-hover/row:scale-110 ${r.posizione === 1 ? 'bg-yellow-500/20 text-yellow-500 shadow-yellow-500/10' :
+                                r.posizione === 2 ? 'bg-slate-400/20 text-slate-300' :
+                                  r.posizione === 3 ? 'bg-orange-600/20 text-orange-500' :
+                                    'bg-blue-500/10 text-blue-400'
+                                }`}>
+                                {r.posizione || idx + 1}
+                              </div>
+                              <span className="font-bold text-gray-200 tracking-tight">{r.player.nome} {r.player.cognome}</span>
                             </div>
-                            <span className="font-black text-blue-400">{r.birilli} <span className="text-[10px] text-gray-500 font-normal">pts</span></span>
+                            <div className="text-right">
+                              <span className="text-lg font-black text-blue-400 leading-none">{r.birilli}</span>
+                              <span className="block text-[9px] text-gray-500 font-bold uppercase tracking-widest">birilli</span>
+                            </div>
                           </div>
                         ))}
                         {t.topResults.length === 0 && (
-                          <p className="text-center text-gray-500 italic text-sm py-4">Nessun risultato registrato</p>
+                          <div className="py-8 text-center bg-white/5 rounded-2xl border border-dashed border-white/10">
+                            <p className="text-gray-500 italic text-xs">In attesa di risultati...</p>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -427,16 +448,16 @@ const App = () => {
                 </div>
 
                 <div className="space-y-6">
-                  <h3 className="text-center text-gray-400 font-bold tracking-wide uppercase text-sm">Giocatori iscritti</h3>
-                  <div className="flex flex-wrap gap-3 justify-center">
+                  <h3 className="text-center text-xs font-black tracking-[0.2em] uppercase text-gradient-premium opacity-80 mb-2">Giocatori iscritti</h3>
+                  <div className="flex flex-wrap gap-2.5 justify-center">
                     {categoryStats.map(cat => (
                       <button
                         key={cat.name}
                         onClick={() => setSelectedDashboardCategory(selectedDashboardCategory === cat.name ? null : cat.name)}
-                        className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${selectedDashboardCategory === cat.name ? 'neumorphic-in text-blue-400 border border-blue-400/20' : 'neumorphic-btn'}`}
+                        className={`px-5 py-2.5 rounded-2xl transition-all duration-500 flex items-center gap-2.5 ${selectedDashboardCategory === cat.name ? 'glass-btn bg-blue-500/20 text-blue-400 border-blue-400/40 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'glass-btn text-gray-400 hover:text-gray-200'}`}
                       >
-                        <span className="font-bold text-sm">{cat.name}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${selectedDashboardCategory === cat.name ? 'bg-blue-400 text-background' : 'bg-gray-700 text-gray-400'}`}>
+                        <span className="font-bold text-xs tracking-wide">{cat.name}</span>
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${selectedDashboardCategory === cat.name ? 'bg-blue-400 text-slate-900' : 'bg-white/10 text-gray-500'}`}>
                           {cat.count}
                         </span>
                       </button>
@@ -444,26 +465,34 @@ const App = () => {
                   </div>
 
                   {selectedDashboardCategory && (
-                    <div className="p-6 rounded-3xl neumorphic-out animate-fadeIn">
-                      <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xl font-bold text-blue-400">Atleti Categoria {selectedDashboardCategory}</h3>
-                        <button onClick={() => setSelectedDashboardCategory(null)} className="p-2 rounded-lg neumorphic-btn text-gray-400">
-                          <X className="w-4 h-4" />
+                    <div className="p-8 rounded-[2.5rem] glass-card animate-fadeIn shadow-2xl relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-[60px] rounded-full -mr-16 -mt-16"></div>
+                      <div className="flex justify-between items-center mb-8 relative z-10">
+                        <div>
+                          <h3 className="text-xl font-black text-blue-400 tracking-tight">Atleti Categoria {selectedDashboardCategory}</h3>
+                          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Elenco Iscritti</p>
+                        </div>
+                        <button onClick={() => setSelectedDashboardCategory(null)} className="p-3 rounded-2xl glass-btn text-gray-400 hover:text-white">
+                          <X className="w-5 h-5" />
                         </button>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {playersWithStats
-                          .filter(p => p.categoria === selectedDashboardCategory)
-                          .map(p => (
-                            <div
-                              key={p.id}
-                              onClick={() => setSelectedPlayerForDetail(p)}
-                              className="p-4 rounded-xl neumorphic-in flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
-                            >
-                              <span className="font-bold">{p.nome} {p.cognome}</span>
-                              <span className="text-blue-400 font-black">{p.media}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 relative z-10">
+                        {players.filter(p => p.categoria === selectedDashboardCategory).map(p => (
+                          <div
+                            key={p.id}
+                            onClick={() => setSelectedPlayerForDetail(p)}
+                            className="p-5 rounded-3xl bg-white/5 border border-white/5 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all duration-300 cursor-pointer group/player shadow-lg flex flex-col items-center text-center"
+                          >
+                            <div className="w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+                              <Users className="w-7 h-7 text-blue-400" />
                             </div>
-                          ))}
+                            <p className="font-bold text-gray-200 leading-tight text-sm">{p.nome}</p>
+                            <p className="font-black text-gray-200 leading-tight uppercase tracking-tighter text-base">{p.cognome}</p>
+                            <div className="mt-3 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                              <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{p.sottocategoria || 'Classe Base'}</p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
