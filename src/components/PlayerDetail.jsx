@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Trophy, Hash, Target, TrendingUp, Calendar, MapPin, FileText, Pencil, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Trophy, Hash, Target, TrendingUp, Calendar, MapPin, FileText, Pencil, ArrowLeft, ChevronDown, ChevronUp, Phone, Mail, CreditCard, User, AlertTriangle, Briefcase, Award } from 'lucide-react';
 
 const PlayerDetail = ({ player, results, tournaments, onBack, isAdmin, onDeleteResult, onEditResult, onEditPlayer }) => {
     // Filter results for this player
@@ -48,6 +48,75 @@ const PlayerDetail = ({ player, results, tournaments, onBack, isAdmin, onDeleteR
                             <Pencil className="w-5 h-5" />
                         </button>
                     )}
+                </div>
+            </div>
+
+            {/* Personal Details Area (Anagrafica) */}
+            <div className="p-8 rounded-3xl neumorphic-out space-y-6">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                    <User className="w-5 h-5 text-blue-400" /> Anagrafica Atleta
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Membership Info */}
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <CreditCard className="w-5 h-5 text-gray-400" />
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Tessera FISB</p>
+                                <p className="font-mono font-bold text-gray-200">{player.numero_tessera || 'N/D'}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Award className="w-5 h-5 text-blue-400" />
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Categoria</p>
+                                <p className="font-bold text-blue-400">{player.categoria || 'N/D'}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Contact Info */}
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <Phone className="w-5 h-5 text-green-400" />
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Telefono</p>
+                                <p className="font-bold text-gray-200">{player.telefono || 'N/D'}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Mail className="w-5 h-5 text-purple-400" />
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Email</p>
+                                <p className="font-bold text-gray-200 text-sm">{player.email || 'N/D'}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sectors & Medical */}
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <Calendar className="w-5 h-5 text-red-500" />
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Scadenza Certificato</p>
+                                <p className={`font-bold ${!player.data_scadenza_medica ? 'text-gray-500' : new Date(player.data_scadenza_medica) < new Date() ? 'text-red-500' : 'text-gray-200'}`}>
+                                    {player.data_scadenza_medica ? new Date(player.data_scadenza_medica).toLocaleDateString('it-IT') : 'N/D'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            {player.settore_seniores && (
+                                <span className="text-[10px] py-1 px-3 rounded-full bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-bold flex items-center gap-1">
+                                    <Award className="w-3 h-3" /> SENIORES
+                                </span>
+                            )}
+                            {player.settore_aziendale && (
+                                <span className="text-[10px] py-1 px-3 rounded-full bg-purple-500/10 text-purple-500 border border-purple-500/20 font-bold flex items-center gap-1">
+                                    <Briefcase className="w-3 h-3" /> AZIENDALE
+                                </span>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
