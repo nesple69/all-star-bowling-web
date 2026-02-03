@@ -7,7 +7,8 @@ const ResultForm = ({ result, players, tournaments, onSave, onCancel }) => {
         id_giocatore: result?.id_giocatore || '',
         id_torneo: result?.id_torneo || '',
         birilli: result?.birilli || '',
-        partite: result?.partite || ''
+        partite: result?.partite || '',
+        punteggi_partite: result?.punteggi_partite || []
     });
 
     // Automatically update the number of games when a tournament is selected (only for new results)
@@ -26,10 +27,17 @@ const ResultForm = ({ result, players, tournaments, onSave, onCancel }) => {
             alert('Tutti i campi sono obbligatori');
             return;
         }
+
+        // Clean up individual scores: convert to numbers and filter out empty ones
+        const scores = formData.punteggi_partite
+            .map(s => parseInt(s))
+            .filter(s => !isNaN(s));
+
         onSave({
             ...formData,
             birilli: parseInt(formData.birilli),
             partite: parseInt(formData.partite),
+            punteggi_partite: scores,
             data: result?.data || new Date().toISOString()
         });
     };
@@ -114,6 +122,60 @@ const ResultForm = ({ result, players, tournaments, onSave, onCancel }) => {
                     <p className="text-[10px] text-gray-500 ml-4 italic">* Numero partite preimpostato dal torneo selezionato</p>
                 </div>
             </div>
+
+            {/* Punteggi Individuali Partite */}
+            {formData.partite > 0 && (
+                <div className="space-y-4 p-6 rounded-2xl bg-blue-400/5 border border-blue-400/10">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-blue-400">📊 Punteggi Singole Partite (Opzionale)</h3>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const numGames = parseInt(formData.partite);
+                                const gameScores = Array(numGames).fill('');
+                                setFormData({ ...formData, punteggi_partite: gameScores, birilli: '' });
+                            }}
+                            className="text-xs px-3 py-1 rounded-lg neumorphic-btn text-gray-400"
+                        >
+                            {formData.punteggi_partite.length > 0 ? 'Reset' : 'Abilita'}
+                        </button>
+                    </div>
+
+                    {formData.punteggi_partite.length > 0 && (
+                        <>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                {formData.punteggi_partite.map((score, index) => (
+                                    <div key={index} className="space-y-1">
+                                        <label className="text-[10px] text-gray-500 ml-2">Partita {index + 1}</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="300"
+                                            value={score}
+                                            onChange={(e) => {
+                                                const newScores = [...formData.punteggi_partite];
+                                                newScores[index] = e.target.value;
+                                                const total = newScores.reduce((sum, s) => sum + (parseInt(s) || 0), 0);
+                                                setFormData({
+                                                    ...formData,
+                                                    punteggi_partite: newScores,
+                                                    birilli: total > 0 ? total : ''
+                                                });
+                                            }}
+                                            className="w-full px-3 py-2 rounded-lg neumorphic-in text-center font-mono text-sm"
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="flex items-center justify-between p-3 rounded-xl bg-purple-400/10">
+                                <span className="text-sm font-medium text-gray-400">Totale Calcolato:</span>
+                                <span className="text-2xl font-black text-purple-400">{formData.birilli || 0}</span>
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
 
             {/* Actions */}
             <div className="flex gap-4 pt-4">

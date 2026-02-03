@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Trophy, Hash, Target, TrendingUp, Calendar, MapPin, FileText, Pencil, ArrowLeft } from 'lucide-react';
+import { X, Trophy, Hash, Target, TrendingUp, Calendar, MapPin, FileText, Pencil, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 
 const PlayerDetail = ({ player, results, tournaments, onBack, isAdmin, onDeleteResult, onEditResult }) => {
     // Filter results for this player
@@ -21,6 +21,15 @@ const PlayerDetail = ({ player, results, tournaments, onBack, isAdmin, onDeleteR
     const totalPins = playerResults.reduce((sum, r) => sum + r.birilli, 0);
     const totalGames = playerResults.reduce((sum, r) => sum + r.partite, 0);
     const overallMedia = totalGames > 0 ? (totalPins / totalGames).toFixed(2) : '0.00';
+
+    const [expandedRows, setExpandedRows] = React.useState(new Set());
+
+    const toggleRow = (id) => {
+        const newExpanded = new Set(expandedRows);
+        if (newExpanded.has(id)) newExpanded.delete(id);
+        else newExpanded.add(id);
+        setExpandedRows(newExpanded);
+    };
 
     return (
         <div className="space-y-8 animate-fadeIn">
@@ -64,54 +73,82 @@ const PlayerDetail = ({ player, results, tournaments, onBack, isAdmin, onDeleteR
                                 <th className="pb-4 font-medium uppercase text-xs md:text-base text-center">Partite</th>
                                 <th className="pb-4 font-medium uppercase text-xs md:text-base text-center">Birilli</th>
                                 <th className="pb-4 font-medium uppercase text-xs md:text-base text-center">Media</th>
-                                {isAdmin && <th className="pb-4 pr-4"></th>}
+                                <th className="pb-4 pr-4"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {tournamentHistory.map((h) => (
-                                <tr key={h.id} className="group hover:bg-white/5 transition-colors">
-                                    <td className="py-4 pl-4 text-sm text-gray-400">
-                                        {new Date(h.tournament_date).toLocaleDateString('it-IT')}
-                                    </td>
-                                    <td className="py-4">
-                                        <div className="font-bold">{h.tournament_name}</div>
-                                        <div className="text-xs text-gray-500 flex items-center gap-1">
-                                            <MapPin className="w-3 h-3" /> {h.tournament_sede}
-                                            {h.tournament_locandina && (
-                                                <a href={h.tournament_locandina} target="_blank" rel="noreferrer" className="ml-2 text-blue-400 hover:underline flex items-center gap-0.5">
-                                                    <FileText className="w-3 h-3" /> Locandina
-                                                </a>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="py-4 text-center font-mono">{h.partite}</td>
-                                    <td className="py-4 text-center font-mono">{h.birilli}</td>
-                                    <td className="py-4 text-center font-black text-blue-400">{h.media}</td>
-                                    {isAdmin && (
-                                        <td className="py-4 pr-4">
-                                            <div className="flex justify-end gap-2">
-                                                <button
-                                                    onClick={() => onEditResult(h)}
-                                                    className="p-2 rounded-lg neumorphic-btn text-blue-400 hover:scale-110 transition-transform"
-                                                    title="Modifica Punteggio"
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => onDeleteResult(h.id)}
-                                                    className="p-2 rounded-lg neumorphic-btn text-red-500 hover:scale-110 transition-transform"
-                                                    title="Elimina Punteggio"
-                                                >
-                                                    <X className="w-4 h-4" />
-                                                </button>
+                                <React.Fragment key={h.id}>
+                                    <tr className="group hover:bg-white/5 transition-colors cursor-pointer" onClick={() => toggleRow(h.id)}>
+                                        <td className="py-4 pl-4 text-sm text-gray-400">
+                                            {new Date(h.tournament_date).toLocaleDateString('it-IT')}
+                                        </td>
+                                        <td className="py-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="font-bold">{h.tournament_name}</div>
+                                                {h.punteggi_partite && h.punteggi_partite.length > 0 && (
+                                                    <div className="text-[10px] px-1.5 py-0.5 rounded bg-blue-400/20 text-blue-400 font-bold uppercase tracking-tighter">Dettagli</div>
+                                                )}
+                                            </div>
+                                            <div className="text-xs text-gray-500 flex items-center gap-1">
+                                                <MapPin className="w-3 h-3" /> {h.tournament_sede}
+                                                {h.tournament_locandina && (
+                                                    <a href={h.tournament_locandina} target="_blank" rel="noreferrer" className="ml-2 text-blue-400 hover:underline flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                                                        <FileText className="w-3 h-3" /> Locandina
+                                                    </a>
+                                                )}
                                             </div>
                                         </td>
+                                        <td className="py-4 text-center font-mono">{h.partite}</td>
+                                        <td className="py-4 text-center font-mono">{h.birilli}</td>
+                                        <td className="py-4 text-center font-black text-blue-400">{h.media}</td>
+                                        <td className="py-4 pr-4">
+                                            <div className="flex justify-end gap-2 items-center">
+                                                {isAdmin && (
+                                                    <>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); onEditResult(h); }}
+                                                            className="p-2 rounded-lg neumorphic-btn text-blue-400 hover:scale-110 transition-transform"
+                                                            title="Modifica Punteggio"
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); onDeleteResult(h.id); }}
+                                                            className="p-2 rounded-lg neumorphic-btn text-red-500 hover:scale-110 transition-transform"
+                                                            title="Elimina Punteggio"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </>
+                                                )}
+                                                {h.punteggi_partite && h.punteggi_partite.length > 0 ? (
+                                                    <div className="p-1 rounded-full text-gray-500 group-hover:text-blue-400 transition-colors">
+                                                        {expandedRows.has(h.id) ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                                                    </div>
+                                                ) : <div className="w-7"></div>}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {expandedRows.has(h.id) && h.punteggi_partite && h.punteggi_partite.length > 0 && (
+                                        <tr className="bg-white/[0.02]">
+                                            <td colSpan={isAdmin ? 6 : 6} className="py-4 px-6">
+                                                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 animate-slideDown">
+                                                    {h.punteggi_partite.map((score, gIdx) => (
+                                                        <div key={gIdx} className="p-3 rounded-xl neumorphic-in text-center space-y-1">
+                                                            <p className="text-[10px] text-gray-500 uppercase font-medium">G{gIdx + 1}</p>
+                                                            <p className="font-mono font-bold text-blue-400">{score}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                        </tr>
                                     )}
-                                </tr>
+                                </React.Fragment>
                             ))}
                             {tournamentHistory.length === 0 && (
                                 <tr>
-                                    <td colSpan={isAdmin ? 6 : 5} className="py-8 text-center text-gray-500 italic">
+                                    <td colSpan={6} className="py-8 text-center text-gray-500 italic">
                                         Nessun torneo registrato per questo atleta.
                                     </td>
                                 </tr>
