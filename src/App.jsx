@@ -14,7 +14,7 @@ import {
 
 const App = () => {
   useEffect(() => {
-    console.log('All Star Project - UI v1.7 (Dashboard Updated)');
+    console.log('All Star Project - UI v1.8 (Force Redep)');
   }, []);
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
