@@ -415,8 +415,21 @@ const App = () => {
                           <h3 className="text-xl font-black text-white tracking-tight group-hover:text-blue-400 transition-colors">{t.nome}</h3>
                           <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mt-1">Classifica Finale</p>
                         </div>
-                        <div className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
-                          {new Date(t.data_inizio).toLocaleDateString('it-IT', { month: 'short', year: 'numeric' })}
+                        <div className="px-4 py-2 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 shadow-lg shadow-blue-500/5">
+                          <span className="text-xs font-black uppercase tracking-widest">
+                            {new Date(t.data_inizio).toLocaleDateString('it-IT', { month: 'long' })}
+                          </span>
+                          <span className="ml-2 text-[10px] opacity-60 font-bold">{new Date(t.data_inizio).getFullYear()}</span>
+                        </div>
+                      </div>
+                      <div className="px-2 mb-4 flex justify-between text-[9px] font-black text-gray-600 uppercase tracking-widest border-b border-white/5 pb-2">
+                        <div className="flex gap-4">
+                          <span className="w-10 text-center">Pos.</span>
+                          <span>Giocatore</span>
+                        </div>
+                        <div className="flex gap-6 pr-4">
+                          <span>Tot. Birilli</span>
+                          <span>Media</span>
                         </div>
                       </div>
                       <div className="space-y-2.5">
@@ -432,9 +445,13 @@ const App = () => {
                               </div>
                               <span className="font-bold text-gray-200 tracking-tight">{r.player.nome} {r.player.cognome}</span>
                             </div>
-                            <div className="text-right">
+                            <div className="flex flex-col items-center gap-1">
                               <span className="text-lg font-black text-blue-400 leading-none">{r.birilli}</span>
-                              <span className="block text-[9px] text-gray-500 font-bold uppercase tracking-widest">birilli</span>
+                              <span className="block text-[8px] text-gray-500 font-bold uppercase tracking-widest leading-none">birilli</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-1 w-12 border-l border-white/10 ml-2 pl-2">
+                              <span className="text-sm font-black text-white leading-none">{(r.birilli / (t.numero_partite || 6)).toFixed(1)}</span>
+                              <span className="block text-[8px] text-gray-500 font-bold uppercase tracking-widest leading-none">media</span>
                             </div>
                           </div>
                         ))}
