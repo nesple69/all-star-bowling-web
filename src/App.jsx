@@ -287,22 +287,52 @@ const App = () => {
                       <h3 className="text-lg font-bold">Certificati in Scadenza</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {expiringCertificates.map(p => (
-                        <div key={p.id} className="p-4 rounded-xl neumorphic-in flex justify-between items-center">
-                          <p className="font-bold">{p.nome} {p.cognome}</p>
-                          <div className="flex items-center gap-2">
-                            <p className="text-xs text-red-500">{new Date(p.data_scadenza_medica).toLocaleDateString('it-IT')}</p>
-                            {isAdmin && (
-                              <button
-                                onClick={() => { setEditingPlayer(p); setShowPlayerForm(true); }}
-                                className="p-1.5 rounded-lg neumorphic-btn text-blue-400"
-                              >
-                                <Pencil className="w-3 h-3" />
-                              </button>
-                            )}
+                      {expiringCertificates.map(p => {
+                        const daysRemaining = Math.ceil((new Date(p.data_scadenza_medica) - new Date()) / (1000 * 60 * 60 * 24));
+                        const message = `Ciao ${p.nome}! 👋\n\nTi ricordiamo che il tuo certificato medico scade il ${new Date(p.data_scadenza_medica).toLocaleDateString('it-IT')} (tra ${daysRemaining} giorni).\n\nPer favore, provvedi al rinnovo quanto prima!\n\nGrazie,\nAll Star Team 🎳`;
+                        const emailSubject = 'Promemoria: Certificato Medico in Scadenza';
+                        const emailBody = `Ciao ${p.nome},\n\nTi ricordiamo che il tuo certificato medico scade il ${new Date(p.data_scadenza_medica).toLocaleDateString('it-IT')} (tra ${daysRemaining} giorni).\n\nPer favore, provvedi al rinnovo quanto prima!\n\nGrazie,\nAll Star Team`;
+
+                        return (
+                          <div key={p.id} className="p-4 rounded-xl neumorphic-in">
+                            <div className="flex justify-between items-start mb-3">
+                              <p className="font-bold">{p.nome} {p.cognome}</p>
+                              <p className="text-xs text-red-500">{new Date(p.data_scadenza_medica).toLocaleDateString('it-IT')}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {p.telefono && (
+                                <a
+                                  href={`https://wa.me/39${p.telefono.replace(/\s/g, '')}?text=${encodeURIComponent(message)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-1 px-3 py-2 rounded-lg neumorphic-btn text-green-400 hover:scale-105 transition-transform text-xs font-medium flex items-center justify-center gap-1"
+                                  title="Invia WhatsApp"
+                                >
+                                  📱 WhatsApp
+                                </a>
+                              )}
+                              {p.email && (
+                                <a
+                                  href={`mailto:${p.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`}
+                                  className="flex-1 px-3 py-2 rounded-lg neumorphic-btn text-blue-400 hover:scale-105 transition-transform text-xs font-medium flex items-center justify-center gap-1"
+                                  title="Invia Email"
+                                >
+                                  ✉️ Email
+                                </a>
+                              )}
+                              {isAdmin && (
+                                <button
+                                  onClick={() => { setEditingPlayer(p); setShowPlayerForm(true); }}
+                                  className="p-2 rounded-lg neumorphic-btn text-gray-400 hover:scale-105 transition-transform"
+                                  title="Modifica"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
