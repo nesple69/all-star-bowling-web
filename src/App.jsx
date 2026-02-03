@@ -14,7 +14,7 @@ import {
 
 const App = () => {
   useEffect(() => {
-    console.log('All Star Project - UI v1.8 (Force Redep)');
+    console.log('All Star Project - UI v1.9 (Search + Dashboard Fix)');
   }, []);
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -144,7 +144,12 @@ const App = () => {
           return { ...r, player };
         })
         .filter(r => r.player)
-        .sort((a, b) => (a.posizione || 999) - (b.posizione || 999))
+        .sort((a, b) => {
+          const posA = a.posizione || 999;
+          const posB = b.posizione || 999;
+          if (posA !== posB) return posA - posB;
+          return (b.birilli || 0) - (a.birilli || 0); // Tie-breaker by pins
+        })
         .slice(0, 3); // Top 3
 
       return { ...t, topResults: tResults };
@@ -153,11 +158,11 @@ const App = () => {
 
   // Dashboard Stats - Categories
   const categoryStats = useMemo(() => {
-    const categories = ['M/A', 'M/B', 'M/C', 'M/D', 'F/A', 'F/B', 'F/C', 'F/D', 'M/ES', 'F/ES', 'M/DS', 'F/DS'];
-    return categories.map(cat => ({
+    const existingCategories = [...new Set(players.map(p => p.categoria))].filter(Boolean).sort();
+    return existingCategories.map(cat => ({
       name: cat,
       count: players.filter(p => p.categoria === cat).length
-    })).filter(c => c.count > 0);
+    }));
   }, [players]);
 
   // Handlers
@@ -384,7 +389,9 @@ const App = () => {
                         {t.topResults.map((r, idx) => (
                           <div key={idx} className="flex items-center justify-between p-3 rounded-xl neumorphic-in">
                             <div className="flex items-center gap-3">
-                              <span className={`text-lg font-black ${idx === 0 ? 'text-yellow-500' : idx === 1 ? 'text-gray-400' : 'text-orange-600'}`}>#{idx + 1}</span>
+                              <span className={`text-lg font-black ${r.posizione === 1 ? 'text-yellow-500' : r.posizione === 2 ? 'text-gray-400' : r.posizione === 3 ? 'text-orange-600' : 'text-blue-400'}`}>
+                                #{r.posizione || idx + 1}
+                              </span>
                               <span className="font-bold">{r.player.nome} {r.player.cognome}</span>
                             </div>
                             <span className="font-black text-blue-400">{r.birilli} <span className="text-[10px] text-gray-500 font-normal">pts</span></span>
