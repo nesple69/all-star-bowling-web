@@ -6,15 +6,16 @@ import PlayerDetail from './components/PlayerDetail';
 import ResultForm from './components/ResultForm';
 import TransactionForm from './components/TransactionForm';
 import AccountingPlayerDetail from './components/AccountingPlayerDetail';
+import TournamentImportForm from './components/TournamentImportForm';
 import {
   LayoutDashboard, Users, Trophy, Wallet, LogIn, LogOut,
   AlertTriangle, Plus, Search, TrendingUp, Target, MapPin,
-  ArrowUpCircle, ArrowDownCircle, FileText, Pencil, X, Calendar
+  ArrowUpCircle, ArrowDownCircle, FileText, Pencil, X, Calendar, Upload
 } from 'lucide-react';
 
 const App = () => {
   useEffect(() => {
-    console.log('All Star Project - UI v1.9 (Search + Dashboard Fix)');
+    console.log('All Star Project - UI v2.0 (Tournament Import)');
   }, []);
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -33,6 +34,7 @@ const App = () => {
   const [editingResult, setEditingResult] = useState(null);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
+  const [showTournamentImportForm, setShowTournamentImportForm] = useState(false);
   const [selectedPlayerForDetail, setSelectedPlayerForDetail] = useState(null);
   const [selectedAccountingPlayer, setSelectedAccountingPlayer] = useState(null);
   const [selectedTournament, setSelectedTournament] = useState(null);
@@ -81,6 +83,25 @@ const App = () => {
       if (trx) setTransactions(trx);
     } catch (err) {
       console.error('System Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveImportedResults = async (importedResults) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('results')
+        .upsert(importedResults);
+
+      if (error) throw error;
+
+      await fetchData();
+      setShowTournamentImportForm(false);
+      alert(`Importato con successo! (${importedResults.length} risultati)`);
+    } catch (error) {
+      alert('Errore caricamento risultati: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -886,28 +907,48 @@ const App = () => {
 
       {/* GLOBAL ADD BUTTON (FIXED BOTTOM RIGHT) */}
       {isAdmin && (activeTab === 'players' || activeTab === 'tournaments' || activeTab === 'ranking') && (
-        <button
-          onClick={() => {
-            if (activeTab === 'players') { setEditingPlayer(null); setShowPlayerForm(true); }
-            if (activeTab === 'tournaments') { setEditingTournament(null); setShowTournamentForm(true); }
-            if (activeTab === 'ranking') { setEditingResult(null); setShowResultForm(true); }
-          }}
-          className="fixed bottom-8 right-8 z-[60] p-4 rounded-xl neumorphic-btn text-blue-400 font-bold flex items-center gap-2 shadow-2xl scale-90 md:scale-100"
-        >
-          <Plus className="w-5 h-5" /> <span>{activeTab === 'ranking' ? 'Punteggio' : 'Aggiungi'}</span>
-        </button>
+        <div className="fixed bottom-8 right-8 z-[60] flex flex-col items-end gap-3 pointer-events-none">
+          {activeTab === 'tournaments' && (
+            <button
+              onClick={() => setShowTournamentImportForm(true)}
+              className="pointer-events-auto p-4 rounded-xl neumorphic-btn text-green-400 font-bold flex items-center gap-2 shadow-2xl scale-90 md:scale-100"
+              title="Importa Risultati FISB"
+            >
+              <Upload className="w-5 h-5" /> <span>+ aggiungi torneo</span>
+            </button>
+          )}
+          <button
+            onClick={() => {
+              if (activeTab === 'players') { setEditingPlayer(null); setShowPlayerForm(true); }
+              if (activeTab === 'tournaments') { setEditingTournament(null); setShowTournamentForm(true); }
+              if (activeTab === 'ranking') { setEditingResult(null); setShowResultForm(true); }
+            }}
+            className="pointer-events-auto p-4 rounded-xl neumorphic-btn text-blue-400 font-bold flex items-center gap-2 shadow-2xl scale-90 md:scale-100"
+          >
+            <Plus className="w-5 h-5" /> <span>{activeTab === 'ranking' ? 'Punteggio' : 'Aggiungi'}</span>
+          </button>
+        </div>
       )}
 
       {/* MODALS */}
-      {(showPlayerForm || showTournamentForm || showResultForm || showTransactionForm) && (
+      {(showPlayerForm || showTournamentForm || showResultForm || showTransactionForm || showTournamentImportForm) && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => {
             setShowPlayerForm(false);
             setShowTournamentForm(false);
             setShowResultForm(false);
             setShowTransactionForm(false);
+            setShowTournamentImportForm(false);
           }}></div>
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            {showTournamentImportForm && (
+              <TournamentImportForm
+                players={players}
+                tournaments={tournaments}
+                onSave={handleSaveImportedResults}
+                onCancel={() => setShowTournamentImportForm(false)}
+              />
+            )}
             {showPlayerForm && (
               <PlayerForm player={editingPlayer} onSave={handleSavePlayer} onCancel={() => setShowPlayerForm(false)} />
             )}
