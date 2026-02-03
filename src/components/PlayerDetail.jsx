@@ -46,11 +46,17 @@ const PlayerDetail = ({ player, results, tournaments, onBack, isAdmin, onDeleteR
     };
 
     // Prepare chart data
-    const chartData = tournamentHistory.map(h => ({
-        data: new Date(h.tournament_date).toLocaleDateString('it-IT', { month: 'short', year: '2y' }),
-        media: parseFloat(h.media),
-        torneo: h.tournament_name
-    }));
+    const chartData = tournamentHistory.map(h => {
+        try {
+            return {
+                data: new Date(h.tournament_date).toLocaleDateString('it-IT', { month: 'short', year: '2-digit' }),
+                media: parseFloat(h.media) || 0,
+                torneo: h.tournament_name
+            };
+        } catch (e) {
+            return null;
+        }
+    }).filter(Boolean);
 
     return (
         <div className="space-y-8 animate-fadeIn pb-20">
