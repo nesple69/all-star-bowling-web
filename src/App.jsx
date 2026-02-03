@@ -217,66 +217,61 @@ const App = () => {
     if (error) alert('Errore di accesso: ' + error.message);
   };
 
-  if (selectedPlayerForDetail) {
-    return (
-      <div className="min-h-screen bg-background text-gray-200 p-4 pt-10 md:p-10">
-        <PlayerDetail
-          player={selectedPlayerForDetail}
-          results={results}
-          tournaments={tournaments}
-          onBack={() => setSelectedPlayerForDetail(null)}
-          isAdmin={isAdmin}
-          onDeleteResult={handleDeleteResult}
-          onEditResult={(r) => { setEditingResult(r); setShowResultForm(true); }}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background text-gray-200 md:flex">
-      {/* Sidebar Navigation */}
-      <nav className="fixed bottom-0 left-0 w-full md:relative md:w-64 md:h-screen p-0 md:p-4 bg-background z-50">
-        <div className="h-full rounded-3xl neumorphic-out flex flex-col md:p-6 p-2 justify-around md:justify-start gap-6">
-          {[
-            { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-            { id: 'ranking', icon: TrendingUp, label: 'Classifiche' },
-            { id: 'players', icon: Users, label: 'Giocatori' },
-            { id: 'tournaments', icon: Trophy, label: 'Tornei' },
-          ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex flex-col md:flex-row items-center gap-3 p-4 rounded-xl transition-all ${activeTab === tab.id ? 'neumorphic-in text-blue-400' : 'neumorphic-btn'}`}>
-              <tab.icon className="w-6 h-6" /> <span className="text-xs md:text-base font-medium">{tab.label}</span>
-            </button>
-          ))}
-
-          {isAdmin && (
-            <button onClick={() => setActiveTab('accounting')} className={`flex flex-col md:flex-row items-center gap-3 p-4 rounded-xl transition-all ${activeTab === 'accounting' ? 'neumorphic-in text-blue-400' : 'neumorphic-btn'}`}>
-              <Wallet className="w-6 h-6" /> <span className="text-xs md:text-base font-medium">Contabilità</span>
-            </button>
-          )}
-
-          {/* TEAM LOGO */}
-          <div className="flex-1 hidden md:flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity">
-            <img src="/team-logo.png" alt="All Star Team Logo" className="w-full max-w-[160px] object-contain" />
-          </div>
-
-          <div className="md:mt-0">
-            {isAdmin ? (
-              <button onClick={() => supabase.auth.signOut()} className="w-full flex flex-col md:flex-row items-center gap-3 p-4 rounded-xl neumorphic-btn text-red-400">
-                <LogOut className="w-6 h-6" /> <span className="text-xs md:text-base">Logout</span>
+      {/* Sidebar Navigation - Hidden when in detail view on mobile */}
+      {!selectedPlayerForDetail && (
+        <nav className="fixed bottom-0 left-0 w-full md:relative md:w-64 md:h-screen p-0 md:p-4 bg-background z-50">
+          <div className="h-full rounded-3xl neumorphic-out flex flex-col md:p-6 p-2 justify-around md:justify-start gap-6">
+            {[
+              { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+              { id: 'ranking', icon: TrendingUp, label: 'Classifiche' },
+              { id: 'players', icon: Users, label: 'Giocatori' },
+              { id: 'tournaments', icon: Trophy, label: 'Tornei' },
+            ].map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex flex-col md:flex-row items-center gap-3 p-4 rounded-xl transition-all ${activeTab === tab.id ? 'neumorphic-in text-blue-400' : 'neumorphic-btn'}`}>
+                <tab.icon className="w-6 h-6" /> <span className="text-xs md:text-base font-medium">{tab.label}</span>
               </button>
-            ) : (
-              <button onClick={handleLogin} className="w-full flex flex-col md:flex-row items-center gap-3 p-4 rounded-xl neumorphic-btn text-green-400">
-                <LogIn className="w-6 h-6" /> <span className="text-xs md:text-base text-center">Admin Login</span>
+            ))}
+
+            {isAdmin && (
+              <button onClick={() => setActiveTab('accounting')} className={`flex flex-col md:flex-row items-center gap-3 p-4 rounded-xl transition-all ${activeTab === 'accounting' ? 'neumorphic-in text-blue-400' : 'neumorphic-btn'}`}>
+                <Wallet className="w-6 h-6" /> <span className="text-xs md:text-base font-medium">Contabilità</span>
               </button>
             )}
+
+            {/* TEAM LOGO */}
+            <div className="flex-1 hidden md:flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity">
+              <img src="/team-logo.png" alt="All Star Team Logo" className="w-full max-w-[160px] object-contain" />
+            </div>
+
+            <div className="md:mt-0">
+              {isAdmin ? (
+                <button onClick={() => supabase.auth.signOut()} className="w-full flex flex-col md:flex-row items-center gap-3 p-4 rounded-xl neumorphic-btn text-red-400">
+                  <LogOut className="w-6 h-6" /> <span className="text-xs md:text-base">Logout</span>
+                </button>
+              ) : (
+                <button onClick={handleLogin} className="w-full flex flex-col md:flex-row items-center gap-3 p-4 rounded-xl neumorphic-btn text-green-400">
+                  <LogIn className="w-6 h-6" /> <span className="text-xs md:text-base text-center">Admin Login</span>
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      </nav>
+        </nav>
+      )}
 
-      <main className="flex-1 pb-32 md:pb-32 p-0 md:pt-6 md:px-6 min-w-0 tracking-tight">
-
-        {loading ? (
+      <main className={`flex-1 ${selectedPlayerForDetail ? 'p-4 md:p-10' : 'pb-32 md:pb-32 p-0 md:pt-6 md:px-6'} min-w-0 tracking-tight`}>
+        {selectedPlayerForDetail ? (
+          <PlayerDetail
+            player={selectedPlayerForDetail}
+            results={results}
+            tournaments={tournaments}
+            onBack={() => setSelectedPlayerForDetail(null)}
+            isAdmin={isAdmin}
+            onDeleteResult={handleDeleteResult}
+            onEditResult={(r) => { setEditingResult(r); setShowResultForm(true); }}
+          />
+        ) : loading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-blue-400"></div>
           </div>
