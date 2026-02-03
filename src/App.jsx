@@ -464,8 +464,8 @@ const App = () => {
                     </div>
                   ))}
 
-                  {/* Category Summary Card */}
-                  <div className="p-7 rounded-[2.5rem] glass-card relative overflow-hidden group">
+                  {/* Category Summary Card - INTEGRATED INTO GRID */}
+                  <div className="p-7 rounded-[2.5rem] glass-card relative overflow-hidden group border-purple-500/20">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500/0 via-purple-500/40 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
                     <div className="flex justify-between items-center mb-6">
                       <div>
@@ -476,7 +476,11 @@ const App = () => {
                         {players.length} Atleti
                       </div>
                     </div>
-                    <div className="space-y-2.5 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+                    <div className="space-y-2.5 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
+                      <div className="flex items-center justify-between px-4 pb-2 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">
+                        <span>Categoria</span>
+                        <span>Atleti</span>
+                      </div>
                       {categoryStats.map(cat => (
                         <div
                           key={cat.name}
@@ -542,6 +546,7 @@ const App = () => {
                       </div>
                     </div>
                   )}
+
                 </div>
 
               </div>
