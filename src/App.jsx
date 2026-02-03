@@ -336,14 +336,10 @@ const App = () => {
                     </div>
                   </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="p-6 rounded-3xl neumorphic-out text-center">
+                <div className="flex justify-center">
+                  <div className="p-6 rounded-3xl neumorphic-out text-center w-full max-w-sm">
                     <p className="text-gray-400 text-[10px] uppercase tracking-widest mb-1">Atleti</p>
                     <p className="text-4xl font-black text-blue-400">{players.length}</p>
-                  </div>
-                  <div className="p-6 rounded-3xl neumorphic-out text-center text-green-400">
-                    <p className="text-gray-400 text-[10px] uppercase tracking-widest mb-1">Saldo</p>
-                    <p className="text-4xl font-black">€{balance.total.toLocaleString('it-IT')}</p>
                   </div>
                 </div>
               </div>
