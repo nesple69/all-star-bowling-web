@@ -8,6 +8,8 @@ const ResultForm = ({ result, players, tournaments, onSave, onCancel }) => {
         id_torneo: result?.id_torneo || '',
         birilli: result?.birilli || '',
         partite: result?.partite || '',
+        posizione: result?.posizione || '',
+        totale_squadra: result?.totale_squadra || 0,
         punteggi_partite: result?.punteggi_partite || []
     });
 
@@ -37,6 +39,8 @@ const ResultForm = ({ result, players, tournaments, onSave, onCancel }) => {
             ...formData,
             birilli: parseInt(formData.birilli),
             partite: parseInt(formData.partite),
+            posizione: formData.posizione ? parseInt(formData.posizione) : null,
+            totale_squadra: formData.totale_squadra ? parseInt(formData.totale_squadra) : 0,
             punteggi_partite: scores,
             data: result?.data || new Date().toISOString()
         });
@@ -90,7 +94,7 @@ const ResultForm = ({ result, players, tournaments, onSave, onCancel }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Numero Birilli */}
                 <div className="space-y-2">
-                    <label className="text-sm font-medium ml-4 text-gray-400">Totale Birilli</label>
+                    <label className="text-sm font-medium ml-4 text-gray-400">Totale Birilli Atleta</label>
                     <div className="relative">
                         <Target className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
@@ -105,7 +109,7 @@ const ResultForm = ({ result, players, tournaments, onSave, onCancel }) => {
                     </div>
                 </div>
 
-                {/* Numero Partite (Precompilato dal torneo) */}
+                {/* Numero Partite */}
                 <div className="space-y-2">
                     <label className="text-sm font-medium ml-4 text-gray-400">Numero Partite</label>
                     <div className="relative">
@@ -117,10 +121,44 @@ const ResultForm = ({ result, players, tournaments, onSave, onCancel }) => {
                             value={formData.partite}
                             onChange={(e) => setFormData({ ...formData, partite: e.target.value })}
                             className="w-full pl-10 pr-4 py-3 rounded-xl neumorphic-in focus:outline-none"
-                            placeholder="Seleziona un torneo..."
                         />
                     </div>
-                    <p className="text-[10px] text-gray-500 ml-4 italic">* Numero partite preimpostato dal torneo selezionato</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Posizione in Classifica */}
+                <div className="space-y-2">
+                    <label className="text-sm font-medium ml-4 text-gray-400">Posizione in Classifica</label>
+                    <div className="relative">
+                        <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                            type="number"
+                            min="1"
+                            value={formData.posizione}
+                            onChange={(e) => setFormData({ ...formData, posizione: e.target.value })}
+                            className="w-full pl-10 pr-4 py-3 rounded-xl neumorphic-in focus:outline-none"
+                            placeholder="Es: 1"
+                        />
+                    </div>
+                    <p className="text-[10px] text-gray-500 ml-4 italic">* Usata per raggruppare le squadre</p>
+                </div>
+
+                {/* Totale Squadra */}
+                <div className="space-y-2">
+                    <label className="text-sm font-medium ml-4 text-gray-400">Totale Squadra (Birilli)</label>
+                    <div className="relative">
+                        <Trophy className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                            type="number"
+                            min="0"
+                            value={formData.totale_squadra}
+                            onChange={(e) => setFormData({ ...formData, totale_squadra: e.target.value })}
+                            className="w-full pl-10 pr-4 py-3 rounded-xl neumorphic-in focus:outline-none"
+                            placeholder="Inserisci 0 se individuale"
+                        />
+                    </div>
+                    <p className="text-[10px] text-gray-500 ml-4 italic">* Lascia 0 per risultati fuori squadra (riserve fuori)</p>
                 </div>
             </div>
 
