@@ -620,7 +620,7 @@ const FormTorneo: React.FC = () => {
                                                             onChange={e => {
                                                                 const time = e.target.value;
                                                                 const datePart = editingTurno?.giorno?.substring(0, 10) || editingTurno?.orarioInizio?.substring(0, 10) || "";
-                                                                const fullDate = `${datePart}T${time}:00Z`;
+                                                                const fullDate = `${datePart}T${time}:00`;
                                                                 setEditingTurno({ ...editingTurno, orarioInizio: fullDate });
                                                             }}
                                                         />

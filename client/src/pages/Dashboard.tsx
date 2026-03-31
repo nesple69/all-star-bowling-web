@@ -323,7 +323,7 @@ const Dashboard: React.FC = () => {
                                                             </div>
                                                             <div className="text-right flex flex-col items-end">
                                                                 <span className="text-sm font-black text-primary uppercase bg-primary/5 px-2 py-1 rounded-md">
-                                                                    {format(new Date(isc.turno.orarioInizio), 'dd/MM HH:mm')}
+                                                                    {format(new Date(isc.turno.orarioInizio.replace('Z', '')), 'dd/MM HH:mm')}
                                                                 </span>
                                                             </div>
                                                         </div>

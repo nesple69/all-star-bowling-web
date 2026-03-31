@@ -417,10 +417,10 @@ const IscrizioneTorneo: React.FC = () => {
                                                         <div className="flex items-center justify-between mb-1">
                                                             <div>
                                                                 <p className="font-black uppercase text-sm">
-                                                                    {format(new Date(slot.giorno), 'EEEE dd MMMM yyyy', { locale: it })}
+                                                                    {format(new Date(slot.giorno.replace('Z', '')), 'EEEE dd MMMM yyyy', { locale: it })}
                                                                 </p>
                                                                 <p className="text-xs text-gray-400 font-bold">
-                                                                    {format(new Date(slot.orarioInizio), 'HH:mm')}
+                                                                    {format(new Date(slot.orarioInizio.replace('Z', '')), 'HH:mm')}
                                                                 </p>
                                                             </div>
                                                             <div className="text-right">

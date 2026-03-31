@@ -489,8 +489,8 @@ const DettaglioTorneo: React.FC = () => {
                                                             <div key={t.id} className={`p-5 rounded-3xl border transition-all flex flex-col justify-between gap-4 ${isEsaurito ? 'bg-gray-50 border-gray-100 opacity-80' : 'bg-white border-gray-100 hover:border-primary/30 hover:shadow-md'}`}>
                                                                 <div className="flex justify-between items-start">
                                                                     <div className="space-y-1">
-                                                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{format(new Date(t.giorno), 'EEEE dd MMMM', { locale: it })}</p>
-                                                                        <p className="font-black text-sm">{format(new Date(t.orarioInizio), 'HH:mm')}</p>
+                                                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{format(new Date(t.giorno.replace('Z', '')), 'EEEE dd MMMM', { locale: it })}</p>
+                                                                        <p className="font-black text-sm">{format(new Date(t.orarioInizio.replace('Z', '')), 'HH:mm')}</p>
                                                                     </div>
                                                                     <div className="text-right">
                                                                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Disponibili</p>
