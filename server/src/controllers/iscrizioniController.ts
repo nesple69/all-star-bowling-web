@@ -68,7 +68,25 @@ export const getIscrizioniTorneo = async (req: Request, res: Response) => {
                 }
             }
         }
-        // --- FINE AUTO-UNIFICAZIONE ---
+        // --- AUTO-ASSEGNAZIONE SEDE (Self-Healing) ---
+        // Se il torneo ha una sola sede e ci sono iscrizioni o turni senza sede, assegnamola.
+        const torneoInfo = await prisma.torneo.findUnique({
+            where: { id },
+            include: { sedi: true }
+        });
+
+        if (torneoInfo && torneoInfo.sedi.length === 1) {
+            const singleSedeId = torneoInfo.sedi[0].id;
+            await prisma.giorniOrariTorneo.updateMany({
+                where: { torneoId: id, sedeId: null },
+                data: { sedeId: singleSedeId }
+            });
+            await prisma.iscrizioneTorneo.updateMany({
+                where: { torneoId: id, sedeId: null },
+                data: { sedeId: singleSedeId }
+            });
+        }
+        // --- FINE AUTO-ASSEGNAZIONE SEDE ---
 
         const iscrizioni = await prisma.iscrizioneTorneo.findMany({
             where: { torneoId: id },
@@ -150,7 +168,25 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
                 }
             }
         }
-        // --- FINE AUTO-UNIFICAZIONE ---
+
+        // --- AUTO-ASSEGNAZIONE SEDE (Self-Healing) ---
+        const torneoInfo = await prisma.torneo.findUnique({
+            where: { id },
+            include: { sedi: true }
+        });
+
+        if (torneoInfo && torneoInfo.sedi.length === 1) {
+            const singleSedeId = torneoInfo.sedi[0].id;
+            await prisma.giorniOrariTorneo.updateMany({
+                where: { torneoId: id, sedeId: null },
+                data: { sedeId: singleSedeId }
+            });
+            await prisma.iscrizioneTorneo.updateMany({
+                where: { torneoId: id, sedeId: null },
+                data: { sedeId: singleSedeId }
+            });
+        }
+        // --- FINE AUTO-ASSEGNAZIONE SEDE ---
 
         const iscrizioni = await prisma.iscrizioneTorneo.findMany({
             where: {

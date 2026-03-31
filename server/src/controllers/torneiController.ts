@@ -368,10 +368,23 @@ export const addGiornoTorneo = async (req: Request, res: Response) => {
     const { giorno, orarioInizio, orarioFine, postiDisponibili, sedeId } = req.body;
 
     try {
+        let finalSedeId = sedeId;
+
+        // Auto-assegnazione se manca la sede ed è unica per il torneo
+        if (!finalSedeId) {
+            const torneo = await prisma.torneo.findUnique({
+                where: { id },
+                include: { sedi: true }
+            });
+            if (torneo && torneo.sedi.length === 1) {
+                finalSedeId = torneo.sedi[0].id;
+            }
+        }
+
         const nuovoGiorno = await prisma.giorniOrariTorneo.create({
             data: {
                 torneoId: id,
-                sedeId: sedeId || null,
+                sedeId: finalSedeId || null,
                 giorno: new Date(giorno),
                 orarioInizio: new Date(orarioInizio),
                 orarioFine: new Date(orarioFine),
@@ -574,3 +587,4 @@ export const deleteRisultato = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Errore nell\'eliminazione del risultato', error });
     }
 };
+
