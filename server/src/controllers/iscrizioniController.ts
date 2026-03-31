@@ -37,6 +37,39 @@ export const lookupTessera = async (req: Request, res: Response) => {
 export const getIscrizioniTorneo = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     try {
+        // --- AUTO-UNIFICAZIONE (Self-Healing) ---
+        const allTurni = await prisma.giorniOrariTorneo.findMany({
+            where: { torneoId: id },
+            orderBy: { orarioInizio: 'asc' }
+        });
+
+        const groups: Record<string, any[]> = {};
+        allTurni.forEach(t => {
+            const dateStr = t.giorno.toISOString().split('T')[0];
+            if (!groups[dateStr]) groups[dateStr] = [];
+            groups[dateStr].push(t);
+        });
+
+        for (const dateStr in groups) {
+            const group = groups[dateStr];
+            if (group.length > 1) {
+                const master = group[0];
+                const redundant = group.slice(1);
+                for (const r of redundant) {
+                    await prisma.iscrizioneTorneo.updateMany({
+                        where: { turnoId: r.id },
+                        data: { turnoId: master.id }
+                    });
+                    await prisma.iscrizioneTorneo.updateMany({
+                        where: { secondoTurnoId: r.id },
+                        data: { secondoTurnoId: master.id }
+                    });
+                    await prisma.giorniOrariTorneo.delete({ where: { id: r.id } }).catch(() => {});
+                }
+            }
+        }
+        // --- FINE AUTO-UNIFICAZIONE ---
+
         const iscrizioni = await prisma.iscrizioneTorneo.findMany({
             where: { torneoId: id },
             include: {
@@ -85,6 +118,40 @@ export const getIscrizioniTorneo = async (req: Request, res: Response) => {
 export const getIscrizioniPublic = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     try {
+        // --- AUTO-UNIFICAZIONE (Self-Healing) ---
+        // Identifichiamo i turni dello stesso giorno e torneo con orari diversi
+        const allTurni = await prisma.giorniOrariTorneo.findMany({
+            where: { torneoId: id },
+            orderBy: { orarioInizio: 'asc' }
+        });
+
+        const groups: Record<string, any[]> = {};
+        allTurni.forEach(t => {
+            const dateStr = t.giorno.toISOString().split('T')[0];
+            if (!groups[dateStr]) groups[dateStr] = [];
+            groups[dateStr].push(t);
+        });
+
+        for (const dateStr in groups) {
+            const group = groups[dateStr];
+            if (group.length > 1) {
+                const master = group[0];
+                const redundant = group.slice(1);
+                for (const r of redundant) {
+                    await prisma.iscrizioneTorneo.updateMany({
+                        where: { turnoId: r.id },
+                        data: { turnoId: master.id }
+                    });
+                    await prisma.iscrizioneTorneo.updateMany({
+                        where: { secondoTurnoId: r.id },
+                        data: { secondoTurnoId: master.id }
+                    });
+                    await prisma.giorniOrariTorneo.delete({ where: { id: r.id } }).catch(() => {});
+                }
+            }
+        }
+        // --- FINE AUTO-UNIFICAZIONE ---
+
         const iscrizioni = await prisma.iscrizioneTorneo.findMany({
             where: {
                 torneoId: id,
@@ -115,8 +182,6 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
         });
 
         // Ordinamento lato JS per data del turno (dal più lontano al più vicino)
-        // In Prisma l'ordinamento su campi relazionali annidati è possibile ma 
-        // a volte più semplice farlo qui se la lista non è enorme.
         const ordinati = iscrizioni.sort((a, b) => {
             const dateA = new Date(a.turno.orarioInizio).getTime();
             const dateB = new Date(b.turno.orarioInizio).getTime();
