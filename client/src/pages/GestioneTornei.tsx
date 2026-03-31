@@ -47,14 +47,12 @@ interface Iscrizione {
         id: string;
         giorno: string;
         orarioInizio: string;
-        orarioFine: string | null;
         postiDisponibili: number;
     };
     secondoTurno?: {
         id: string;
         giorno: string;
         orarioInizio: string;
-        orarioFine: string | null;
     } | null;
     sede?: {
         id: string;
@@ -66,7 +64,6 @@ interface DisponibilitaTurno {
     id: string;
     giorno: string;
     orarioInizio: string;
-    orarioFine: string | null;
     postiDisponibili: number;
 }
 
@@ -272,7 +269,6 @@ const GestioneTornei: React.FC = () => {
                 id: d.id,
                 giorno: d.giorno,
                 orarioInizio: d.orarioInizio,
-                orarioFine: d.orarioFine,
                 postiDisponibili: d.postiTotali
             })));
         } catch (err) {
@@ -774,14 +770,14 @@ const GestioneTornei: React.FC = () => {
                                                                         <div className="flex items-center gap-2">
                                                                             <span className="text-[10px] font-black text-white bg-primary px-1.5 py-0.5 rounded uppercase leading-none">1°</span>
                                                                             <p className="text-sm font-bold">
-                                                                                {new Date((iscr.turno?.giorno?.substring(0, 10) || "2000-01-01") + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })} - {iscr.turno?.orarioInizio?.substring(11, 16) || ""}
+                                                                                {new Date((iscr.turno?.giorno?.substring(0, 10) || "2000-01-01") + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })}  {iscr.turno?.orarioInizio?.substring(11, 16) || ""}
                                                                             </p>
                                                                         </div>
                                                                         {iscr.secondoTurno && (
                                                                             <div className="flex items-center gap-2">
                                                                                 <span className="text-[10px] font-black text-white bg-secondary px-1.5 py-0.5 rounded uppercase leading-none">R</span>
                                                                                 <p className="text-[11px] text-gray-400 font-bold uppercase italic">
-                                                                                    {new Date((iscr.secondoTurno?.giorno?.substring(0, 10) || "2000-01-01") + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })} - {iscr.secondoTurno?.orarioInizio?.substring(11, 16) || ""}
+                                                                                    {new Date((iscr.secondoTurno?.giorno?.substring(0, 10) || "2000-01-01") + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })}  {iscr.secondoTurno?.orarioInizio?.substring(11, 16) || ""}
                                                                                 </p>
                                                                             </div>
                                                                         )}

@@ -53,7 +53,6 @@ interface Disponibilita {
     id: string;
     giorno: string;
     orarioInizio: string;
-    orarioFine: string;
     postiTotali: number;
     postiOccupati: number;
     postiRimanenti: number;
@@ -491,7 +490,7 @@ const DettaglioTorneo: React.FC = () => {
                                                                 <div className="flex justify-between items-start">
                                                                     <div className="space-y-1">
                                                                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{format(new Date(t.giorno), 'EEEE dd MMMM', { locale: it })}</p>
-                                                                        <p className="font-black text-sm">{format(new Date(t.orarioInizio), 'HH:mm')}{t.orarioFine ? ` - ${format(new Date(t.orarioFine), 'HH:mm')}` : ''}</p>
+                                                                        <p className="font-black text-sm">{format(new Date(t.orarioInizio), 'HH:mm')}</p>
                                                                     </div>
                                                                     <div className="text-right">
                                                                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Disponibili</p>

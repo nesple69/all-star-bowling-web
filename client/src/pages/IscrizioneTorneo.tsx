@@ -28,7 +28,6 @@ interface Disponibilita {
     id: string;
     giorno: string;
     orarioInizio: string;
-    orarioFine: string | null;
     postiTotali: number;
     postiOccupati: number;
     postiRimanenti: number;
@@ -422,7 +421,6 @@ const IscrizioneTorneo: React.FC = () => {
                                                                 </p>
                                                                 <p className="text-xs text-gray-400 font-bold">
                                                                     {format(new Date(slot.orarioInizio), 'HH:mm')}
-                                                                    {slot.orarioFine ? ` - ${format(new Date(slot.orarioFine), 'HH:mm')}` : ''}
                                                                 </p>
                                                             </div>
                                                             <div className="text-right">

@@ -110,7 +110,6 @@ const FormTorneo: React.FC = () => {
         const nuovoTurno = {
             giorno: formData.dataInizio,
             orarioInizio: `${formData.dataInizio}T09:00:00`,
-            orarioFine: `${formData.dataInizio}T18:00:00`,
             postiDisponibili: 10
         };
 
@@ -612,7 +611,7 @@ const FormTorneo: React.FC = () => {
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block">Inizio</label>
+                                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block">Orario</label>
                                                         <input
                                                             type="time"
                                                             required
@@ -623,21 +622,6 @@ const FormTorneo: React.FC = () => {
                                                                 const datePart = editingTurno?.giorno?.substring(0, 10) || editingTurno?.orarioInizio?.substring(0, 10) || "";
                                                                 const fullDate = `${datePart}T${time}:00Z`;
                                                                 setEditingTurno({ ...editingTurno, orarioInizio: fullDate });
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block">Fine</label>
-                                                        <input
-                                                            type="time"
-                                                            required
-                                                            className="w-full px-4 py-2 bg-white border border-gray-100 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                                                            value={editingTurno?.orarioFine?.substring(11, 16) || ""}
-                                                            onChange={e => {
-                                                                const time = e.target.value;
-                                                                const datePart2 = editingTurno?.giorno?.substring(0, 10) || editingTurno?.orarioFine?.substring(0, 10) || "";
-                                                                const fullDate = `${datePart2}T${time}:00Z`;
-                                                                setEditingTurno({ ...editingTurno, orarioFine: fullDate });
                                                             }}
                                                         />
                                                     </div>
@@ -696,7 +680,7 @@ const FormTorneo: React.FC = () => {
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Orario</span>
                                                     <span className="font-bold text-sm">
-                                                        {(turno?.orarioInizio?.substring(11, 16) || "")} - {(turno?.orarioFine?.substring(11, 16) || "")}
+                                                        {(turno?.orarioInizio?.substring(11, 16) || "")}
                                                     </span>
                                                 </div>
                                                 <div className="flex flex-col">
