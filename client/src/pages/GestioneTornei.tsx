@@ -48,6 +48,7 @@ interface Iscrizione {
         giorno: string;
         orarioInizio: string;
         postiDisponibili: number;
+        sede?: { id: string; nome: string } | null;
     };
     secondoTurno?: {
         id: string;
@@ -807,8 +808,15 @@ const GestioneTornei: React.FC = () => {
 
                                                             {/* Sede */}
                                                             <td className="px-4 py-3">
-                                                                <span className="text-[10px] font-black uppercase text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-100">
-                                                                    {iscr.sede?.nome || '-'}
+                                                                <span 
+                                                                    className={`text-[10px] font-black uppercase px-2 py-1 rounded border block max-w-[200px] truncate ${
+                                                                        iscr.sede?.nome || iscr.turno?.sede?.nome 
+                                                                            ? 'text-amber-600 bg-amber-50 border-amber-100' 
+                                                                            : 'text-gray-500 bg-gray-100 border-gray-200'
+                                                                    }`}
+                                                                    title={iscr.sede?.nome || iscr.turno?.sede?.nome || (torneo?.sede || '-')}
+                                                                >
+                                                                    {iscr.sede?.nome || iscr.turno?.sede?.nome || (torneo?.sede || '-')}
                                                                 </span>
                                                             </td>
 

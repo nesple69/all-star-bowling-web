@@ -77,6 +77,7 @@ export const getIscrizioniTorneo = async (req: Request, res: Response) => {
 
         if (torneoInfo && torneoInfo.sedi.length === 1) {
             const singleSedeId = torneoInfo.sedi[0].id;
+            console.log(`[SELF-HEALING] Fixing missing venues using sede ${singleSedeId}`);
             await prisma.giorniOrariTorneo.updateMany({
                 where: { torneoId: id, sedeId: null },
                 data: { sedeId: singleSedeId }
@@ -108,7 +109,13 @@ export const getIscrizioniTorneo = async (req: Request, res: Response) => {
                         giorno: true,
                         orarioInizio: true,
                         orarioFine: true,
-                        postiDisponibili: true
+                        postiDisponibili: true,
+                        sede: { select: { id: true, nome: true } }
+                    }
+                },
+                torneo: {
+                    select: {
+                        sede: true
                     }
                 },
                 secondoTurno: {
@@ -125,7 +132,29 @@ export const getIscrizioniTorneo = async (req: Request, res: Response) => {
             },
             orderBy: { createdAt: 'desc' }
         });
-        res.json(iscrizioni);
+        // Mappa le iscrizioni per assicurarsi che 'sede' sia popolata se possibile (fallback dal turno o dal torneo)
+        const mappedIscrizioni = iscrizioni.map(iscr => {
+            // Se c'è già una sede, mantieni quella
+            if (iscr.sede) return iscr;
+
+            // Se il turno ha una sede, usa quella
+            if ((iscr.turno as any)?.sede) {
+                return { ...iscr, sede: (iscr.turno as any).sede };
+            }
+
+            // Fallback: priorità assoluta alla sede principale del torneo (stringa) se non c'è altro
+            const torneoSedeDefault = torneoInfo?.sede 
+                ? { nome: torneoInfo.sede } 
+                : ((torneoInfo as any)?.sedi?.[0] || null);
+
+            if (torneoSedeDefault) {
+                return { ...iscr, sede: torneoSedeDefault };
+            }
+
+            return iscr;
+        });
+
+        res.json(mappedIscrizioni);
     } catch (err) {
         console.error('Errore nel recupero iscrizioni:', err);
         res.status(500).json({ message: 'Errore nel recupero iscrizioni.' });
@@ -177,6 +206,7 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
 
         if (torneoInfo && torneoInfo.sedi.length === 1) {
             const singleSedeId = torneoInfo.sedi[0].id;
+            console.log(`[SELF-HEALING] Fixing missing venues using sede ${singleSedeId}`);
             await prisma.giorniOrariTorneo.updateMany({
                 where: { torneoId: id, sedeId: null },
                 data: { sedeId: singleSedeId }
@@ -205,7 +235,8 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
                 turno: {
                     select: {
                         giorno: true,
-                        orarioInizio: true
+                        orarioInizio: true,
+                        sede: { select: { id: true, nome: true } }
                     }
                 },
                 secondoTurno: {
@@ -213,6 +244,9 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
                         giorno: true,
                         orarioInizio: true
                     }
+                },
+                sede: {
+                    select: { id: true, nome: true }
                 }
             }
         });
@@ -224,7 +258,29 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
             return dateB - dateA; // Dal più lontano al più vicino
         });
 
-        res.json(ordinati);
+        // Mappa le iscrizioni per assicurarsi che 'sede' sia popolata se possibile (fallback dal turno o dal torneo)
+        const mappedIscrizioni = ordinati.map(iscr => {
+            // Se c'è già una sede, mantieni quella
+            if (iscr.sede) return iscr;
+
+            // Se il turno ha una sede, usa quella
+            if ((iscr.turno as any)?.sede) {
+                return { ...iscr, sede: (iscr.turno as any).sede };
+            }
+
+            // Fallback: priorità assoluta alla sede principale del torneo (stringa) se non c'è altro
+            const torneoSedeDefault = torneoInfo?.sede 
+                ? { nome: torneoInfo.sede } 
+                : ((torneoInfo as any)?.sedi?.[0] || null);
+
+            if (torneoSedeDefault) {
+                return { ...iscr, sede: torneoSedeDefault };
+            }
+
+            return iscr;
+        });
+
+        res.json(mappedIscrizioni);
     } catch (err) {
         console.error('Errore nel recupero iscrizioni pubbliche:', err);
         res.status(500).json({ message: 'Errore nel recupero iscritti.' });
