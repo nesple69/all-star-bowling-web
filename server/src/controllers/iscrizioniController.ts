@@ -68,26 +68,56 @@ export const getIscrizioniTorneo = async (req: Request, res: Response) => {
                 }
             }
         }
-        // --- AUTO-ASSEGNAZIONE SEDE (Self-Healing) ---
-        // Se il torneo ha una sola sede e ci sono iscrizioni o turni senza sede, assegnamola.
+        // --- AUTO-SINCRONIZZAZIONE SEDI TURNI (Advanced Self-Healing) ---
+        // Se ci sono più turni nello stesso giorno/ora, e alcuni hanno la sede e altri no, sincronizzali.
+        // allTurni è già stato recuperato nella logica di unificazione sopra, lo riutilizziamo se disponibile
+        // ma per sicurezza e isolamento lo chiamiamo in modo diverso qui se necessario, o usiamo un blocco
+        {
+            const turniFix = await prisma.giorniOrariTorneo.findMany({
+                where: { torneoId: id },
+                orderBy: { orarioInizio: 'asc' }
+            });
+
+            const turniByTime: Record<string, any[]> = {};
+            turniFix.forEach(t => {
+                const timeKey = t.orarioInizio.toISOString();
+                if (!turniByTime[timeKey]) turniByTime[timeKey] = [];
+                turniByTime[timeKey].push(t);
+            });
+
+            for (const timeKey in turniByTime) {
+                const group = turniByTime[timeKey];
+                if (group.length > 1) {
+                    const turnWithSede = group.find(t => t.sedeId);
+                    if (turnWithSede) {
+                        await prisma.giorniOrariTorneo.updateMany({
+                            where: { 
+                                torneoId: id, 
+                                orarioInizio: new Date(timeKey),
+                                sedeId: null 
+                            },
+                            data: { sedeId: turnWithSede.sedeId }
+                        });
+                        
+                        await prisma.iscrizioneTorneo.updateMany({
+                            where: { 
+                                torneoId: id, 
+                                sedeId: null,
+                                turno: { orarioInizio: new Date(timeKey) }
+                            },
+                            data: { sedeId: turnWithSede.sedeId }
+                        });
+                    }
+                }
+            }
+        }
+        // --- FINE AUTO-SINCRONIZZAZIONE SEDI ---
+
+        // Recupero info torneo per i fallback successivi
         const torneoInfo = await prisma.torneo.findUnique({
             where: { id },
             include: { sedi: true }
         });
-
-        if (torneoInfo && torneoInfo.sedi.length === 1) {
-            const singleSedeId = torneoInfo.sedi[0].id;
-            console.log(`[SELF-HEALING] Fixing missing venues using sede ${singleSedeId}`);
-            await prisma.giorniOrariTorneo.updateMany({
-                where: { torneoId: id, sedeId: null },
-                data: { sedeId: singleSedeId }
-            });
-            await prisma.iscrizioneTorneo.updateMany({
-                where: { torneoId: id, sedeId: null },
-                data: { sedeId: singleSedeId }
-            });
-        }
-        // --- FINE AUTO-ASSEGNAZIONE SEDE ---
 
         const iscrizioni = await prisma.iscrizioneTorneo.findMany({
             where: { torneoId: id },

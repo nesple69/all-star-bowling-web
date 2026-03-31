@@ -59,6 +59,9 @@ interface Iscrizione {
         id: string;
         nome: string;
     } | null;
+    torneo: {
+        sede: string;
+    };
 }
 
 interface DisponibilitaTurno {
@@ -814,9 +817,9 @@ const GestioneTornei: React.FC = () => {
                                                                             ? 'text-amber-600 bg-amber-50 border-amber-100' 
                                                                             : 'text-gray-500 bg-gray-100 border-gray-200'
                                                                     }`}
-                                                                    title={iscr.sede?.nome || iscr.turno?.sede?.nome || (torneo?.sede || '-')}
+                                                                    title={iscr.sede?.nome || iscr.turno?.sede?.nome || iscr.torneo?.sede || torneo?.sede || '-'}
                                                                 >
-                                                                    {iscr.sede?.nome || iscr.turno?.sede?.nome || (torneo?.sede || '-')}
+                                                                    {iscr.sede?.nome || iscr.turno?.sede?.nome || iscr.torneo?.sede || torneo?.sede || '-'}
                                                                 </span>
                                                             </td>
 
