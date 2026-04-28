@@ -78,6 +78,15 @@ apiRouter.use('/', contabilitaRoutes);
 app.use('/api', apiRouter);
 app.use('/', apiRouter);
 
+app.get('/api/test-db', async (req, res) => {
+    try {
+        const result = await prisma.$queryRaw`SELECT 1`;
+        res.json({ status: 'ok', result, url: (process.env.DATABASE_URL || '').substring(0, 30) + '...' });
+    } catch (error: any) {
+        res.status(500).json({ status: 'error', message: error.message, stack: error.stack, code: error.code });
+    }
+});
+
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',
