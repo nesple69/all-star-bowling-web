@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import { Trophy, Calendar, MapPin, Search, UserPlus, Users, Loader2, AlertTriangle } from 'lucide-react';
@@ -16,6 +16,7 @@ interface Torneo {
     dataFine: string;
     completato: boolean;
     mostraBottoneIscrizione: boolean;
+    linkIscrizione?: string | null;
     stagioneId: string;
     locandina?: string | null;
     sedi?: { id: string; nome: string; locandina?: string | null }[];
@@ -255,97 +256,119 @@ const Tornei: React.FC = () => {
                                         {(() => {
                                             const now = new Date();
                                             const dataFineTorneo = t.dataFine ? new Date(t.dataFine) : new Date(t.dataInizio);
-                                            // Aggiungiamo 2 giorni alla data di fine
                                             const dataScadenzaOffset = new Date(dataFineTorneo);
                                             dataScadenzaOffset.setDate(dataScadenzaOffset.getDate() + 2);
                                             const isScaduto2Giorni = now > dataScadenzaOffset;
 
                                             return (
                                                 <>
-                                                    {/* Locandine: una per sede se disponibili, altrimenti quella principale */}
-                                    {(() => {
-                                        const shortenSede = (nome: string) => {
-                                            const keywords = [' Via ', ' V.le ', ' Viale ', ' Piazza ', ' Corso ', ' Str. ', ' Strada '];
-                                            for (const kw of keywords) {
-                                                const idx = nome.toUpperCase().indexOf(kw.toUpperCase());
-                                                if (idx > 0) return nome.substring(0, idx).trim();
-                                            }
-                                            return nome.length > 22 ? nome.substring(0, 20) + '…' : nome;
-                                        };
-                                        const sediConLocandina = (t.sedi || []).filter(s => s.locandina);
-                                        const hasMain = !!t.locandina && !isScaduto2Giorni;
-                                        if (!hasMain && sediConLocandina.length === 0) return null;
-                                        return (
-                                            <>
-                                                {hasMain && (
-                                                    <a
-                                                        href={t.locandina!.startsWith('http') ? t.locandina! : `${API_BASE_URL}${t.locandina}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        onClick={e => e.stopPropagation()}
-                                                        className="w-full py-2.5 bg-white border border-gray-100 text-gray-500 rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-gray-50 transition-all flex items-center justify-center gap-2 shadow-sm"
-                                                    >
-                                                        📄 {shortenSede(t.sede)}
-                                                    </a>
-                                                )}
-                                                {sediConLocandina.map(s => (
-                                                    <a
-                                                        key={s.id}
-                                                        href={s.locandina!.startsWith('http') ? s.locandina! : `${API_BASE_URL}${s.locandina}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        onClick={e => e.stopPropagation()}
-                                                        className="w-full py-2.5 bg-white border border-gray-100 text-gray-500 rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-gray-50 transition-all flex items-center justify-center gap-2 shadow-sm"
-                                                    >
-                                                        📄 Locandina – {shortenSede(s.nome)}
-                                                    </a>
-                                                ))}
-                                            </>
-                                        );
-                                    })()}
+                                                    {/* Locandine */}
+                                                    {(() => {
+                                                        const shortenSede = (nome: string) => {
+                                                            const keywords = [' Via ', ' V.le ', ' Viale ', ' Piazza ', ' Corso ', ' Str. ', ' Strada '];
+                                                            for (const kw of keywords) {
+                                                                const idx = nome.toUpperCase().indexOf(kw.toUpperCase());
+                                                                if (idx > 0) return nome.substring(0, idx).trim();
+                                                            }
+                                                            return nome.length > 22 ? nome.substring(0, 20) + '…' : nome;
+                                                        };
+                                                        const sediConLocandina = (t.sedi || []).filter(s => s.locandina);
+                                                        const hasMain = !!t.locandina && !isScaduto2Giorni;
+                                                        if (!hasMain && sediConLocandina.length === 0) return null;
+                                                        return (
+                                                            <>
+                                                                {hasMain && (
+                                                                    <a
+                                                                        href={t.locandina!.startsWith('http') ? t.locandina! : `${API_BASE_URL}${t.locandina}`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        onClick={e => e.stopPropagation()}
+                                                                        className="w-full py-2.5 bg-white border border-gray-100 text-gray-500 rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-gray-50 transition-all flex items-center justify-center gap-2 shadow-sm"
+                                                                    >
+                                                                        📄 {shortenSede(t.sede)}
+                                                                    </a>
+                                                                )}
+                                                                {sediConLocandina.map(s => (
+                                                                    <a
+                                                                        key={s.id}
+                                                                        href={s.locandina!.startsWith('http') ? s.locandina! : `${API_BASE_URL}${s.locandina}`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        onClick={e => e.stopPropagation()}
+                                                                        className="w-full py-2.5 bg-white border border-gray-100 text-gray-500 rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-gray-50 transition-all flex items-center justify-center gap-2 shadow-sm"
+                                                                    >
+                                                                        📄 Locandina – {shortenSede(s.nome)}
+                                                                    </a>
+                                                                ))}
+                                                            </>
+                                                        );
+                                                    })()}
 
-                                    {/* Vedi iscritti */}
-                                    {t.turni && t.turni.length > 0 && !isScaduto2Giorni && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                fetchIscritti(t.id);
-                                            }}
-                                            className="w-full py-2.5 bg-white border border-gray-100 text-gray-500 rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-gray-50 transition-all flex items-center justify-center gap-2 shadow-sm"
-                                        >
-                                            {loadingIscritti[t.id] ? (
-                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                            ) : (
-                                                <Users className="w-3.5 h-3.5" />
-                                            )}
-                                            {openIscritti[t.id] ? 'Chiudi Atleti' : 'Vedi Iscritti'}
-                                        </button>
-                                    )}
-
-                                                    {prenotabile && !isScaduto2Giorni && t.mostraBottoneIscrizione ? (
+                                                    {/* Vedi iscritti */}
+                                                    {t.turni && t.turni.length > 0 && !isScaduto2Giorni && (
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                navigate(`/tornei/${t.id}/iscrizione`);
+                                                                fetchIscritti(t.id);
                                                             }}
-                                                            className="w-full py-3 bg-secondary text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-secondary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                                                            className="w-full py-2.5 bg-white border border-gray-100 text-gray-500 rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-gray-50 transition-all flex items-center justify-center gap-2 shadow-sm"
                                                         >
-                                                            <UserPlus className="w-4 h-4" />
-                                                            Iscriviti
+                                                            {loadingIscritti[t.id] ? (
+                                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                            ) : (
+                                                                <Users className="w-3.5 h-3.5" />
+                                                            )}
+                                                            {openIscritti[t.id] ? 'Chiudi Atleti' : 'Vedi Iscritti'}
                                                         </button>
-                                                    ) : t.completato ? (
-                                                        <Link
-                                                            to={`/tornei/${t.id}`}
-                                                            className="w-full py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border-2 border-green-100 bg-green-50 text-green-600 hover:bg-green-100 transition-all"
-                                                        >
-                                                            <Trophy className="w-4 h-4" />
-                                                            Classifica
-                                                        </Link>
-                                                    ) : (
-                                                        <div className="w-full py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border border-gray-100 bg-gray-50 text-gray-400 opacity-60">
-                                                            {isScaduto2Giorni ? 'Archiviato' : 'Terminato'}
-                                                        </div>
                                                     )}
+
+                                                    {/* Iscrizione / Classifica */}
+                                                    {(() => {
+                                                        const rawLink = (t.linkIscrizione || '').trim().toLowerCase();
+                                                        const isDocument = rawLink.endsWith('.pdf') || 
+                                                                         rawLink.includes('/uploads/') || 
+                                                                         rawLink.includes('locandina') || 
+                                                                         rawLink.includes('regolamento') ||
+                                                                         /\.(pdf|jpg|jpeg|png|webp)(\?.*)?$/i.test(rawLink);
+
+                                                        const isExternalLink = t.linkIscrizione && 
+                                                                            t.linkIscrizione.trim() && 
+                                                                            t.linkIscrizione !== t.locandina &&
+                                                                            !isDocument;
+
+                                                        if (!t.completato && !isScaduto2Giorni && t.mostraBottoneIscrizione) {
+                                                            return (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        navigate(`/tornei/${t.id}/iscrizione`);
+                                                                    }}
+                                                                    className="w-full py-3 bg-secondary text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-secondary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                                                                >
+                                                                    <UserPlus className="w-4 h-4" />
+                                                                    Iscriviti
+                                                                </button>
+                                                            );
+                                                        }
+
+                                                        if (t.completato) {
+                                                            return (
+                                                                <Link
+                                                                    to={`/tornei/${t.id}`}
+                                                                    className="w-full py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border-2 border-green-100 bg-green-50 text-green-600 hover:bg-green-100 transition-all"
+                                                                >
+                                                                    <Trophy className="w-4 h-4" />
+                                                                    Classifica
+                                                                </Link>
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <div className="w-full py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border border-gray-100 bg-gray-50 text-gray-400 opacity-60">
+                                                                {isScaduto2Giorni ? 'Archiviato' : 'Terminato'}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </>
                                             );
                                         })()}

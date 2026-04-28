@@ -533,6 +533,9 @@ const FormTorneo: React.FC = () => {
                                             placeholder="https://cms.fisb.it/..."
                                         />
                                     </div>
+                                    <p className="text-[10px] text-gray-400 mt-2 ml-1 font-bold italic uppercase">
+                                        Lascia vuoto per usare il sistema interno. Inserisci un URL solo se l'iscrizione avviene esternamente.
+                                    </p>
                                 </div>
 
                                 {isEdit && (

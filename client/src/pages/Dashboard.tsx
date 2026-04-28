@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import {
     Trophy, AlertTriangle, Clock, CheckCircle2,
-    Download, ExternalLink, Users, Calendar, MapPin, CreditCard,
+    Users, Calendar, MapPin, CreditCard,
     Loader2, ChevronUp
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
@@ -69,6 +70,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const Dashboard: React.FC = () => {
+    const navigate = useNavigate();
     const { user, isAdmin } = useAuth();
     const [iscrittiMap, setIscrittiMap] = useState<Record<string, IscrittoPublic[]>>({});
     const [loadingIscritti, setLoadingIscritti] = useState<Record<string, boolean>>({});
@@ -227,78 +229,18 @@ const Dashboard: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col gap-2 pt-2">
-                                        <div className="grid grid-cols-2 gap-3">
-                                            {(() => {
-                                                const shortenSede = (nome: string) => {
-                                                    const keywords = [' Via ', ' V.le ', ' Viale ', ' Piazza ', ' Corso ', ' Str. ', ' Strada '];
-                                                    for (const kw of keywords) {
-                                                        const idx = nome.toUpperCase().indexOf(kw.toUpperCase());
-                                                        if (idx > 0) return nome.substring(0, idx).trim();
-                                                    }
-                                                    return nome.length > 22 ? nome.substring(0, 20) + '…' : nome;
-                                                };
-                                                const sediConLoc = ((torneo as any).sedi || []).filter((s: any) => s.locandina);
-                                                const hasMain = !!torneo.locandina;
-                                                const hasAnything = hasMain || sediConLoc.length > 0;
-                                                if (!hasAnything) return (
-                                                    <span className="flex items-center justify-center gap-2 py-2 px-3 bg-gray-100 text-gray-300 text-[10px] font-black uppercase tracking-widest rounded-lg cursor-not-allowed opacity-50">
-                                                        <Download className="w-3 h-3" />
-                                                        Locandina
-                                                    </span>
-                                                );
-                                                return (
-                                                    <>
-                                                        {hasMain && (
-                                                            <a
-                                                                href={torneo.locandina!.startsWith('http') ? torneo.locandina! : `${API_BASE_URL}${torneo.locandina}`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="flex items-center justify-center gap-2 py-2 px-3 bg-gray-100 text-gray-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-gray-200 transition-colors"
-                                                            >
-                                                                <Download className="w-3 h-3" />
-                                                                {shortenSede(torneo.sede)}
-                                                            </a>
-                                                        )}
-                                                        {sediConLoc.map((s: any) => (
-                                                            <a
-                                                                key={s.id}
-                                                                href={s.locandina.startsWith('http') ? s.locandina : `${API_BASE_URL}${s.locandina}`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="flex items-center justify-center gap-2 py-2 px-3 bg-gray-100 text-gray-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-gray-200 transition-colors"
-                                                            >
-                                                                <Download className="w-3 h-3" />
-                                                                {shortenSede(s.nome)}
-                                                            </a>
-                                                        ))}
-                                                    </>
-                                                );
-                                            })()}
-                                            {torneo.mostraBottoneIscrizione && !torneo.completato && (
-                                                <a
-                                                    href={torneo.linkIscrizione || `/tornei/${torneo.id}/iscrizione`}
-                                                    className="flex items-center justify-center gap-2 py-2 px-3 bg-secondary text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:shadow-lg transition-all"
-                                                >
-                                                    <ExternalLink className="w-3 h-3" />
-                                                    Iscriviti
-                                                </a>
-                                            )}
-                                        </div>
+                                    {/* NUOVA LOGICA: Unico tasto Dettagli e Iscrizione */}
+                                    <div className="flex flex-col gap-2 pt-2 border-t border-gray-50">
                                         <button
-                                            onClick={() => fetchIscritti(torneo.id)}
-                                            className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-primary/10 transition-all border border-primary/10"
+                                            onClick={() => navigate(`/tornei/${torneo.id}`)}
+                                            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-secondary text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:shadow-xl hover:scale-[1.02] transition-all shadow-lg shadow-secondary/20"
                                         >
-                                            {loadingIscritti[torneo.id] ? (
-                                                <Loader2 className="w-3 h-3 animate-spin" />
-                                            ) : (
-                                                <Users className="w-3 h-3" />
-                                            )}
-                                            {openIscritti[torneo.id] ? 'Nascondi Iscritti' : 'Vedi Iscritti'}
+                                            <Trophy className="w-4 h-4" />
+                                            Dettagli e Iscrizione
                                         </button>
                                     </div>
 
-                                    {/* Sezione Iscritti Espandibile in Dashboard */}
+                                    {/* Sezione Iscritti Espandibile (Opzionale, mantenuta se vuoi vederli subito) */}
                                     {openIscritti[torneo.id] && iscrittiMap[torneo.id] && (
                                         <div className="mt-2 pt-4 border-t border-gray-100 animate-in slide-in-from-top-2 duration-200 space-y-2">
                                             <div className="flex items-center justify-between mb-2">
@@ -387,7 +329,6 @@ const Dashboard: React.FC = () => {
                                             <tbody>
                                                 {(() => {
                                                     const isTeam = torneo.tipologia !== 'SINGOLO';
-                                                    // 1. Raggruppa i risultati in "Squadre" (Teams)
                                                     const groupedTeams = torneo.risultati.reduce((acc: any, ris: any) => {
                                                         const teamId = torneo.tipologia === 'SINGOLO' ? ris.id : ris.posizione;
                                                         if (!acc[teamId]) acc[teamId] = [];
@@ -395,7 +336,6 @@ const Dashboard: React.FC = () => {
                                                         return acc;
                                                     }, {});
 
-                                                    // 2. Calcola la Categoria FISB per ogni Squadra
                                                     const divisions: Record<string, any[]> = {};
 
                                                     Object.values(groupedTeams).forEach((team: any) => {
@@ -419,12 +359,10 @@ const Dashboard: React.FC = () => {
                                                         divisions[divName].push(team);
                                                     });
 
-                                                    // 3. Ordina le divisioni alfabeticamente
                                                     const sortedDivisionNames = Object.keys(divisions).sort((a, b) => a.localeCompare(b));
 
                                                     return sortedDivisionNames.map((divName) => {
                                                         const teamsInDiv = divisions[divName];
-                                                        // 4. Ordina i team per posizione crescente
                                                         const sortedTeams = teamsInDiv.sort((a, b) => a[0].posizione - b[0].posizione);
 
                                                         return (

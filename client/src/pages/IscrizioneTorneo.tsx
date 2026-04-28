@@ -542,7 +542,7 @@ const IscrizioneTorneo: React.FC = () => {
                                         <AlertCircle className="w-4 h-4 shrink-0" /> 
                                         {isAdministrator 
                                             ? "ATTENZIONE: Saldo insufficiente. Procedi solo se autorizzato (override amministratore)." 
-                                            : "Saldo insufficiente. Ricarica il tuo borsellino in segreteria."
+                                            : "Saldo insufficiente. Ricarica il tuo borsellino o contatta l'amministratore."
                                         }
                                     </div>
                                 )}
