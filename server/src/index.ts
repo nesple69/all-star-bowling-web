@@ -16,6 +16,7 @@ import partiteRoutes from './routes/partite';
 import backupRoutes from './routes/backup';
 import usersRoutes from './routes/users';
 import { prisma } from './lib/prisma';
+import { prisma } from './lib/prisma';
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -79,14 +80,7 @@ apiRouter.use('/', contabilitaRoutes);
 app.use('/api', apiRouter);
 app.use('/', apiRouter);
 
-app.get('/api/test-db', async (req, res) => {
-    try {
-        const result = await prisma.$queryRaw`SELECT 1`;
-        res.json({ status: 'ok', result, url: (process.env.DATABASE_URL || '').substring(0, 30) + '...' });
-    } catch (error: any) {
-        res.status(500).json({ status: 'error', message: error.message, stack: error.stack, code: error.code });
-    }
-});
+
 
 
 
