@@ -98,7 +98,6 @@ const Tornei: React.FC = () => {
 
     const error = queryError ? (queryError as any).response?.data?.message || queryError.message || 'Errore di connessione' : null;
     const tornei = torneiDataResult?.tornei || [];
-    const disponibilitaMap = torneiDataResult?.disponibilitaMap || {};
 
     const filteredTornei = tornei
         .filter((t: Torneo) => {
@@ -111,16 +110,7 @@ const Tornei: React.FC = () => {
         })
         .sort((a: Torneo, b: Torneo) => new Date(b.dataInizio).getTime() - new Date(a.dataInizio).getTime());
 
-    // Verifica se il torneo è ancora prenotabile
-    const isPrenotabile = (t: Torneo): boolean => {
-        if (t.completato) return false;
-        const now = new Date();
-        const dataRif = t.dataFine ? new Date(t.dataFine) : new Date(t.dataInizio);
-        if (now > dataRif) return false;
-        const postiRimanenti = disponibilitaMap[t.id];
-        if (postiRimanenti !== undefined && postiRimanenti <= 0) return false;
-        return true;
-    };
+
 
     if (isLoading) {
         return (
@@ -197,7 +187,6 @@ const Tornei: React.FC = () => {
             <div className="flex flex-col gap-6">
                 {filteredTornei.length > 0 ? (
                     filteredTornei.map((t: Torneo) => {
-                        const prenotabile = isPrenotabile(t);
                         const dataInizio = new Date(t.dataInizio);
 
                         return (
@@ -324,17 +313,7 @@ const Tornei: React.FC = () => {
 
                                                     {/* Iscrizione / Classifica */}
                                                     {(() => {
-                                                        const rawLink = (t.linkIscrizione || '').trim().toLowerCase();
-                                                        const isDocument = rawLink.endsWith('.pdf') || 
-                                                                         rawLink.includes('/uploads/') || 
-                                                                         rawLink.includes('locandina') || 
-                                                                         rawLink.includes('regolamento') ||
-                                                                         /\.(pdf|jpg|jpeg|png|webp)(\?.*)?$/i.test(rawLink);
 
-                                                        const isExternalLink = t.linkIscrizione && 
-                                                                            t.linkIscrizione.trim() && 
-                                                                            t.linkIscrizione !== t.locandina &&
-                                                                            !isDocument;
 
                                                         if (!t.completato && !isScaduto2Giorni && t.mostraBottoneIscrizione) {
                                                             return (

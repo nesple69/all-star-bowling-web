@@ -4,9 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { API_BASE_URL } from '../config';
 import {
     Trophy, Calendar, MapPin, Download,
-    ExternalLink, ChevronLeft, Info, Users,
-    Star, Medal, Target, CheckCircle2, AlertCircle, 
-    FileText, UserPlus, Search, X, Loader2, CreditCard
+    ChevronLeft, Users, CheckCircle2, AlertCircle, 
+    FileText, UserPlus, Search, X, Loader2
 } from 'lucide-react';
 import { useParams, Link } from 'react-router-dom';
 import { format, differenceInDays } from 'date-fns';
@@ -177,7 +176,6 @@ const DettaglioTorneo: React.FC = () => {
     if (isLoading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
     if (!torneo) return <div className="text-center py-20 font-black uppercase text-gray-300">Torneo non trovato</div>;
 
-    const isTeam = torneo.tipologia !== 'SINGOLO';
     const isScaduto2Giorni = differenceInDays(new Date(torneo.dataInizio), new Date()) <= -2;
 
     return (

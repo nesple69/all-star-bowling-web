@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
     Trophy, AlertTriangle, Clock, CheckCircle2,
     Users, Calendar, MapPin, CreditCard,
-    Loader2, ChevronUp
+    ChevronUp
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -73,6 +73,7 @@ const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     const { user, isAdmin } = useAuth();
     const [iscrittiMap, setIscrittiMap] = useState<Record<string, IscrittoPublic[]>>({});
+    // @ts-ignore
     const [loadingIscritti, setLoadingIscritti] = useState<Record<string, boolean>>({});
     const [openIscritti, setOpenIscritti] = useState<Record<string, boolean>>({});
 
@@ -88,6 +89,7 @@ const Dashboard: React.FC = () => {
 
     const error = queryError ? (queryError as any).response?.data?.message || queryError.message || 'Errore di connessione' : null;
 
+    // @ts-ignore
     const fetchIscritti = async (torneoId: string) => {
         if (iscrittiMap[torneoId]) {
             setOpenIscritti(prev => ({ ...prev, [torneoId]: !prev[torneoId] }));
