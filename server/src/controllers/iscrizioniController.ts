@@ -191,7 +191,14 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
 
                 for (const iscr of iscrizioniMissing) {
                     const cat = iscr.giocatore.categoria;
-                    const targetSede = torneoInfo.sedi.find(s => s.categorie.includes(cat));
+                    const sesso = iscr.giocatore.sesso;
+                    const fullCat = `${sesso}/${cat}`; // Es: M/A
+
+                    const targetSede = torneoInfo.sedi.find(s => 
+                        s.categorie.includes(fullCat) || 
+                        s.categorie.includes(cat)
+                    );
+
                     if (targetSede) {
                         await prisma.iscrizioneTorneo.update({
                             where: { id: iscr.id },
@@ -360,6 +367,21 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
             if (!extraTurno) return res.status(400).json({ message: 'Turno di riserva non valido per questo torneo.' });
         }
 
+        // --- AUTO-ASSEGNAZIONE SEDE BASATA SU CATEGORIA ---
+        let autoSedeId = sedeId;
+        if (!autoSedeId && torneo.sedi.length > 0) {
+            if (torneo.sedi.length === 1) {
+                autoSedeId = torneo.sedi[0].id;
+            } else {
+                const fullCat = `${giocatore.sesso}/${giocatore.categoria}`;
+                const targetSede = torneo.sedi.find(s => 
+                    s.categorie.includes(fullCat) || 
+                    s.categorie.includes(giocatore.categoria)
+                );
+                if (targetSede) autoSedeId = targetSede.id;
+            }
+        }
+
         // Già iscritto?
         const esistente = await prisma.iscrizioneTorneo.findFirst({
             where: { torneoId, giocatoreId }
@@ -410,7 +432,7 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
                     giocatoreId,
                     turnoId,
                     secondoTurnoId: secondoTurnoId || null,
-                    sedeId: sedeId || (turno as any).sedeId || null,
+                    sedeId: autoSedeId || (turno as any).sedeId || null,
                     stato: 'PENDENTE'
                 }
             });
