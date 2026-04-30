@@ -175,8 +175,11 @@ const DettaglioTorneo: React.FC = () => {
             setStatus({ type: 'success', message: 'Iscrizione effettuata con successo!' });
             setTimeout(() => {
                 setShowModal(false);
+                setTesseraInput('');
+                setGiocatoreFound(null);
+                setStatus({ type: null, message: '' });
                 refetch();
-            }, 2000);
+            }, 1000);
         } catch (err: any) {
             setStatus({ type: 'error', message: err.response?.data?.message || 'Errore durante l\'iscrizione.' });
         } finally {
