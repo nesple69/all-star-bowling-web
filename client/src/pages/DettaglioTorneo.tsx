@@ -10,6 +10,7 @@ import {
 import { useParams, Link } from 'react-router-dom';
 import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Risultato {
     id: string;
@@ -71,6 +72,7 @@ interface GiocatoreFound {
 
 const DettaglioTorneo: React.FC = () => {
     const { id } = useParams();
+    const { isAdmin, token } = useAuth();
     const [isRegistering, setIsRegistering] = useState(false);
     const [status, setStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
     
@@ -150,16 +152,28 @@ const DettaglioTorneo: React.FC = () => {
         const saldo = Number(giocatoreFound.saldo?.saldoAttuale || 0);
 
         if (costo > 0 && saldo < costo) {
-            alert("Saldo insufficiente nel borsellino. Ricarica il tuo borsellino o contatta l'amministratore.");
-            return;
+            if (isAdmin()) {
+                if (!window.confirm(`Il giocatore ha un saldo insufficiente (€${saldo.toFixed(2)}). Vuoi procedere ugualmente come amministratore? Il saldo andrà in negativo.`)) {
+                    return;
+                }
+            } else {
+                alert("Saldo insufficiente nel borsellino. Ricarica il tuo borsellino o contatta l'amministratore.");
+                return;
+            }
         }
 
         // Controllo certificato medico
         if (giocatoreFound.certificatoMedicoScadenza) {
             const scadenza = new Date(giocatoreFound.certificatoMedicoScadenza);
             if (scadenza < new Date()) {
-                alert('Aggiorna il tuo certificato medico prima di partecipare a gare agonistiche, grazie.');
-                return;
+                if (isAdmin()) {
+                    if (!window.confirm(`Il certificato medico di questo atleta è scaduto (${format(scadenza, 'dd/MM/yyyy')}). Vuoi procedere ugualmente?`)) {
+                        return;
+                    }
+                } else {
+                    alert('Aggiorna il tuo certificato medico prima di partecipare a gare agonistiche, grazie.');
+                    return;
+                }
             }
         }
 
@@ -171,6 +185,8 @@ const DettaglioTorneo: React.FC = () => {
                 torneoId: id,
                 turnoId: selectedTurnoId,
                 giocatoreId: giocatoreFound.id
+            }, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
             setStatus({ type: 'success', message: 'Iscrizione effettuata con successo!' });
             setTimeout(() => {
