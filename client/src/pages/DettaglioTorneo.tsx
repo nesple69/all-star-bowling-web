@@ -83,7 +83,6 @@ const DettaglioTorneo: React.FC = () => {
     const [disponibilita, setDisponibilita] = useState<any[]>([]);
     const [iscritti, setIscritti] = useState<any[]>([]);
     const [showIscritti, setShowIscritti] = useState(false);
-    const [loadingIscritti, setLoadingIscritti] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [searchError, setSearchError] = useState('');
 
@@ -565,7 +564,9 @@ const DettaglioTorneo: React.FC = () => {
                 </div>
             )}
         </div>
-    );
+    )}
+</div>
+);
 };
 
 export default DettaglioTorneo;
