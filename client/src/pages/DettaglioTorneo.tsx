@@ -477,7 +477,7 @@ const DettaglioTorneo: React.FC = () => {
                                 <div className="space-y-8">
                                     {(() => {
                                         const grouped = iscritti.reduce((acc: Record<string, any[]>, isc) => {
-                                            const venueName = isc.sede?.nome || 'Da assegnare';
+                                            const venueName = (isc.sede?.nome || 'Da assegnare').trim().toUpperCase();
                                             if (!acc[venueName]) acc[venueName] = [];
                                             acc[venueName].push(isc);
                                             return acc;
