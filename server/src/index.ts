@@ -16,7 +16,6 @@ import partiteRoutes from './routes/partite';
 import backupRoutes from './routes/backup';
 import usersRoutes from './routes/users';
 import { prisma } from './lib/prisma';
-import { prisma } from './lib/prisma';
 
 const app = express();
 const port = process.env.PORT || 3001;

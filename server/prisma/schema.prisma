@@ -84,7 +84,7 @@ model GiorniOrariTorneo {
   orarioInizio         DateTime
   orarioFine           DateTime
   postiDisponibili     Int
-  torneo               Torneo             @relation(fields: [torneoId], references: [id])
+  torneo               Torneo             @relation(fields: [torneoId], references: [id], onDelete: Cascade)
   sede                 SedeTorneo?        @relation(fields: [sedeId], references: [id])
   iscrizioni           IscrizioneTorneo[] @relation("TurnoPrincipale")
   iscrizioniSecondarie IscrizioneTorneo[] @relation("TurnoRiserva")
@@ -101,7 +101,7 @@ model IscrizioneTorneo {
   note           String?
   createdAt      DateTime          @default(now())
   giocatore      Giocatore         @relation(fields: [giocatoreId], references: [id])
-  torneo         Torneo            @relation(fields: [torneoId], references: [id])
+  torneo         Torneo            @relation(fields: [torneoId], references: [id], onDelete: Cascade)
   turno          GiorniOrariTorneo @relation("TurnoPrincipale", fields: [turnoId], references: [id])
   secondoTurno   GiorniOrariTorneo? @relation("TurnoRiserva", fields: [secondoTurnoId], references: [id])
   sede           SedeTorneo?       @relation(fields: [sedeId], references: [id])
@@ -118,7 +118,7 @@ model RisultatoTorneo {
   divisione            String?   // Es: "Eccellenza", "Cadetti", "Femminile"
   isRiserva            Boolean   @default(false)
   giocatore            Giocatore @relation(fields: [giocatoreId], references: [id])
-  torneo               Torneo    @relation(fields: [torneoId], references: [id])
+  torneo               Torneo    @relation(fields: [torneoId], references: [id], onDelete: Cascade)
   partite              PartitaTorneo[]
   riporto              Int       @default(0) // Totale birilli di riporto
   
@@ -126,7 +126,7 @@ model RisultatoTorneo {
 }
 
 model PartitaTorneo {
-  id                String   @id @default(cuid())
+  id                String   @id @default(uuid())
   risultatoTorneoId String   // FK a RisultatoTorneo
   risultatoTorneo   RisultatoTorneo @relation(fields: [risultatoTorneoId], references: [id], onDelete: Cascade)
   numeroPartita     Int      // 1, 2, 3, 4, 5, 6

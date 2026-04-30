@@ -10,3 +10,16 @@ client/dist/
 server/node_modules/
 server/dist/
 server/.env
+
+# Temporary and backup files
+*.zip
+*.log
+*.txt
+*.csv
+*.pdf
+!README.md
+!LICENSE
+!DEPLOYMENT_SUCCESS.md
+
+# Credentials
+SUPABASE_CREDENTIALS.txt

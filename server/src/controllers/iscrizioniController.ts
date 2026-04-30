@@ -37,37 +37,7 @@ export const lookupTessera = async (req: Request, res: Response) => {
 export const getIscrizioniTorneo = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     try {
-        // --- AUTO-UNIFICAZIONE (Self-Healing) ---
-        const allTurni = await prisma.giorniOrariTorneo.findMany({
-            where: { torneoId: id },
-            orderBy: { orarioInizio: 'asc' }
-        });
-
-        const groups: Record<string, any[]> = {};
-        allTurni.forEach(t => {
-            const dateStr = t.giorno.toISOString().split('T')[0];
-            if (!groups[dateStr]) groups[dateStr] = [];
-            groups[dateStr].push(t);
-        });
-
-        for (const dateStr in groups) {
-            const group = groups[dateStr];
-            if (group.length > 1) {
-                const master = group[0];
-                const redundant = group.slice(1);
-                for (const r of redundant) {
-                    await prisma.iscrizioneTorneo.updateMany({
-                        where: { turnoId: r.id },
-                        data: { turnoId: master.id }
-                    });
-                    await prisma.iscrizioneTorneo.updateMany({
-                        where: { secondoTurnoId: r.id },
-                        data: { secondoTurnoId: master.id }
-                    });
-                    await prisma.giorniOrariTorneo.delete({ where: { id: r.id } }).catch(() => {});
-                }
-            }
-        }
+        // --- FINE UNIFICAZIONE ---
         // --- AUTO-SINCRONIZZAZIONE SEDI TURNI (Advanced Self-Healing) ---
         // Se ci sono più turni nello stesso giorno/ora, e alcuni hanno la sede e altri no, sincronizzali.
         // allTurni è già stato recuperato nella logica di unificazione sopra, lo riutilizziamo se disponibile
@@ -164,24 +134,25 @@ export const getIscrizioniTorneo = async (req: Request, res: Response) => {
         });
         // Mappa le iscrizioni per assicurarsi che 'sede' sia popolata se possibile (fallback dal turno o dal torneo)
         const mappedIscrizioni = iscrizioni.map(iscr => {
-            // Se c'è già una sede, mantieni quella
+            // Se c'è già una sede assegnata all'iscrizione, usiamo quella
             if (iscr.sede) return iscr;
 
-            // Se il turno ha una sede, usa quella
+            // Altrimenti, se il turno ha una sede specifica, usiamo quella
             if ((iscr.turno as any)?.sede) {
                 return { ...iscr, sede: (iscr.turno as any).sede };
             }
 
-            // Fallback: priorità assoluta alla sede principale del torneo (stringa) se non c'è altro
-            const torneoSedeDefault = torneoInfo?.sede 
-                ? { nome: torneoInfo.sede } 
-                : ((torneoInfo as any)?.sedi?.[0] || null);
+            // Fallback intelligente: usiamo la sede principale solo se il torneo ne ha una definita come stringa
+            // o se c'è UNA SOLA sede nel torneo. Se ce ne sono molteplici e non c'è match categoria, 
+            // lasciamo null per evitare errori (come MA assegnato a Oltremare).
+            const torneoSedeDefault = torneoInfo?.sede
+                ? { nome: torneoInfo.sede }
+                : (torneoInfo?.sedi && torneoInfo.sedi.length === 1 ? torneoInfo.sedi[0] : null);
 
-            if (torneoSedeDefault) {
-                return { ...iscr, sede: torneoSedeDefault };
-            }
-
-            return iscr;
+            return {
+                ...iscr,
+                sede: torneoSedeDefault
+            };
         });
 
         res.json(mappedIscrizioni);
@@ -195,38 +166,7 @@ export const getIscrizioniTorneo = async (req: Request, res: Response) => {
 export const getIscrizioniPublic = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     try {
-        // --- AUTO-UNIFICAZIONE (Self-Healing) ---
-        // Identifichiamo i turni dello stesso giorno e torneo con orari diversi
-        const allTurni = await prisma.giorniOrariTorneo.findMany({
-            where: { torneoId: id },
-            orderBy: { orarioInizio: 'asc' }
-        });
-
-        const groups: Record<string, any[]> = {};
-        allTurni.forEach(t => {
-            const dateStr = t.giorno.toISOString().split('T')[0];
-            if (!groups[dateStr]) groups[dateStr] = [];
-            groups[dateStr].push(t);
-        });
-
-        for (const dateStr in groups) {
-            const group = groups[dateStr];
-            if (group.length > 1) {
-                const master = group[0];
-                const redundant = group.slice(1);
-                for (const r of redundant) {
-                    await prisma.iscrizioneTorneo.updateMany({
-                        where: { turnoId: r.id },
-                        data: { turnoId: master.id }
-                    });
-                    await prisma.iscrizioneTorneo.updateMany({
-                        where: { secondoTurnoId: r.id },
-                        data: { secondoTurnoId: master.id }
-                    });
-                    await prisma.giorniOrariTorneo.delete({ where: { id: r.id } }).catch(() => {});
-                }
-            }
-        }
+        // --- FINE UNIFICAZIONE ---
 
         // --- AUTO-ASSEGNAZIONE SEDE (Self-Healing) ---
         const torneoInfo = await prisma.torneo.findUnique({
@@ -283,31 +223,35 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
 
         // Ordinamento lato JS per data del turno (dal più lontano al più vicino)
         const ordinati = iscrizioni.sort((a, b) => {
-            const dateA = new Date(a.turno.orarioInizio).getTime();
-            const dateB = new Date(b.turno.orarioInizio).getTime();
-            return dateB - dateA; // Dal più lontano al più vicino
+            const dateA = new Date(a.turno?.orarioInizio || 0).getTime();
+            const dateB = new Date(b.turno?.orarioInizio || 0).getTime();
+            return dateA - dateB; // Cronologico
         });
 
         // Mappa le iscrizioni per assicurarsi che 'sede' sia popolata se possibile (fallback dal turno o dal torneo)
         const mappedIscrizioni = ordinati.map(iscr => {
             // Se c'è già una sede, mantieni quella
-            if (iscr.sede) return iscr;
-
-            // Se il turno ha una sede, usa quella
-            if ((iscr.turno as any)?.sede) {
-                return { ...iscr, sede: (iscr.turno as any).sede };
+            if (iscr.sede) {
+                return {
+                    giocatore: iscr.giocatore,
+                    turno: iscr.turno,
+                    secondoTurno: iscr.secondoTurno,
+                    sede: iscr.sede
+                };
             }
 
-            // Fallback: priorità assoluta alla sede principale del torneo (stringa) se non c'è altro
-            const torneoSedeDefault = torneoInfo?.sede 
-                ? { nome: torneoInfo.sede } 
-                : ((torneoInfo as any)?.sedi?.[0] || null);
+            // Fallback intelligente: usiamo la sede principale solo se il torneo ne ha una definita come stringa
+            // o se c'è UNA SOLA sede nel torneo. 
+            const torneoSedeDefault = torneoInfo?.sede
+                ? { nome: torneoInfo.sede }
+                : (torneoInfo?.sedi && torneoInfo.sedi.length === 1 ? torneoInfo.sedi[0] : null);
 
-            if (torneoSedeDefault) {
-                return { ...iscr, sede: torneoSedeDefault };
-            }
-
-            return iscr;
+            return {
+                giocatore: iscr.giocatore,
+                turno: iscr.turno,
+                secondoTurno: iscr.secondoTurno,
+                sede: (iscr.turno as any)?.sede || torneoSedeDefault
+            };
         });
 
         res.json(mappedIscrizioni);
@@ -424,9 +368,15 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
                     throw new Error('Saldo insufficiente nel borsellino.');
                 }
 
-                await tx.saldoBorsellino.update({
+                await tx.saldoBorsellino.upsert({
                     where: { giocatoreId },
-                    data: { saldoAttuale: { decrement: costo } }
+                    create: {
+                        giocatoreId,
+                        saldoAttuale: -costo
+                    },
+                    update: {
+                        saldoAttuale: { decrement: costo }
+                    }
                 });
 
                 await tx.movimentoContabile.create({

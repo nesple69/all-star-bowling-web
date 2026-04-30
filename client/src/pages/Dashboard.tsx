@@ -234,6 +234,17 @@ const Dashboard: React.FC = () => {
                                     {/* NUOVA LOGICA: Unico tasto Dettagli e Iscrizione */}
                                     <div className="flex flex-col gap-2 pt-2 border-t border-gray-50">
                                         <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                fetchIscritti(torneo.id);
+                                            }}
+                                            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-white border border-gray-100 text-gray-500 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-50 transition-all shadow-sm"
+                                        >
+                                            <Users className="w-4 h-4" />
+                                            {openIscritti[torneo.id] ? 'Chiudi Atleti' : 'Vedi Iscritti'}
+                                        </button>
+
+                                        <button
                                             onClick={() => navigate(`/tornei/${torneo.id}`)}
                                             className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-secondary text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:shadow-xl hover:scale-[1.02] transition-all shadow-lg shadow-secondary/20"
                                         >

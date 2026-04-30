@@ -80,25 +80,37 @@ const DettaglioTorneo: React.FC = () => {
     const [tesseraInput, setTesseraInput] = useState('');
     const [giocatoreFound, setGiocatoreFound] = useState<GiocatoreFound | null>(null);
     const [isSearching, setIsSearching] = useState(false);
+    const [disponibilita, setDisponibilita] = useState<any[]>([]);
+    const [iscritti, setIscritti] = useState<any[]>([]);
+    const [showIscritti, setShowIscritti] = useState(false);
+    const [loadingIscritti, setLoadingIscritti] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [searchError, setSearchError] = useState('');
 
     const fetchTorneoData = async () => {
         const resTorneo = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}`);
         const resDisp = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/disponibilita`);
+        setDisponibilita(resDisp.data);
+        try {
+            const resIscr = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/iscritti`);
+            setIscritti(resIscr.data);
+        } catch (err) {
+            console.error('Errore caricamento iscritti:', err);
+        }
+        setIsLoading(false);
         return {
             torneo: resTorneo.data as Torneo,
             disponibilita: resDisp.data as Disponibilita[]
         };
     };
 
-    const { data, isLoading, refetch } = useQuery({
+    const { data, refetch } = useQuery({
         queryKey: ['torneoDetail', id],
         queryFn: fetchTorneoData,
         enabled: !!id
     });
 
     const torneo = data?.torneo;
-    const disponibilita = data?.disponibilita || [];
 
     // Ricerca giocatore per tessera
     useEffect(() => {
@@ -356,9 +368,14 @@ const DettaglioTorneo: React.FC = () => {
                                 {torneo.sedi && torneo.sedi.length > 0 ? (
                                     <div className="space-y-2 mt-1">
                                         {torneo.sedi.map((s, idx) => (
-                                            <div key={idx} className="flex flex-col">
-                                                <div className="flex items-center gap-2">
+                                            <div key={idx} className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-3">
                                                     <span className="font-black text-gray-700 uppercase text-sm leading-tight">{s.nome}</span>
+                                                    {s.categorie && s.categorie.length > 0 && (
+                                                        <span className="text-[9px] font-black bg-primary/5 text-primary/70 px-2 py-0.5 rounded border border-primary/10">
+                                                            {s.categorie.join(', ')}
+                                                        </span>
+                                                    )}
                                                     {s.locandina && (
                                                         <a 
                                                             href={s.locandina.startsWith('http') ? s.locandina : `${API_BASE_URL}${s.locandina}`}
@@ -415,7 +432,78 @@ const DettaglioTorneo: React.FC = () => {
                     </div>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="space-y-8">
+                    {/* Pulsanti Toggle Vista */}
+                    <div className="flex bg-white/50 backdrop-blur-sm p-1.5 rounded-2xl border border-gray-100 self-start w-fit shadow-sm">
+                        <button
+                            onClick={() => setShowIscritti(false)}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!showIscritti ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                            Turni e Disponibilità
+                        </button>
+                        <button
+                            onClick={() => setShowIscritti(true)}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${showIscritti ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                            Iscritti ({iscritti.length})
+                        </button>
+                    </div>
+
+                    {showIscritti ? (
+                        <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm animate-fade-in">
+                             <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-3 mb-6">
+                                <Users className="text-primary w-6 h-6" />
+                                Atleti Iscritti
+                            </h2>
+                            {iscritti.length > 0 ? (
+                                <div className="space-y-8">
+                                    {(() => {
+                                        const grouped = iscritti.reduce((acc: Record<string, any[]>, isc) => {
+                                            const venueName = isc.sede?.nome || 'Da assegnare';
+                                            if (!acc[venueName]) acc[venueName] = [];
+                                            acc[venueName].push(isc);
+                                            return acc;
+                                        }, {});
+
+                                        return Object.entries(grouped).map(([venue, members], vIdx) => (
+                                            <div key={vIdx} className="space-y-4">
+                                                <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                                                    <MapPin className="w-4 h-4 text-primary/50" />
+                                                    <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">
+                                                        {venue} ({members.length})
+                                                    </h3>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                    {members.map((isc, idx) => (
+                                                        <div key={idx} className="flex justify-between items-center bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm font-black uppercase text-dark">
+                                                                    {isc.giocatore.cognome} {isc.giocatore.nome}
+                                                                </span>
+                                                                <span className="text-[10px] font-bold text-gray-400 uppercase">
+                                                                    {isc.giocatore.sesso}/{isc.giocatore.categoria}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-1 rounded-md border border-primary/10">
+                                                                    {format(new Date(isc.turno?.orarioInizio || 0), 'dd/MM HH:mm')}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ));
+                                    })()}
+                                </div>
+                            ) : (
+                                <div className="text-center py-12 text-gray-400 italic uppercase text-xs font-bold tracking-widest">
+                                    Ancora nessun iscritto per questo torneo
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
                     <div className="lg:col-span-2 space-y-6">
                         <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm">
                             <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-3 mb-6">

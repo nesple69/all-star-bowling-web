@@ -71,6 +71,9 @@ export const getTorneiPublici = async (_req: Request, res: Response) => {
                 stagione: true,
                 sedi: {
                     select: { id: true, nome: true, locandina: true }
+                },
+                _count: {
+                    select: { iscrizioni: true, risultati: true }
                 }
             },
             orderBy: {
@@ -108,6 +111,9 @@ export const getTorneoPublicById = async (req: Request, res: Response) => {
                         { isRiserva: 'asc' },
                         { posizione: 'asc' }
                     ]
+                },
+                _count: {
+                    select: { iscrizioni: true, risultati: true }
                 }
             }
         });
@@ -348,13 +354,7 @@ export const updateTorneo = async (req: Request, res: Response) => {
 export const deleteTorneo = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     try {
-        // Eseguiamo tutto in una transazione per sicurezza
-        await prisma.$transaction([
-            prisma.iscrizioneTorneo.deleteMany({ where: { torneoId: id } }),
-            prisma.risultatoTorneo.deleteMany({ where: { torneoId: id } }),
-            prisma.giorniOrariTorneo.deleteMany({ where: { torneoId: id } }),
-            prisma.torneo.delete({ where: { id } })
-        ]);
+        await prisma.torneo.delete({ where: { id } });
         res.json({ message: 'Torneo e tutti i dati associati eliminati con successo' });
     } catch (error) {
         console.error('Errore durante l\'eliminazione del torneo:', error);
@@ -498,29 +498,28 @@ export const upsertRisultato = async (req: Request, res: Response) => {
                 calculatedRiporto = partite.reduce((sum, p) => sum + (p.isRiporto ? (p.birilli || 0) : 0), 0);
             }
 
-            const risultato = await tx.risultatoTorneo.upsert({
-                where: {
-                    id: req.body.id || 'new-id'
-                },
-                update: {
-                    posizione: parseInt(posizione),
-                    partiteGiocate: parseInt(partiteGiocate),
-                    totaleBirilli: parseInt(totaleBirilli),
-                    totaleBirilliSquadra: totaleBirilliSquadra ? parseInt(totaleBirilliSquadra) : null,
-                    isRiserva: isRiserva === true || isRiserva === 'true',
-                    riporto: calculatedRiporto
-                },
-                create: {
-                    torneoId,
-                    giocatoreId,
-                    posizione: parseInt(posizione),
-                    partiteGiocate: parseInt(partiteGiocate),
-                    totaleBirilli: parseInt(totaleBirilli),
-                    totaleBirilliSquadra: totaleBirilliSquadra ? parseInt(totaleBirilliSquadra) : null,
-                    isRiserva: isRiserva === true || isRiserva === 'true',
-                    riporto: calculatedRiporto
-                }
-            });
+            const risultatoId = req.body.id;
+            const commonData = {
+                posizione: parseInt(posizione),
+                partiteGiocate: parseInt(partiteGiocate),
+                totaleBirilli: parseInt(totaleBirilli),
+                totaleBirilliSquadra: totaleBirilliSquadra ? parseInt(totaleBirilliSquadra) : null,
+                isRiserva: isRiserva === true || isRiserva === 'true',
+                riporto: calculatedRiporto
+            };
+
+            const risultato = risultatoId 
+                ? await tx.risultatoTorneo.update({
+                    where: { id: risultatoId },
+                    data: commonData
+                  })
+                : await tx.risultatoTorneo.create({
+                    data: {
+                        ...commonData,
+                        torneoId,
+                        giocatoreId
+                    }
+                  });
 
             // Gestione partite se fornite
             if (partite && Array.isArray(partite)) {

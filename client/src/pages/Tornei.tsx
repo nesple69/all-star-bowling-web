@@ -294,7 +294,7 @@ const Tornei: React.FC = () => {
                                                     })()}
 
                                                     {/* Vedi iscritti */}
-                                                    {t.turni && t.turni.length > 0 && !isScaduto2Giorni && (
+                                                    {((t.turni && t.turni.length > 0) || (t as any)._count?.iscrizioni > 0) && !isScaduto2Giorni && (
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
