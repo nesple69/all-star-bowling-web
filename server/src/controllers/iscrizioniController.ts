@@ -168,23 +168,38 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
     try {
         // --- FINE UNIFICAZIONE ---
 
-        // --- AUTO-ASSEGNAZIONE SEDE (Self-Healing) ---
+        // --- AUTO-ASSEGNAZIONE SEDE (Advanced Self-Healing) ---
         const torneoInfo = await prisma.torneo.findUnique({
             where: { id },
             include: { sedi: true }
         });
 
-        if (torneoInfo && torneoInfo.sedi.length === 1) {
-            const singleSedeId = torneoInfo.sedi[0].id;
-            console.log(`[SELF-HEALING] Fixing missing venues using sede ${singleSedeId}`);
-            await prisma.giorniOrariTorneo.updateMany({
-                where: { torneoId: id, sedeId: null },
-                data: { sedeId: singleSedeId }
-            });
-            await prisma.iscrizioneTorneo.updateMany({
-                where: { torneoId: id, sedeId: null },
-                data: { sedeId: singleSedeId }
-            });
+        if (torneoInfo && torneoInfo.sedi.length > 0) {
+            // Se c'è una sola sede, assegnazione universale
+            if (torneoInfo.sedi.length === 1) {
+                const singleSedeId = torneoInfo.sedi[0].id;
+                await prisma.iscrizioneTorneo.updateMany({
+                    where: { torneoId: id, sedeId: null },
+                    data: { sedeId: singleSedeId }
+                });
+            } else {
+                // Se ci sono più sedi, assegna in base alla categoria dell'atleta
+                const iscrizioniMissing = await prisma.iscrizioneTorneo.findMany({
+                    where: { torneoId: id, sedeId: null },
+                    include: { giocatore: true }
+                });
+
+                for (const iscr of iscrizioniMissing) {
+                    const cat = iscr.giocatore.categoria;
+                    const targetSede = torneoInfo.sedi.find(s => s.categorie.includes(cat));
+                    if (targetSede) {
+                        await prisma.iscrizioneTorneo.update({
+                            where: { id: iscr.id },
+                            data: { sedeId: targetSede.id }
+                        });
+                    }
+                }
+            }
         }
         // --- FINE AUTO-ASSEGNAZIONE SEDE ---
 
