@@ -322,7 +322,7 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
     try {
         const torneo = await prisma.torneo.findUnique({
             where: { id: torneoId },
-            include: { turni: true }
+            include: { turni: true, sedi: true }
         });
 
         const giocatore = await prisma.giocatore.findUnique({
