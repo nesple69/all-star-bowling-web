@@ -32,6 +32,7 @@ const FormTorneo: React.FC = () => {
 
     const [turni, setTurni] = useState<any[]>([]);
     const [editingTurno, setEditingTurno] = useState<any | null>(null);
+    const [turnoToDelete, setTurnoToDelete] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [locandinaMode, setLocandinaMode] = useState<'upload' | 'url'>('upload');
@@ -125,7 +126,6 @@ const FormTorneo: React.FC = () => {
     };
 
     const handleDeleteTurno = async (turnoId: string) => {
-        if (!window.confirm('Eliminare questo turno?')) return;
         try {
             const token = sessionStorage.getItem('token');
             await axios.delete(`${API_BASE_URL}/api/tornei/${id}/giorni/${turnoId}`, {
@@ -718,7 +718,7 @@ const FormTorneo: React.FC = () => {
                                                     <Edit2 className="w-5 h-5" />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDeleteTurno(turno.id)}
+                                                    onClick={() => setTurnoToDelete(turno.id)}
                                                     className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
                                                     title="Elimina"
                                                 >
@@ -872,6 +872,41 @@ const FormTorneo: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Custom Confirmation Modal for Deleting Turno */}
+            {turnoToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs animate-fade-in">
+                    <div className="bg-white rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl border border-gray-100 text-center space-y-6 transform scale-100 transition-all duration-300">
+                        <div className="mx-auto w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-500">
+                            <Trash2 className="w-8 h-8" />
+                        </div>
+                        <div className="space-y-2">
+                            <h3 className="text-lg font-black uppercase tracking-tight text-dark">Conferma Eliminazione</h3>
+                            <p className="text-xs text-gray-500 font-bold uppercase tracking-tight">Sei sicuro di voler eliminare questo turno? Questa operazione è irreversibile.</p>
+                        </div>
+                        <div className="flex gap-4">
+                            <button
+                                type="button"
+                                onClick={() => setTurnoToDelete(null)}
+                                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-500 font-black rounded-xl uppercase text-[10px] tracking-widest transition-all"
+                            >
+                                Annulla
+                            </button>
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    const idToDelete = turnoToDelete;
+                                    setTurnoToDelete(null);
+                                    await handleDeleteTurno(idToDelete);
+                                }}
+                                className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-black rounded-xl uppercase text-[10px] tracking-widest transition-all shadow-lg shadow-red-500/20"
+                            >
+                                Elimina
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
