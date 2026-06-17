@@ -82,7 +82,6 @@ model GiorniOrariTorneo {
   sedeId               String?
   giorno               DateTime           @db.Date
   orarioInizio         DateTime
-  orarioFine           DateTime
   postiDisponibili     Int
   torneo               Torneo             @relation(fields: [torneoId], references: [id], onDelete: Cascade)
   sede                 SedeTorneo?        @relation(fields: [sedeId], references: [id])

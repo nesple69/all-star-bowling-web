@@ -108,7 +108,6 @@ export const getIscrizioniTorneo = async (req: Request, res: Response) => {
                         id: true,
                         giorno: true,
                         orarioInizio: true,
-                        orarioFine: true,
                         postiDisponibili: true,
                         sede: { select: { id: true, nome: true } }
                     }
@@ -122,8 +121,7 @@ export const getIscrizioniTorneo = async (req: Request, res: Response) => {
                     select: {
                         id: true,
                         giorno: true,
-                        orarioInizio: true,
-                        orarioFine: true
+                        orarioInizio: true
                     }
                 },
                 sede: {
@@ -301,7 +299,6 @@ export const getDisponibilitaTurni = async (req: Request, res: Response) => {
             id: t.id,
             giorno: t.giorno,
             orarioInizio: t.orarioInizio,
-            orarioFine: t.orarioFine || null,
             postiTotali: t.postiDisponibili,
             postiOccupati: (t as any)._count?.iscrizioni || 0,
             postiRimanenti: t.postiDisponibili - ((t as any)._count?.iscrizioni || 0),

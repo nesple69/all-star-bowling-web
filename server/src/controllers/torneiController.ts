@@ -362,10 +362,37 @@ export const deleteTorneo = async (req: Request, res: Response) => {
     }
 };
 
+function extractDatePart(giorno: any): string {
+    if (typeof giorno === 'string') {
+        const match = giorno.match(/^\d{4}-\d{2}-\d{2}/);
+        if (match) return match[0];
+    }
+    const d = new Date(giorno);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function extractTime(val: any, defaultTime: string): string {
+    if (!val) return defaultTime;
+    const str = String(val);
+    if (str.includes('T')) {
+        const parts = str.split('T');
+        return parts[1].substring(0, 8);
+    }
+    const match = str.match(/(\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (match) {
+        const hh = match[1];
+        const mm = match[2];
+        const ss = match[3] || '00';
+        return `${hh}:${mm}:${ss}`;
+    }
+    return defaultTime;
+}
+
 // POST /api/tornei/:id/giorni (aggiungi giorno/orario disponibile)
 export const addGiornoTorneo = async (req: Request, res: Response) => {
     const id = req.params.id as string;
-    const { giorno, orarioInizio, orarioFine, postiDisponibili, sedeId } = req.body;
+    const { giorno, orarioInizio, postiDisponibili, sedeId } = req.body;
 
     try {
         let finalSedeId = sedeId;
@@ -381,13 +408,16 @@ export const addGiornoTorneo = async (req: Request, res: Response) => {
             }
         }
 
+        const datePart = extractDatePart(giorno);
+        const timeInizio = extractTime(orarioInizio, '09:00:00');
+        const inizioDate = new Date(`${datePart}T${timeInizio}`);
+
         const nuovoGiorno = await prisma.giorniOrariTorneo.create({
             data: {
                 torneoId: id,
                 sedeId: finalSedeId || null,
-                giorno: new Date(giorno),
-                orarioInizio: new Date(orarioInizio),
-                orarioFine: new Date(orarioFine),
+                giorno: new Date(datePart),
+                orarioInizio: inizioDate,
                 postiDisponibili: parseInt(postiDisponibili)
             }
         });
@@ -400,15 +430,18 @@ export const addGiornoTorneo = async (req: Request, res: Response) => {
 // PUT /api/tornei/:id/giorni/:giornoId (solo ADMIN)
 export const updateGiornoTorneo = async (req: Request, res: Response) => {
     const giornoId = req.params.giornoId as string;
-    const { giorno, orarioInizio, orarioFine, postiDisponibili, sedeId } = req.body;
+    const { giorno, orarioInizio, postiDisponibili, sedeId } = req.body;
 
     try {
+        const datePart = extractDatePart(giorno);
+        const timeInizio = extractTime(orarioInizio, '09:00:00');
+        const inizioDate = new Date(`${datePart}T${timeInizio}`);
+
         const giornoAggiornato = await prisma.giorniOrariTorneo.update({
             where: { id: giornoId },
             data: {
-                giorno: new Date(giorno),
-                orarioInizio: new Date(orarioInizio),
-                orarioFine: new Date(orarioFine),
+                giorno: new Date(datePart),
+                orarioInizio: inizioDate,
                 postiDisponibili: parseInt(postiDisponibili),
                 sedeId: sedeId || null
             }
