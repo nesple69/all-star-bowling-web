@@ -15,6 +15,7 @@ import importRoutes from './routes/import';
 import partiteRoutes from './routes/partite';
 import backupRoutes from './routes/backup';
 import usersRoutes from './routes/users';
+import keepAliveRoutes from './routes/keepAlive';
 import { prisma } from './lib/prisma';
 
 const app = express();
@@ -73,6 +74,7 @@ apiRouter.use('/import', importRoutes);
 apiRouter.use('/partite', partiteRoutes);
 apiRouter.use('/backup', backupRoutes);
 apiRouter.use('/users', usersRoutes);
+apiRouter.use('/keep-alive', keepAliveRoutes);
 apiRouter.use('/', contabilitaRoutes);
 
 // Applichiamo il router sia a /api che alla radice per massima compatibilità

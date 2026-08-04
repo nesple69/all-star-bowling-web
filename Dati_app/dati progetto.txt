@@ -20,7 +20,7 @@ Password: Ari@1Nico@5
 
 localhost    http://localhost:5173
 
-ikn questa apgina c'è la struttura Prisma 
+link questa pagina c'è la struttura Prisma 
 http://localhost:5555/
 
 
