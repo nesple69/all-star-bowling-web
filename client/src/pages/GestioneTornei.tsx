@@ -140,20 +140,22 @@ const GestioneTornei: React.FC = () => {
         return { saldoNum, quotaAffiliazione, quotaBorsellino, totale };
     };
 
-    const generateWhatsAppRenewalMessage = (g: any) => {
+    const generateWhatsAppRenewalMessage = (g: any, isRenewing: boolean) => {
         const { saldoNum, quotaBorsellino, totale } = calculateQuotaRinnovo(g);
-        const saldoFormat = saldoNum.toFixed(2).replace('.', ',');
+        const saldoFormat = Math.abs(saldoNum).toFixed(2).replace('.', ',');
         const quotaBorsellinoFormat = quotaBorsellino.toFixed(2).replace('.', ',');
         const totaleFormat = totale.toFixed(2).replace('.', ',');
 
-        return `Ciao *${g.nome}*! ⭐
+        if (isRenewing) {
+            // Messaggio per chi RINNOVA
+            return `Ciao *${g.nome}*! ⭐
 
 È tempo di ripartire con la nuova stagione agonistica *2026/2027* con l'All Star Team! 🎳
 
 Per confermare il tuo tesseramento, ti chiediamo di effettuare un versamento complessivo di *${totaleFormat} €*, così suddiviso:
 
 🔹 *60,00 €*: Quota affiliazione e tesseramento stagione 2026/27
-🔹 *${quotaBorsellinoFormat} €*: Integrazione fondo gare/tornei _(il tuo saldo attuale nel borsellino è di ${saldoFormat} €)_
+🔹 *${quotaBorsellinoFormat} €*: Integrazione fondo gare/tornei _(il tuo saldo attuale nel borsellino è di ${saldoNum.toFixed(2).replace('.', ',')} €)_
 
 🏦 *DATI PER IL BONIFICO:*
 • *IBAN:* IT63G0503470951000000001300
@@ -163,15 +165,55 @@ Per confermare il tuo tesseramento, ti chiediamo di effettuare un versamento com
 
 Appena effettuato il bonifico, inviaci pure la ricevuta/contabile qui su WhatsApp.
 Grazie e in bocca al lupo per la nuova stagione! 🏆`;
+        } else {
+            // Messaggio per chi NON RINNOVA (Chiusura & Rimborso / Pareggio / Debito)
+            if (saldoNum > 0) {
+                return `Ciao *${g.nome}*! ⭐
+
+Ti ringraziamo per il percorso sportivo condiviso con l'All Star Team nella passata stagione agonistica! 🎳
+
+Avendo preso nota che non rinnoverai il tesseramento per la stagione *2026/2027*, ti comunichiamo che provvederemo al più presto a rimborsarti la quota residua presente nel tuo borsellino elettronico pari a *${saldoFormat} €* e a chiudere la tua posizione contabile.
+
+Per procedere con il bonifico di rimborso a tuo favore, ti chiediamo cortesemente di comunicarci qui su WhatsApp:
+• Il tuo codice *IBAN*
+• L'intestatario del conto corrente
+
+Grazie ancora di tutto e ti auguriamo il meglio per il tuo futuro sportivo e personale! 🏆
+ASD All Star Team`;
+            } else if (saldoNum < 0) {
+                return `Ciao *${g.nome}*! ⭐
+
+In merito alla chiusura della tua posizione con l'All Star Team per la stagione 2026/2027, ti ricordiamo che risulta un saldo contabile a debito di *${saldoFormat} €* da regolarizzare per poter chiudere la scheda socio.
+
+🏦 *DATI PER IL BONIFICO:*
+• *IBAN:* IT63G0503470951000000001300
+• *Beneficiario:* ASD All Star Team
+• *Importo:* *${saldoFormat} €*
+• *Causale:* Saldo chiusura contabile - ${g.cognome} ${g.nome}
+
+Appena effettuato il versamento, inviaci pure la contabile qui su WhatsApp.
+Grazie per la collaborazione!
+ASD All Star Team`;
+            } else {
+                return `Ciao *${g.nome}*! ⭐
+
+Ti ringraziamo per il percorso sportivo condiviso con l'All Star Team nella passata stagione agonistica! 🎳
+
+Avendo preso nota che non rinnoverai il tesseramento per la stagione *2026/2027*, ti confermiamo che la tua posizione contabile risulta regolarmente chiusa e in perfetto pareggio (saldo 0,00 €).
+
+Grazie ancora di tutto e ti auguriamo il meglio per il tuo futuro sportivo e personale! 🏆
+ASD All Star Team`;
+            }
+        }
     };
 
-    const handleSendWhatsAppRenewal = (e: React.MouseEvent, g: any) => {
+    const handleSendWhatsAppRenewal = (e: React.MouseEvent, g: any, isRenewing: boolean) => {
         e.stopPropagation();
         if (!g.telefono) {
             alert(`Nessun numero di telefono registrato per ${g.cognome} ${g.nome}. Aggiorna la scheda giocatore per inserirlo.`);
             return;
         }
-        const msg = generateWhatsAppRenewalMessage(g);
+        const msg = generateWhatsAppRenewalMessage(g, isRenewing);
         const cleaned = g.telefono.replace(/\D/g, '');
         const numero = cleaned.startsWith('39') ? cleaned : `39${cleaned}`;
         const url = `https://wa.me/${numero}?text=${encodeURIComponent(msg)}`;
@@ -1144,23 +1186,35 @@ Grazie e in bocca al lupo per la nuova stagione! 🏆`;
                                                     Saldo: {saldoNum.toFixed(2)} €
                                                 </span>
                                                 <span className="text-xs font-black text-dark uppercase block">
-                                                    Totale: <strong className="text-primary">{totale.toFixed(2)} €</strong>
+                                                    {isChecked ? (
+                                                        <>Totale: <strong className="text-primary">{totale.toFixed(2)} €</strong></>
+                                                    ) : saldoNum > 0 ? (
+                                                        <>Rimborso: <strong className="text-green-600">{saldoNum.toFixed(2)} €</strong></>
+                                                    ) : saldoNum < 0 ? (
+                                                        <>Debito: <strong className="text-red-600">{Math.abs(saldoNum).toFixed(2)} €</strong></>
+                                                    ) : (
+                                                        <span className="text-gray-400 font-bold">Chiuso (0 €)</span>
+                                                    )}
                                                 </span>
                                             </div>
 
                                             {/* Pulsante WhatsApp */}
                                             <button
                                                 type="button"
-                                                onClick={(e) => handleSendWhatsAppRenewal(e, g)}
+                                                onClick={(e) => handleSendWhatsAppRenewal(e, g, isChecked)}
                                                 className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all cursor-pointer ${
                                                     isSent
                                                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
-                                                        : 'bg-[#25D366] hover:bg-[#20ba5a] text-white hover:scale-105'
+                                                        : isChecked
+                                                            ? 'bg-[#25D366] hover:bg-[#20ba5a] text-white hover:scale-105'
+                                                            : saldoNum > 0
+                                                                ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
+                                                                : 'bg-gray-600 hover:bg-gray-700 text-white hover:scale-105'
                                                 }`}
                                                 title={g.telefono ? `Invia messaggio WhatsApp a ${g.nome}` : 'Nessun telefono registrato'}
                                             >
                                                 <MessageCircle className="w-3.5 h-3.5" />
-                                                {isSent ? 'Inviato ✓' : 'Invia WA'}
+                                                {isSent ? 'Inviato ✓' : isChecked ? 'WA Rinnovo' : saldoNum > 0 ? 'WA Rimborso' : 'WA Chiusura'}
                                             </button>
 
                                             {/* Badge Stato Rinnovo */}
