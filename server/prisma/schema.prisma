@@ -74,6 +74,8 @@ model Torneo {
   risultati      RisultatoTorneo[]
   sedi           SedeTorneo[]
   stagione       Stagione            @relation(fields: [stagioneId], references: [id])
+
+  @@index([stagioneId, dataInizio])
 }
 
 model GiorniOrariTorneo {
@@ -87,6 +89,8 @@ model GiorniOrariTorneo {
   sede                 SedeTorneo?        @relation(fields: [sedeId], references: [id])
   iscrizioni           IscrizioneTorneo[] @relation("TurnoPrincipale")
   iscrizioniSecondarie IscrizioneTorneo[] @relation("TurnoRiserva")
+
+  @@index([torneoId, orarioInizio])
 }
 
 model IscrizioneTorneo {
@@ -104,6 +108,10 @@ model IscrizioneTorneo {
   turno          GiorniOrariTorneo @relation("TurnoPrincipale", fields: [turnoId], references: [id])
   secondoTurno   GiorniOrariTorneo? @relation("TurnoRiserva", fields: [secondoTurnoId], references: [id])
   sede           SedeTorneo?       @relation(fields: [sedeId], references: [id])
+
+  @@unique([torneoId, giocatoreId])
+  @@index([torneoId, turnoId])
+  @@index([giocatoreId])
 }
 
 model RisultatoTorneo {
@@ -122,6 +130,9 @@ model RisultatoTorneo {
   riporto              Int       @default(0) // Totale birilli di riporto
   
   createdAt DateTime @default(now())
+
+  @@index([torneoId, posizione])
+  @@index([giocatoreId])
 }
 
 model PartitaTorneo {
@@ -159,6 +170,8 @@ model MovimentoContabile {
   data        DateTime      @default(now())
   adminId     String?
   giocatore   Giocatore     @relation(fields: [giocatoreId], references: [id])
+
+  @@index([giocatoreId, data])
 }
 
 model SaldoBorsellino {

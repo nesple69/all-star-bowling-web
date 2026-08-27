@@ -1,9 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import Fuse from 'fuse.js';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 
 interface ScrapedResult {
     posizione: number;
@@ -23,13 +21,52 @@ interface TorneoData {
     classifica: ScrapedResult[];
 }
 
-export const fetchTorneoFederazione = async (url: string): Promise<TorneoData> => {
+const isPrivateIpOrHost = (hostname: string): boolean => {
+    const lower = hostname.toLowerCase();
+    if (lower === 'localhost' || lower === '127.0.0.1' || lower === '::1' || lower === '0.0.0.0') {
+        return true;
+    }
+    // Blocca intervalli di indirizzi privati e metadata cloud
+    if (
+        lower.startsWith('10.') ||
+        lower.startsWith('192.168.') ||
+        lower.startsWith('169.254.') ||
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(lower)
+    ) {
+        return true;
+    }
+    return false;
+};
+
+export const validateScrapingUrl = (rawUrl: string): URL => {
+    let parsed: URL;
     try {
-        const { data: html } = await axios.get(url, {
+        parsed = new URL(rawUrl);
+    } catch {
+        throw new Error('URL non valido o malformato.');
+    }
+
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error('Protocollo non supportato. Utilizzare solo HTTP o HTTPS.');
+    }
+
+    if (isPrivateIpOrHost(parsed.hostname)) {
+        throw new Error('Accesso a risorse di rete interne o private non consentito.');
+    }
+
+    return parsed;
+};
+
+export const fetchTorneoFederazione = async (url: string): Promise<TorneoData> => {
+    const validatedUrl = validateScrapingUrl(url);
+
+    try {
+        const { data: html } = await axios.get(validatedUrl.toString(), {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             },
-            timeout: 30000
+            timeout: 25000,
+            maxRedirects: 3
         });
 
         const $ = cheerio.load(html);

@@ -1,9 +1,7 @@
 import PDFDocument from 'pdfkit';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-
-const prisma = new PrismaClient();
 
 interface BackupData {
     stagione: any;

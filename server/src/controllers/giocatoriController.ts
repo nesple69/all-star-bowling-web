@@ -3,27 +3,14 @@ import { CategoriaGiocatore, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { validationResult } from 'express-validator';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-
-// Helper to get authorized status
-const getIsAdmin = (req: Request) => {
-    const authHeader = req.headers['authorization'];
-    const token = Array.isArray(authHeader) ? authHeader[0] : authHeader?.split(' ')[1];
-
-    if (token && process.env.JWT_SECRET) {
-        try {
-            const decoded: any = jwt.verify(token, process.env.JWT_SECRET);
-            return decoded.role === 'ADMIN';
-        } catch (e) {
-            return false;
-        }
-    }
-    return false;
-};
+import { AuthRequest } from '../middleware/auth';
 
 // GET /api/giocatori
 export const getAllGiocatori = async (req: Request, res: Response) => {
     const { categoria, stagioneId } = req.query;
+    const authReq = req as AuthRequest;
+    const currentUser = authReq.user;
+    const isAdmin = currentUser?.role === 'ADMIN';
 
     try {
         const where: Prisma.GiocatoreWhereInput = {};
@@ -58,7 +45,6 @@ export const getAllGiocatori = async (req: Request, res: Response) => {
             orderBy: { cognome: 'asc' }
         });
 
-        // Recuperiamo anche il totale delle partite giocate per ogni giocatore tramite un'aggregazione
         const partiteStats = await prisma.risultatoTorneo.groupBy({
             by: ['giocatoreId'],
             _sum: {
@@ -68,21 +54,23 @@ export const getAllGiocatori = async (req: Request, res: Response) => {
 
         const partiteMap = new Map(partiteStats.map(s => [s.giocatoreId, s._sum.partiteGiocate || 0]));
 
-        const isAuthorized = getIsAdmin(req);
-
-        const safeGiocatori = giocatori.map((g: any) => ({
-            ...g,
-            torneiGiocati: g._count.risultati,
-            partiteGiocate: partiteMap.get(g.id) || 0,
-            telefono: isAuthorized ? g.telefono : undefined,
-            certificatoMedicoScadenza: isAuthorized ? g.certificatoMedicoScadenza : undefined,
-            user: isAuthorized ? g.user : undefined,
-            saldo: isAuthorized ? g.saldo : undefined
-        }));
+        const safeGiocatori = giocatori.map((g: any) => {
+            const isOwnerOrAdmin = isAdmin || (currentUser && currentUser.userId === g.userId);
+            return {
+                ...g,
+                torneiGiocati: g._count.risultati,
+                partiteGiocate: partiteMap.get(g.id) || 0,
+                telefono: isOwnerOrAdmin ? g.telefono : undefined,
+                certificatoMedicoScadenza: isOwnerOrAdmin ? g.certificatoMedicoScadenza : undefined,
+                user: isOwnerOrAdmin ? g.user : undefined,
+                saldo: isOwnerOrAdmin ? g.saldo : undefined
+            };
+        });
 
         res.json(safeGiocatori);
     } catch (error) {
-        res.status(500).json({ message: 'Errore nel recupero dei giocatori', error });
+        console.error('[GET_GIOCATORI_ERROR]', error);
+        res.status(500).json({ message: 'Errore nel recupero dei giocatori' });
     }
 };
 
@@ -101,13 +89,17 @@ export const getGiocatoriStats = async (_req: Request, res: Response) => {
 
         res.json(stats);
     } catch (error) {
-        res.status(500).json({ message: 'Errore nel recupero delle statistiche', error });
+        console.error('[GET_GIOCATORI_STATS_ERROR]', error);
+        res.status(500).json({ message: 'Errore nel recupero delle statistiche' });
     }
 };
 
 // GET /api/giocatori/:id
 export const getGiocatoreById = async (req: Request, res: Response) => {
     const { id } = req.params;
+    const authReq = req as AuthRequest;
+    const currentUser = authReq.user;
+    const isAdmin = currentUser?.role === 'ADMIN';
 
     try {
         const giocatore = await prisma.giocatore.findUnique({
@@ -135,7 +127,7 @@ export const getGiocatoreById = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Giocatore non trovato' });
         }
 
-        const isAuthorized = getIsAdmin(req);
+        const isAuthorized = isAdmin || (currentUser && currentUser.userId === giocatore.userId);
 
         const safeGiocatore = {
             ...giocatore,
@@ -147,7 +139,8 @@ export const getGiocatoreById = async (req: Request, res: Response) => {
 
         res.json(safeGiocatore);
     } catch (error) {
-        res.status(500).json({ message: 'Errore nel recupero del giocatore', error });
+        console.error('[GET_GIOCATORE_BY_ID_ERROR]', error);
+        res.status(500).json({ message: 'Errore nel recupero del giocatore' });
     }
 };
 
@@ -254,21 +247,28 @@ export const updateGiocatore = async (req: Request, res: Response) => {
             mediaAttuale = totaleBirilli / partiteGiocate;
         }
 
+        let parsedCertificato: Date | null | undefined = undefined;
+        if (certificatoMedicoScadenza === null || certificatoMedicoScadenza === '') {
+            parsedCertificato = null;
+        } else if (certificatoMedicoScadenza !== undefined) {
+            parsedCertificato = new Date(certificatoMedicoScadenza);
+        }
+
         const giocatore = await prisma.giocatore.update({
             where: { id: id as string },
             data: {
                 nome,
                 cognome,
                 dataNascita: dataNascita ? new Date(dataNascita) : undefined,
-                telefono,
-                numeroTessera,
+                telefono: telefono !== undefined ? (telefono || null) : undefined,
+                numeroTessera: numeroTessera !== undefined ? (numeroTessera || null) : undefined,
                 sesso,
                 categoria: categoria as any,
                 isSenior: isSenior !== undefined ? isSenior : undefined,
                 fasciaSenior: fasciaSenior as any,
-                certificatoMedicoScadenza: certificatoMedicoScadenza ? new Date(certificatoMedicoScadenza) : undefined,
+                certificatoMedicoScadenza: parsedCertificato,
                 isAziendale: isAziendale !== undefined ? isAziendale : undefined,
-                aziendaAffiliata,
+                aziendaAffiliata: aziendaAffiliata !== undefined ? (aziendaAffiliata || null) : undefined,
                 totaleBirilli: totaleBirilli !== undefined ? totaleBirilli : undefined,
                 mediaAttuale: mediaAttuale
             }
@@ -276,7 +276,8 @@ export const updateGiocatore = async (req: Request, res: Response) => {
 
         res.json(giocatore);
     } catch (error) {
-        res.status(500).json({ message: 'Errore nell\'aggiornamento del giocatore', error });
+        console.error('[UPDATE_GIOCATORE_ERROR]', error);
+        res.status(500).json({ message: 'Errore nell\'aggiornamento del giocatore' });
     }
 };
 

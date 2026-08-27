@@ -28,11 +28,22 @@ export const getAllUsers = async (_req: AuthRequest, res: Response) => {
 export const createAdmin = async (req: AuthRequest, res: Response) => {
     const { username, email, password, nome, cognome } = req.body;
 
+    if (!username || !password || !nome || !cognome) {
+        return res.status(400).json({ message: 'Tutti i campi obbligatori devono essere compilati' });
+    }
+
     try {
         // Verifica username univoco
         const exists = await prisma.user.findUnique({ where: { username } });
         if (exists) {
             return res.status(400).json({ message: 'Username già in uso' });
+        }
+
+        if (email) {
+            const emailExists = await prisma.user.findUnique({ where: { email } });
+            if (emailExists) {
+                return res.status(400).json({ message: 'Email già in uso' });
+            }
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -53,7 +64,8 @@ export const createAdmin = async (req: AuthRequest, res: Response) => {
             user: { id: newAdmin.id, username: newAdmin.username }
         });
     } catch (error) {
-        res.status(500).json({ message: 'Errore nella creazione admin', error });
+        console.error('[CREATE_ADMIN_ERROR]', error);
+        res.status(500).json({ message: 'Errore nella creazione dell\'amministratore' });
     }
 };
 
@@ -80,7 +92,8 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
 
         res.json({ message: 'Ruolo aggiornato', user: updated });
     } catch (error) {
-        res.status(500).json({ message: 'Errore nell\'aggiornamento ruolo', error });
+        console.error('[UPDATE_USER_ROLE_ERROR]', error);
+        res.status(500).json({ message: 'Errore nell\'aggiornamento del ruolo' });
     }
 };
 
@@ -95,8 +108,16 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
         }
 
         // Verifica che non sia l'ultimo admin
-        const user = await prisma.user.findUnique({ where: { id: id as string } });
-        if (user?.ruolo === 'ADMIN') {
+        const user = await prisma.user.findUnique({
+            where: { id: id as string },
+            include: { giocatore: true }
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: 'Utente non trovato' });
+        }
+
+        if (user.ruolo === 'ADMIN') {
             const adminCount = await prisma.user.count({ where: { ruolo: 'ADMIN' } });
             if (adminCount <= 1) {
                 return res.status(400).json({
@@ -105,10 +126,25 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
             }
         }
 
-        await prisma.user.delete({ where: { id: id as string } });
+        // Se l'utente ha un profilo giocatore associato, esegue l'eliminazione atomica pulita
+        if (user.giocatore) {
+            const giocatoreId = user.giocatore.id;
+            await prisma.$transaction([
+                prisma.iscrizioneTorneo.deleteMany({ where: { giocatoreId } }),
+                prisma.risultatoTorneo.deleteMany({ where: { giocatoreId } }),
+                prisma.saldoBorsellino.deleteMany({ where: { giocatoreId } }),
+                prisma.movimentoContabile.deleteMany({ where: { giocatoreId } }),
+                prisma.giocatore.delete({ where: { id: giocatoreId } }),
+                prisma.user.delete({ where: { id: id as string } })
+            ]);
+        } else {
+            await prisma.user.delete({ where: { id: id as string } });
+        }
+
         res.json({ message: 'Utente eliminato con successo' });
     } catch (error) {
-        res.status(500).json({ message: 'Errore nell\'eliminazione utente', error });
+        console.error('[DELETE_USER_ERROR]', error);
+        res.status(500).json({ message: 'Errore nell\'eliminazione dell\'utente' });
     }
 };
 
@@ -131,6 +167,7 @@ export const resetUserPassword = async (req: AuthRequest, res: Response) => {
 
         res.json({ message: 'Password utente aggiornata con successo' });
     } catch (error) {
-        res.status(500).json({ message: 'Errore durante il reset della password', error });
+        console.error('[RESET_PASSWORD_ERROR]', error);
+        res.status(500).json({ message: 'Errore durante il reset della password' });
     }
 };

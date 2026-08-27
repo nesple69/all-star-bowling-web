@@ -33,8 +33,10 @@ app.use((req, res, next) => {
 // Rotte - Supporto doppio prefisso per Vercel
 const apiRouter = express.Router();
 
-// Diagnostica Ambiente (per risolvere il 500)
-apiRouter.get('/debug-env', (req, res) => {
+import { authenticateToken, isAdmin } from './middleware/auth';
+
+// Diagnostica Ambiente (Protetta: solo ADMIN)
+apiRouter.get('/debug-env', authenticateToken, isAdmin, (req, res) => {
     res.json({
         status: 'diagnostic',
         has_db: !!process.env.DATABASE_URL,

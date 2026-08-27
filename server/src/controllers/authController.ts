@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
 import { validationResult } from 'express-validator';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
+import { JWT_SECRET } from '../middleware/auth';
 
 export const register = async (req: Request, res: Response) => {
     const errors = validationResult(req);
@@ -15,9 +15,18 @@ export const register = async (req: Request, res: Response) => {
     const { username, email, password, nome, cognome, ruolo } = req.body;
 
     try {
-        const usernameExists = await prisma.user.findUnique({ where: { username } });
-        if (usernameExists) {
-            return res.status(400).json({ message: 'Username già in uso' });
+        if (username) {
+            const usernameExists = await prisma.user.findUnique({ where: { username } });
+            if (usernameExists) {
+                return res.status(400).json({ message: 'Username già in uso' });
+            }
+        }
+
+        if (email) {
+            const emailExists = await prisma.user.findUnique({ where: { email } });
+            if (emailExists) {
+                return res.status(400).json({ message: 'Email già in uso' });
+            }
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -35,7 +44,8 @@ export const register = async (req: Request, res: Response) => {
 
         res.status(201).json({ message: 'Utente creato correttamente', userId: user.id });
     } catch (error) {
-        res.status(500).json({ message: 'Errore durante la registrazione', error });
+        console.error('[AUTH_REGISTER_ERROR]', error);
+        res.status(500).json({ message: 'Errore durante la registrazione' });
     }
 };
 

@@ -613,10 +613,52 @@ export const upsertRisultato = async (req: Request, res: Response) => {
 export const deleteRisultato = async (req: Request, res: Response) => {
     const risultatoId = req.params.risultatoId as string;
     try {
-        await prisma.risultatoTorneo.delete({ where: { id: risultatoId } });
-        res.json({ message: 'Risultato eliminato' });
-    } catch (error) {
-        res.status(500).json({ message: 'Errore nell\'eliminazione del risultato', error });
+        await prisma.$transaction(async (tx) => {
+            const risultato = await tx.risultatoTorneo.findUnique({
+                where: { id: risultatoId }
+            });
+
+            if (!risultato) {
+                throw new Error('Risultato non trovato');
+            }
+
+            const giocatoreId = risultato.giocatoreId;
+
+            // Elimina il risultato (cancella in cascata anche le partite associate)
+            await tx.risultatoTorneo.delete({ where: { id: risultatoId } });
+
+            // Ricalcolo delle statistiche cumulative del giocatore
+            const tuttiRisultati = await tx.risultatoTorneo.findMany({
+                where: { giocatoreId },
+                include: { partite: true }
+            });
+
+            const totaleBirilliNetto = tuttiRisultati.reduce((sum, r) => sum + r.totaleBirilli, 0);
+            const totalePartiteReali = tuttiRisultati.reduce((sum, r) => sum + r.partiteGiocate, 0);
+            const mediaAttuale = totalePartiteReali > 0 ? totaleBirilliNetto / totalePartiteReali : 0;
+
+            const tuttePartiteReali = tuttiRisultati.flatMap(r => 
+                r.partite.filter(p => !p.isRiporto).map(p => p.birilli)
+            );
+            const migliorPartita = tuttePartiteReali.length > 0 ? Math.max(...tuttePartiteReali) : 0;
+
+            await tx.giocatore.update({
+                where: { id: giocatoreId },
+                data: {
+                    totaleBirilli: totaleBirilliNetto,
+                    mediaAttuale,
+                    migliorPartita
+                }
+            });
+        });
+
+        res.json({ message: 'Risultato eliminato e statistiche giocatore aggiornate' });
+    } catch (error: any) {
+        console.error('Errore eliminazione risultato:', error);
+        if (error.message === 'Risultato non trovato') {
+            return res.status(404).json({ message: error.message });
+        }
+        res.status(500).json({ message: 'Errore nell\'eliminazione del risultato' });
     }
 };
 

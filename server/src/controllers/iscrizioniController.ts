@@ -1,9 +1,13 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { AuthRequest } from '../middleware/auth';
 
-// GET /api/tornei/lookup-tessera/:tessera (Pubblico - Lookup giocatore per tessera)
+// GET /api/tornei/lookup-tessera/:tessera (Pubblico / Autenticato - Lookup giocatore per tessera)
 export const lookupTessera = async (req: Request, res: Response) => {
     const tessera = req.params.tessera as string;
+    const authReq = req as AuthRequest;
+    const currentUser = authReq.user;
+
     try {
         const giocatore = await prisma.giocatore.findFirst({
             where: { numeroTessera: { equals: tessera, mode: 'insensitive' } },
@@ -15,6 +19,7 @@ export const lookupTessera = async (req: Request, res: Response) => {
                 sesso: true,
                 telefono: true,
                 certificatoMedicoScadenza: true,
+                userId: true,
                 saldo: { select: { saldoAttuale: true } },
                 iscrizioni: {
                     select: { torneoId: true, turnoId: true, stato: true }
@@ -26,7 +31,25 @@ export const lookupTessera = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Numero tessera non trovato. Verifica e riprova.' });
         }
 
-        res.json(giocatore);
+        const isAuthorized = currentUser?.role === 'ADMIN' || (currentUser && currentUser.userId === giocatore.userId);
+
+        const isCertificatoValido = giocatore.certificatoMedicoScadenza
+            ? new Date(giocatore.certificatoMedicoScadenza) >= new Date()
+            : false;
+
+        // Se autorizzato, ritorna tutti i campi; altrimenti solo dati minimizzati per iscrizione anonima
+        res.json({
+            id: giocatore.id,
+            nome: giocatore.nome,
+            cognome: giocatore.cognome,
+            categoria: giocatore.categoria,
+            sesso: giocatore.sesso,
+            certificatoValido: isCertificatoValido,
+            telefono: isAuthorized ? giocatore.telefono : undefined,
+            certificatoMedicoScadenza: isAuthorized ? giocatore.certificatoMedicoScadenza : undefined,
+            saldo: isAuthorized ? giocatore.saldo : undefined,
+            iscrizioni: isAuthorized ? giocatore.iscrizioni : []
+        });
     } catch (err) {
         console.error('Errore lookup tessera:', err);
         res.status(500).json({ message: 'Errore nel recupero dati giocatore.' });
@@ -37,53 +60,6 @@ export const lookupTessera = async (req: Request, res: Response) => {
 export const getIscrizioniTorneo = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     try {
-        // --- FINE UNIFICAZIONE ---
-        // --- AUTO-SINCRONIZZAZIONE SEDI TURNI (Advanced Self-Healing) ---
-        // Se ci sono più turni nello stesso giorno/ora, e alcuni hanno la sede e altri no, sincronizzali.
-        // allTurni è già stato recuperato nella logica di unificazione sopra, lo riutilizziamo se disponibile
-        // ma per sicurezza e isolamento lo chiamiamo in modo diverso qui se necessario, o usiamo un blocco
-        {
-            const turniFix = await prisma.giorniOrariTorneo.findMany({
-                where: { torneoId: id },
-                orderBy: { orarioInizio: 'asc' }
-            });
-
-            const turniByTime: Record<string, any[]> = {};
-            turniFix.forEach(t => {
-                const timeKey = t.orarioInizio.toISOString();
-                if (!turniByTime[timeKey]) turniByTime[timeKey] = [];
-                turniByTime[timeKey].push(t);
-            });
-
-            for (const timeKey in turniByTime) {
-                const group = turniByTime[timeKey];
-                if (group.length > 1) {
-                    const turnWithSede = group.find(t => t.sedeId);
-                    if (turnWithSede) {
-                        await prisma.giorniOrariTorneo.updateMany({
-                            where: { 
-                                torneoId: id, 
-                                orarioInizio: new Date(timeKey),
-                                sedeId: null 
-                            },
-                            data: { sedeId: turnWithSede.sedeId }
-                        });
-                        
-                        await prisma.iscrizioneTorneo.updateMany({
-                            where: { 
-                                torneoId: id, 
-                                sedeId: null,
-                                turno: { orarioInizio: new Date(timeKey) }
-                            },
-                            data: { sedeId: turnWithSede.sedeId }
-                        });
-                    }
-                }
-            }
-        }
-        // --- FINE AUTO-SINCRONIZZAZIONE SEDI ---
-
-        // Recupero info torneo per i fallback successivi
         const torneoInfo = await prisma.torneo.findUnique({
             where: { id },
             include: { sedi: true }
@@ -130,19 +106,12 @@ export const getIscrizioniTorneo = async (req: Request, res: Response) => {
             },
             orderBy: { createdAt: 'desc' }
         });
-        // Mappa le iscrizioni per assicurarsi che 'sede' sia popolata se possibile (fallback dal turno o dal torneo)
-        const mappedIscrizioni = iscrizioni.map(iscr => {
-            // Se c'è già una sede assegnata all'iscrizione, usiamo quella
-            if (iscr.sede) return iscr;
 
-            // Altrimenti, se il turno ha una sede specifica, usiamo quella
+        const mappedIscrizioni = iscrizioni.map(iscr => {
+            if (iscr.sede) return iscr;
             if ((iscr.turno as any)?.sede) {
                 return { ...iscr, sede: (iscr.turno as any).sede };
             }
-
-            // Fallback intelligente: usiamo la sede principale solo se il torneo ne ha una definita come stringa
-            // o se c'è UNA SOLA sede nel torneo. Se ce ne sono molteplici e non c'è match categoria, 
-            // lasciamo null per evitare errori (come MA assegnato a Oltremare).
             const torneoSedeDefault = torneoInfo?.sede
                 ? { nome: torneoInfo.sede }
                 : (torneoInfo?.sedi && torneoInfo.sedi.length === 1 ? torneoInfo.sedi[0] : null);
@@ -160,53 +129,14 @@ export const getIscrizioniTorneo = async (req: Request, res: Response) => {
     }
 };
 
-// GET /api/tornei/public/:id/iscritti (Pubblico - Lista iscritti limitata)
+// GET /api/tornei/public/:id/iscritti (Pubblico - Lista iscritti limitata in sola lettura)
 export const getIscrizioniPublic = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     try {
-        // --- FINE UNIFICAZIONE ---
-
-        // --- AUTO-ASSEGNAZIONE SEDE (Advanced Self-Healing) ---
         const torneoInfo = await prisma.torneo.findUnique({
             where: { id },
             include: { sedi: true }
         });
-
-        if (torneoInfo && torneoInfo.sedi.length > 0) {
-            // Se c'è una sola sede, assegnazione universale
-            if (torneoInfo.sedi.length === 1) {
-                const singleSedeId = torneoInfo.sedi[0].id;
-                await prisma.iscrizioneTorneo.updateMany({
-                    where: { torneoId: id, sedeId: null },
-                    data: { sedeId: singleSedeId }
-                });
-            } else {
-                // Se ci sono più sedi, assegna in base alla categoria dell'atleta
-                const iscrizioniMissing = await prisma.iscrizioneTorneo.findMany({
-                    where: { torneoId: id, sedeId: null },
-                    include: { giocatore: true }
-                });
-
-                for (const iscr of iscrizioniMissing) {
-                    const cat = iscr.giocatore.categoria;
-                    const sesso = iscr.giocatore.sesso;
-                    const fullCat = `${sesso}/${cat}`; // Es: M/A
-
-                    const targetSede = torneoInfo.sedi.find(s => 
-                        s.categorie.includes(fullCat) || 
-                        s.categorie.includes(cat)
-                    );
-
-                    if (targetSede) {
-                        await prisma.iscrizioneTorneo.update({
-                            where: { id: iscr.id },
-                            data: { sedeId: targetSede.id }
-                        });
-                    }
-                }
-            }
-        }
-        // --- FINE AUTO-ASSEGNAZIONE SEDE ---
 
         const iscrizioni = await prisma.iscrizioneTorneo.findMany({
             where: {
@@ -241,16 +171,13 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
             }
         });
 
-        // Ordinamento lato JS per data del turno (dal più lontano al più vicino)
         const ordinati = iscrizioni.sort((a, b) => {
             const dateA = new Date(a.turno?.orarioInizio || 0).getTime();
             const dateB = new Date(b.turno?.orarioInizio || 0).getTime();
-            return dateA - dateB; // Cronologico
+            return dateA - dateB;
         });
 
-        // Mappa le iscrizioni per assicurarsi che 'sede' sia popolata se possibile (fallback dal turno o dal torneo)
         const mappedIscrizioni = ordinati.map(iscr => {
-            // Se c'è già una sede, mantieni quella
             if (iscr.sede) {
                 return {
                     giocatore: iscr.giocatore,
@@ -260,8 +187,6 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
                 };
             }
 
-            // Fallback intelligente: usiamo la sede principale solo se il torneo ne ha una definita come stringa
-            // o se c'è UNA SOLA sede nel torneo. 
             const torneoSedeDefault = torneoInfo?.sede
                 ? { nome: torneoInfo.sede }
                 : (torneoInfo?.sedi && torneoInfo.sedi.length === 1 ? torneoInfo.sedi[0] : null);
@@ -379,21 +304,23 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
             }
         }
 
-        // Già iscritto?
-        const esistente = await prisma.iscrizioneTorneo.findFirst({
-            where: { torneoId, giocatoreId }
-        });
-        if (esistente) return res.status(400).json({ message: 'Sei già iscritto a questo torneo.' });
-
-        // Posti disponibili?
-        const occupati = (turno as any)._count?.iscrizioni || 0;
-        if (occupati >= turno.postiDisponibili) {
-            return res.status(400).json({ message: 'Turno esaurito.' });
-        }
-
-        const costo = Number((torneo as any).costoIscrizione || 0);
+        const costo = Math.abs(Number((torneo as any).costoIscrizione || 0));
 
         const risultato = await prisma.$transaction(async (tx) => {
+            // Verifica duplicati atomica
+            const esistente = await tx.iscrizioneTorneo.findFirst({
+                where: { torneoId, giocatoreId }
+            });
+            if (esistente) throw new Error('Sei già iscritto a questo torneo.');
+
+            // Verifica disponibilità posti atomica
+            const occupati = await tx.iscrizioneTorneo.count({
+                where: { turnoId }
+            });
+            if (occupati >= turno.postiDisponibili) {
+                throw new Error('Turno esaurito.');
+            }
+
             if (costo > 0) {
                 const saldo = await tx.saldoBorsellino.findUnique({ where: { giocatoreId } });
                 
@@ -413,10 +340,11 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
                     }
                 });
 
+                // Importo registrato come positivo per consistenza contabile
                 await tx.movimentoContabile.create({
                     data: {
                         giocatoreId,
-                        importo: -costo,
+                        importo: costo,
                         tipo: 'ISCRIZIONE_TORNEO',
                         descrizione: `Iscrizione torneo: ${torneo.nome}`
                     }

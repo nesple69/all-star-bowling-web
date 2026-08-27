@@ -52,31 +52,81 @@ router.get('/genera/:stagioneId', async (req: AuthRequest, res: Response) => {
     }
 });
 
+import os from 'os';
+import { prisma } from '../lib/prisma';
+
+/**
+ * Genera un dump completo in formato JSON di tutti i dati applicativi
+ */
+async function generateJsonDatabaseBackup(): Promise<string> {
+    const [
+        users,
+        giocatori,
+        stagioni,
+        tornei,
+        turni,
+        iscrizioni,
+        risultati,
+        partite,
+        sedi,
+        movimenti,
+        saldi
+    ] = await Promise.all([
+        prisma.user.findMany({ select: { id: true, username: true, email: true, nome: true, cognome: true, ruolo: true, createdAt: true } }),
+        prisma.giocatore.findMany(),
+        prisma.stagione.findMany(),
+        prisma.torneo.findMany(),
+        prisma.giorniOrariTorneo.findMany(),
+        prisma.iscrizioneTorneo.findMany(),
+        prisma.risultatoTorneo.findMany(),
+        prisma.partitaTorneo.findMany(),
+        prisma.sedeTorneo.findMany(),
+        prisma.movimentoContabile.findMany(),
+        prisma.saldoBorsellino.findMany()
+    ]);
+
+    const backupPayload = {
+        metadata: {
+            app: 'All Star Team Management',
+            version: '2.0.0',
+            exportedAt: new Date().toISOString(),
+            format: 'json-snapshot'
+        },
+        data: {
+            users,
+            giocatori,
+            stagioni,
+            tornei,
+            turni,
+            iscrizioni,
+            risultati,
+            partite,
+            sedi,
+            movimenti,
+            saldi
+        }
+    };
+
+    return JSON.stringify(backupPayload, null, 2);
+}
+
 /**
  * GET /api/backup/database
- * Genera dump completo del database PostgreSQL
+ * Genera dump completo del database (SQL nativo con pg_dump o Smart Fallback JSON per ambienti cloud/serverless)
  */
 router.get('/database', async (req: AuthRequest, res: Response) => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+    const databaseUrl = process.env.DATABASE_URL;
+
+    if (!databaseUrl) {
+        return res.status(500).json({ message: 'DATABASE_URL non configurato' });
+    }
+
     try {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
-        const filename = `backup-database-${timestamp}.sql`;
-        const backupPath = path.join(__dirname, '../../backups', filename);
+        const tempDir = os.tmpdir();
+        const sqlFilename = `backup-database-${timestamp}.sql`;
+        const sqlBackupPath = path.join(tempDir, sqlFilename);
 
-        // Crea directory backups se non esiste
-        const backupsDir = path.join(__dirname, '../../backups');
-        if (!fs.existsSync(backupsDir)) {
-            fs.mkdirSync(backupsDir, { recursive: true });
-        }
-
-        // Ottieni i dettagli di connessione dal DATABASE_URL
-        const databaseUrl = process.env.DATABASE_URL;
-
-        if (!databaseUrl) {
-            return res.status(500).json({ message: 'DATABASE_URL non configurato' });
-        }
-
-        // Parse DATABASE_URL
-        // Formato: postgresql://user:password@host:port/database
         const dbUrl = new URL(databaseUrl);
         const dbUser = dbUrl.username;
         const dbPassword = dbUrl.password;
@@ -84,53 +134,50 @@ router.get('/database', async (req: AuthRequest, res: Response) => {
         const dbPort = dbUrl.port || '5432';
         const dbName = dbUrl.pathname.substring(1);
 
-        // Costruisci comando pg_dump
-        const pgDumpCommand = `PGPASSWORD="${dbPassword}" pg_dump -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -F p -f "${backupPath}"`;
+        // Tentativo di dump nativo con pg_dump
+        try {
+            const pgDumpCommand = `pg_dump -h "${dbHost}" -p "${dbPort}" -U "${dbUser}" -d "${dbName}" -F p -f "${sqlBackupPath}"`;
 
-        // Esegui pg_dump
-        await execAsync(pgDumpCommand, {
-            env: {
-                ...process.env,
-                PGPASSWORD: dbPassword
+            await execAsync(pgDumpCommand, {
+                env: {
+                    ...process.env,
+                    PGPASSWORD: dbPassword
+                },
+                timeout: 30000
+            });
+
+            if (fs.existsSync(sqlBackupPath)) {
+                const fileBuffer = fs.readFileSync(sqlBackupPath);
+                res.setHeader('Content-Type', 'application/sql');
+                res.setHeader('Content-Disposition', `attachment; filename="${sqlFilename}"`);
+                res.setHeader('Content-Length', fileBuffer.length);
+
+                res.send(fileBuffer);
+
+                setTimeout(() => {
+                    try { if (fs.existsSync(sqlBackupPath)) fs.unlinkSync(sqlBackupPath); } catch {}
+                }, 3000);
+                return;
             }
-        });
-
-        // Verifica che il file sia stato creato
-        if (!fs.existsSync(backupPath)) {
-            return res.status(500).json({ message: 'Errore nella creazione del backup' });
+        } catch (pgError: any) {
+            console.warn('⚠️ pg_dump non disponibile nell\'ambiente host. Esecuzione Smart JSON Fallback:', pgError.message);
         }
 
-        // Leggi il file e invialo
-        const fileBuffer = fs.readFileSync(backupPath);
+        // Fallback: Esportazione JSON strutturata (funziona ovunque, incluso Vercel)
+        const jsonContent = await generateJsonDatabaseBackup();
+        const jsonBuffer = Buffer.from(jsonContent, 'utf-8');
+        const jsonFilename = `backup-database-${timestamp}.json`;
 
-        // Imposta gli headers per il download
-        res.setHeader('Content-Type', 'application/sql');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.setHeader('Content-Length', fileBuffer.length);
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="${jsonFilename}"`);
+        res.setHeader('Content-Length', jsonBuffer.length);
 
-        // Invia il file
-        res.send(fileBuffer);
-
-        // Elimina il file temporaneo dopo l'invio
-        setTimeout(() => {
-            if (fs.existsSync(backupPath)) {
-                fs.unlinkSync(backupPath);
-            }
-        }, 5000);
+        res.send(jsonBuffer);
 
     } catch (error: any) {
         console.error('Errore nel backup del database:', error);
-
-        if (error.message.includes('pg_dump')) {
-            return res.status(500).json({
-                message: 'pg_dump non trovato. Assicurati che PostgreSQL sia installato e pg_dump sia nel PATH.',
-                error: error.message
-            });
-        }
-
         res.status(500).json({
-            message: 'Errore nel backup del database',
-            error: error.message
+            message: 'Errore durante la generazione del backup del database'
         });
     }
 });

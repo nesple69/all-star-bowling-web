@@ -1,7 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
+export const getJwtSecret = (): string => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret || secret === 'fallback_secret') {
+        if (process.env.NODE_ENV === 'production') {
+            throw new Error('CRITICAL SECURITY ERROR: JWT_SECRET non configurato o insicuro in ambiente di produzione.');
+        }
+        console.warn('⚠️ ATTENZIONE: JWT_SECRET non configurato o impostato su fallback_secret. Configurare una chiave sicura.');
+        return 'fallback_dev_secret_only_for_local_env_never_prod';
+    }
+    return secret;
+};
+
+export const JWT_SECRET = getJwtSecret();
 
 export interface AuthRequest extends Request {
     user?: {

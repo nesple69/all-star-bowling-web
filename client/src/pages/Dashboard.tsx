@@ -71,19 +71,21 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
-    const { user, isAdmin } = useAuth();
+    const { user, isAdmin, token } = useAuth();
     const [iscrittiMap, setIscrittiMap] = useState<Record<string, IscrittoPublic[]>>({});
     // @ts-ignore
     const [loadingIscritti, setLoadingIscritti] = useState<Record<string, boolean>>({});
     const [openIscritti, setOpenIscritti] = useState<Record<string, boolean>>({});
 
     const fetchStats = async (): Promise<DashboardData> => {
-        const response = await axios.get(`${API_BASE_URL}/api/dashboard/stats`);
+        const response = await axios.get(`${API_BASE_URL}/api/dashboard/stats`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
         return response.data;
     };
 
     const { data, isLoading, error: queryError } = useQuery({
-        queryKey: ['dashboardStats'],
+        queryKey: ['dashboardStats', token],
         queryFn: fetchStats,
     });
 

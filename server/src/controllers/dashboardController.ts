@@ -74,25 +74,29 @@ export const getDashboardStats = async (req: Request, res: Response) => {
             }
         });
 
-        // 4. Certificati in scadenza (< 20 giorni o già scaduti)
-        const limiteScadenza = addDays(oggi, 20);
+        // 4. Certificati in scadenza (< 20 giorni o già scaduti) - Solo per ADMIN (Privacy/GDPR)
+        const isAdmin = (req as any).user?.role === 'ADMIN';
+        let certificatiInScadenza: any[] = [];
 
-        const certificatiInScadenza = await prisma.giocatore.findMany({
-            where: {
-                certificatoMedicoScadenza: {
-                    lte: limiteScadenza
+        if (isAdmin) {
+            const limiteScadenza = addDays(oggi, 20);
+            certificatiInScadenza = await prisma.giocatore.findMany({
+                where: {
+                    certificatoMedicoScadenza: {
+                        lte: limiteScadenza
+                    }
+                },
+                orderBy: {
+                    certificatoMedicoScadenza: 'asc'
+                },
+                select: {
+                    id: true,
+                    nome: true,
+                    cognome: true,
+                    certificatoMedicoScadenza: true
                 }
-            },
-            orderBy: {
-                certificatoMedicoScadenza: 'asc'
-            },
-            select: {
-                id: true,
-                nome: true,
-                cognome: true,
-                certificatoMedicoScadenza: true
-            }
-        });
+            });
+        }
 
         res.json({
             statsPerCategoria: statsPerCategoria.map(s => ({

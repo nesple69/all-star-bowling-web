@@ -1,11 +1,10 @@
 import { Router } from 'express';
 import { getDashboardStats } from '../controllers/dashboardController';
+import { optionalAuthenticate } from '../middleware/auth';
 
 const router = Router();
 
-// Endpoint per la dashboard (pubblico o protetto a seconda delle necessità)
-// In questo caso, per consentire la visualizzazione "Visitatore", la rendiamo pubblica
-// ma con dati limitati se necessario nel controller (qui ritorniamo dati aggregati/pubblici)
-router.get('/stats', getDashboardStats);
+// Endpoint per la dashboard (pubblico per dati aggregati, protetto con optionalAuthenticate per dati sensibili admin)
+router.get('/stats', optionalAuthenticate, getDashboardStats);
 
 export default router;

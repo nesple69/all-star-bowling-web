@@ -1,15 +1,14 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import * as giocatoriController from '../controllers/giocatoriController';
-import { authenticateToken, isAdmin } from '../middleware/auth';
+import { authenticateToken, isAdmin, optionalAuthenticate } from '../middleware/auth';
 
 const router = Router();
 
-// Endpoint pubblici (ma richiedono login)
-// Endpoint pubblici (Lettura)
-router.get('/', giocatoriController.getAllGiocatori);
+// Endpoint di lettura (supportano autenticazione opzionale per dati aggiuntivi autorizzati)
+router.get('/', optionalAuthenticate, giocatoriController.getAllGiocatori);
 router.get('/stats', giocatoriController.getGiocatoriStats);
-router.get('/:id', giocatoriController.getGiocatoreById);
+router.get('/:id', optionalAuthenticate, giocatoriController.getGiocatoreById);
 
 // Endpoint riservati agli ADMIN
 router.post(
