@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../config';
 import {
     Trophy, Plus, Edit2, Trash2, Calendar,
     MapPin, Settings, AlertCircle, Users, ChevronUp,
-    CheckCircle2, XCircle, MessageCircle, Save, X, Pencil, Download
+    CheckCircle2, XCircle, MessageCircle, Save, X, Pencil, Download, UserCheck
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -582,7 +582,15 @@ const GestioneTornei: React.FC = () => {
                                     <span className="inline-block mt-1 bg-green-500 text-white text-[8px] font-black px-2 py-0.5 rounded uppercase">Attiva</span>
                                 )}
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex items-center gap-2">
+                                <Link
+                                    to="/admin/stagioni"
+                                    className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm"
+                                    title="Gestisci rinnovi giocatori per questa stagione"
+                                >
+                                    <UserCheck className="w-4 h-4" />
+                                    Rinnovi Squadra
+                                </Link>
                                 <button
                                     onClick={() => handleDownloadBackup(stagioneCorrente.id, stagioneCorrente.nome)}
                                     className="p-2 bg-green-50 text-green-600 hover:bg-green-500 hover:text-white rounded-lg transition-all"
