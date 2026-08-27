@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../config';
 import {
     Trophy, Plus, Edit2, Trash2, Calendar,
     MapPin, Settings, AlertCircle, Users, ChevronUp,
-    CheckCircle2, XCircle, MessageCircle, Save, X, Pencil, Download, UserCheck
+    CheckCircle2, XCircle, MessageCircle, Save, X, Pencil, Download, UserCheck, Search
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -114,8 +114,76 @@ const GestioneTornei: React.FC = () => {
     });
     const [statusStagione, setStatusStagione] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
 
+    // --- Rinnovi Squadra Modal State ---
+    const [showRinnoviModal, setShowRinnoviModal] = useState(false);
+    const [giocatoriRinnovo, setGiocatoriRinnovo] = useState<any[]>([]);
+    const [selectedMap, setSelectedMap] = useState<Record<string, boolean>>({});
+    const [searchRinnovi, setSearchRinnovi] = useState('');
+    const [isLoadingRinnovi, setIsLoadingRinnovi] = useState(false);
+    const [isSavingRinnovi, setIsSavingRinnovi] = useState(false);
+
     const token = sessionStorage.getItem('token');
     const headers = { Authorization: `Bearer ${token}` };
+
+    const handleOpenRinnoviModal = async () => {
+        setIsLoadingRinnovi(true);
+        setShowRinnoviModal(true);
+        try {
+            const res = await axios.get(`${API_BASE_URL}/api/giocatori`, { headers });
+            const list: any[] = res.data;
+            setGiocatoriRinnovo(list);
+            const map: Record<string, boolean> = {};
+            list.forEach(g => {
+                map[g.id] = g.attivo !== false;
+            });
+            setSelectedMap(map);
+        } catch (err: any) {
+            alert('Errore nel caricamento dei giocatori.');
+        } finally {
+            setIsLoadingRinnovi(false);
+        }
+    };
+
+    const handleSaveRinnovi = async () => {
+        setIsSavingRinnovi(true);
+        try {
+            const rinnovatiIds: string[] = [];
+            const nonRinnovatiIds: string[] = [];
+
+            giocatoriRinnovo.forEach(g => {
+                if (selectedMap[g.id]) {
+                    rinnovatiIds.push(g.id);
+                } else {
+                    nonRinnovatiIds.push(g.id);
+                }
+            });
+
+            await axios.post(`${API_BASE_URL}/api/stagioni/rinnovi-bulk`, {
+                rinnovatiIds,
+                nonRinnovatiIds
+            }, { headers });
+
+            alert(`✅ Rinnovi confermati con successo!\n\n• ${rinnovatiIds.length} Atleti Attivi in Rosa\n• ${nonRinnovatiIds.length} Atleti Archiviati nello Storico.`);
+            setShowRinnoviModal(false);
+        } catch (err: any) {
+            alert(err.response?.data?.message || 'Errore nel salvataggio dei rinnovi.');
+        } finally {
+            setIsSavingRinnovi(false);
+        }
+    };
+
+    const handleSelectAllRinnovi = (value: boolean) => {
+        const newMap = { ...selectedMap };
+        giocatoriRinnovo.forEach(g => {
+            newMap[g.id] = value;
+        });
+        setSelectedMap(newMap);
+    };
+
+    const filteredGiocatoriRinnovo = giocatoriRinnovo.filter(g => {
+        const text = `${g.nome} ${g.cognome} ${g.numeroTessera || ''}`.toLowerCase();
+        return text.includes(searchRinnovi.toLowerCase());
+    });
 
     const fetchTorneiData = async () => {
         if (!token) throw new Error('Sessione scaduta. Effettua nuovamente il login.');
@@ -443,13 +511,21 @@ const GestioneTornei: React.FC = () => {
                         ))}
                     </select>
 
-                    <Link
-                        to="/admin/stagioni"
-                        className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white font-black px-5 py-3 rounded-xl shadow-lg hover:shadow-green-600/20 transition-all flex items-center justify-center gap-2 uppercase text-xs tracking-widest"
+                    <button
+                        onClick={handleOpenRinnoviModal}
+                        className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white font-black px-5 py-3 rounded-xl shadow-lg hover:shadow-green-600/20 transition-all flex items-center justify-center gap-2 uppercase text-xs tracking-widest cursor-pointer"
+                    >
+                        <UserCheck className="w-4 h-4" />
+                        Rinnovi Squadra
+                    </button>
+
+                    <button
+                        onClick={() => setShowStagioneModal(true)}
+                        className="flex-1 md:flex-none bg-primary hover:bg-primary/90 text-white font-black px-5 py-3 rounded-xl shadow-lg hover:shadow-primary/20 transition-all flex items-center justify-center gap-2 uppercase text-xs tracking-widest cursor-pointer"
                     >
                         <Calendar className="w-4 h-4" />
-                        Stagioni & Rinnovi
-                    </Link>
+                        Aggiungi Stagione
+                    </button>
 
                     <Link
                         to="/admin/tornei/nuovo"
@@ -583,14 +659,14 @@ const GestioneTornei: React.FC = () => {
                                 )}
                             </div>
                             <div className="flex items-center gap-2">
-                                <Link
-                                    to="/admin/stagioni"
-                                    className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm"
+                                <button
+                                    onClick={handleOpenRinnoviModal}
+                                    className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
                                     title="Gestisci rinnovi giocatori per questa stagione"
                                 >
                                     <UserCheck className="w-4 h-4" />
                                     Rinnovi Squadra
-                                </Link>
+                                </button>
                                 <button
                                     onClick={() => handleDownloadBackup(stagioneCorrente.id, stagioneCorrente.nome)}
                                     className="p-2 bg-green-50 text-green-600 hover:bg-green-500 hover:text-white rounded-lg transition-all"
@@ -917,6 +993,130 @@ const GestioneTornei: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Modal Rinnovi Squadra */}
+            {showRinnoviModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl shadow-2xl border border-gray-100 relative p-8 space-y-6 animate-slide-up text-dark">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                            <div className="flex items-center gap-3">
+                                <UserCheck className="w-7 h-7 text-green-600" />
+                                <div>
+                                    <h2 className="text-xl font-black uppercase text-dark">Rinnovi Squadra & Passaggio Stagione</h2>
+                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-0.5">
+                                        Spunta gli atleti che proseguono l'attività nella nuova stagione.
+                                    </p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowRinnoviModal(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 transition-colors">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs font-bold text-amber-800 space-y-1">
+                            <p>💡 <strong>Come funziona la conservazione dello storico:</strong></p>
+                            <p>Gli atleti deselezionati vengono impostati come <em>"Non Rinnovati / Storico"</em>: non compariranno nelle selezioni dei nuovi tornei, ma tutto il loro storico (gare, scorecard passate e cassa) rimarrà memorizzato e consultabile.</p>
+                        </div>
+
+                        {/* Search and Quick Filters */}
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="relative flex-1 w-full">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Cerca atleta..."
+                                    value={searchRinnovi}
+                                    onChange={e => setSearchRinnovi(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold outline-none focus:border-primary"
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectAllRinnovi(true)}
+                                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-black uppercase rounded-xl transition-colors cursor-pointer"
+                                >
+                                    Seleziona Tutti
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectAllRinnovi(false)}
+                                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-black uppercase rounded-xl transition-colors cursor-pointer"
+                                >
+                                    Deseleziona Tutti
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Lista Checklist Atleti */}
+                        <div className="max-h-96 overflow-y-auto border border-gray-100 rounded-2xl divide-y divide-gray-100">
+                            {isLoadingRinnovi ? (
+                                <div className="p-12 text-center text-gray-400 text-xs font-bold uppercase animate-pulse">
+                                    Caricamento atleti...
+                                </div>
+                            ) : filteredGiocatoriRinnovo.map(g => {
+                                const isChecked = !!selectedMap[g.id];
+                                return (
+                                    <div
+                                        key={g.id}
+                                        onClick={() => setSelectedMap({ ...selectedMap, [g.id]: !isChecked })}
+                                        className={`flex items-center justify-between p-3.5 hover:bg-gray-50/80 cursor-pointer transition-colors ${
+                                            isChecked ? 'bg-green-50/40' : 'bg-gray-50/20'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => {}}
+                                                className="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer"
+                                            />
+                                            <div>
+                                                <p className="text-sm font-black text-dark uppercase">{g.cognome} {g.nome}</p>
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase">
+                                                    Cat. {g.categoria} • Tessera: {g.numeroTessera || 'N/A'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                            isChecked ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'
+                                        }`}>
+                                            {isChecked ? 'Rinnova' : 'Non Rinnova'}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                            <p className="text-xs font-bold text-gray-500">
+                                Atleti selezionati: <strong className="text-green-600">{Object.values(selectedMap).filter(Boolean).length}</strong> su {giocatoriRinnovo.length}
+                            </p>
+
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowRinnoviModal(false)}
+                                    className="px-6 py-2.5 rounded-xl text-xs font-black uppercase text-gray-400 hover:text-dark transition-colors tracking-wider"
+                                >
+                                    Annulla
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSaveRinnovi}
+                                    disabled={isSavingRinnovi}
+                                    className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-green-600/20 transition-all flex items-center gap-2 cursor-pointer"
+                                >
+                                    <Save className="w-4 h-4" />
+                                    {isSavingRinnovi ? 'Salvataggio...' : 'Conferma Rinnovi'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
