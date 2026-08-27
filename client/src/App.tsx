@@ -17,6 +17,7 @@ import IscrizioneTorneo from './pages/IscrizioneTorneo';
 import Contabilita from './pages/Contabilita';
 import ImportDati from './pages/ImportDati';
 import GestioneUtenti from './pages/GestioneUtenti';
+import GestioneStagioni from './pages/GestioneStagioni';
 import Profilo from './pages/Profilo';
 import './App.css';
 
@@ -58,6 +59,7 @@ function App() {
               <Route path="/admin/contabilita" element={<Contabilita />} />
               <Route path="/admin/import" element={<ImportDati />} />
               <Route path="/admin/utenti" element={<GestioneUtenti />} />
+              <Route path="/admin/stagioni" element={<GestioneStagioni />} />
               <Route path="/profilo" element={<Profilo />} />
             </Route>
 
