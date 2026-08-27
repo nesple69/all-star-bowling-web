@@ -444,20 +444,20 @@ const GestioneTornei: React.FC = () => {
                     </select>
 
                     <Link
+                        to="/admin/stagioni"
+                        className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white font-black px-5 py-3 rounded-xl shadow-lg hover:shadow-green-600/20 transition-all flex items-center justify-center gap-2 uppercase text-xs tracking-widest"
+                    >
+                        <Calendar className="w-4 h-4" />
+                        Stagioni & Rinnovi
+                    </Link>
+
+                    <Link
                         to="/admin/tornei/nuovo"
                         className="flex-1 md:flex-none bg-secondary hover:bg-secondary/90 text-white font-black px-6 py-3 rounded-xl shadow-lg hover:shadow-secondary/20 transition-all flex items-center justify-center gap-2 uppercase text-xs tracking-widest"
                     >
                         <Plus className="w-4 h-4" />
                         Nuovo Torneo
                     </Link>
-
-                    <button
-                        onClick={() => setShowStagioneModal(true)}
-                        className="flex-1 md:flex-none bg-primary hover:bg-primary/90 text-white font-black px-6 py-3 rounded-xl shadow-lg hover:shadow-primary/20 transition-all flex items-center justify-center gap-2 uppercase text-xs tracking-widest"
-                    >
-                        <Calendar className="w-4 h-4" />
-                        Aggiungi Stagione
-                    </button>
                 </div>
             </div>
 
