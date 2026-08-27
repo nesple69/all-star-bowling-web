@@ -104,3 +104,29 @@ export const deleteStagione = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Errore nell\'eliminazione della stagione', error });
     }
 };
+
+// POST /api/stagioni/rinnovi-bulk (ADMIN)
+export const bulkRinnovoTesserati = async (req: Request, res: Response) => {
+    const { rinnovatiIds = [], nonRinnovatiIds = [] } = req.body;
+    try {
+        await prisma.$transaction([
+            prisma.giocatore.updateMany({
+                where: { id: { in: rinnovatiIds } },
+                data: { attivo: true }
+            }),
+            prisma.giocatore.updateMany({
+                where: { id: { in: nonRinnovatiIds } },
+                data: { attivo: false }
+            })
+        ]);
+
+        res.json({
+            message: 'Stato rinnovi tesserati aggiornato con successo',
+            rinnovati: rinnovatiIds.length,
+            nonRinnovati: nonRinnovatiIds.length
+        });
+    } catch (error) {
+        console.error('[BULK_RINNOVO_ERROR]', error);
+        res.status(500).json({ message: 'Errore durante l\'aggiornamento dei rinnovi' });
+    }
+};

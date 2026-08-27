@@ -7,7 +7,7 @@ import { AuthRequest } from '../middleware/auth';
 
 // GET /api/giocatori
 export const getAllGiocatori = async (req: Request, res: Response) => {
-    const { categoria, stagioneId } = req.query;
+    const { categoria, stagioneId, attivo } = req.query;
     const authReq = req as AuthRequest;
     const currentUser = authReq.user;
     const isAdmin = currentUser?.role === 'ADMIN';
@@ -16,6 +16,12 @@ export const getAllGiocatori = async (req: Request, res: Response) => {
         const where: Prisma.GiocatoreWhereInput = {};
         if (categoria) {
             where.categoria = categoria as CategoriaGiocatore;
+        }
+
+        if (attivo === 'true' || attivo === '1') {
+            where.attivo = true;
+        } else if (attivo === 'false' || attivo === '0') {
+            where.attivo = false;
         }
 
         if (stagioneId) {
@@ -201,6 +207,7 @@ export const createGiocatore = async (req: Request, res: Response) => {
                     certificatoMedicoScadenza: certificatoMedicoScadenza ? new Date(certificatoMedicoScadenza) : null,
                     isAziendale: isAziendale || false,
                     aziendaAffiliata,
+                    attivo: req.body.attivo !== undefined ? (req.body.attivo === true || req.body.attivo === 'true') : true,
                     userId: user.id
                 }
             });
@@ -217,7 +224,8 @@ export const createGiocatore = async (req: Request, res: Response) => {
 
         res.status(201).json(result);
     } catch (error) {
-        res.status(500).json({ message: 'Errore nella creazione del giocatore', error });
+        console.error('[CREATE_GIOCATORE_ERROR]', error);
+        res.status(500).json({ message: 'Errore nella creazione del giocatore' });
     }
 };
 
@@ -237,6 +245,7 @@ export const updateGiocatore = async (req: Request, res: Response) => {
         certificatoMedicoScadenza,
         isAziendale,
         aziendaAffiliata,
+        attivo,
         totaleBirilli,
         partiteGiocate
     } = req.body;
@@ -269,6 +278,7 @@ export const updateGiocatore = async (req: Request, res: Response) => {
                 certificatoMedicoScadenza: parsedCertificato,
                 isAziendale: isAziendale !== undefined ? isAziendale : undefined,
                 aziendaAffiliata: aziendaAffiliata !== undefined ? (aziendaAffiliata || null) : undefined,
+                attivo: attivo !== undefined ? (attivo === true || attivo === 'true') : undefined,
                 totaleBirilli: totaleBirilli !== undefined ? totaleBirilli : undefined,
                 mediaAttuale: mediaAttuale
             }
@@ -281,12 +291,38 @@ export const updateGiocatore = async (req: Request, res: Response) => {
     }
 };
 
+// PATCH /api/giocatori/:id/toggle-attivo (solo ADMIN)
+export const toggleStatoAttivo = async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    try {
+        const giocatore = await prisma.giocatore.findUnique({
+            where: { id }
+        });
+        if (!giocatore) {
+            return res.status(404).json({ message: 'Giocatore non trovato' });
+        }
+
+        const updated = await prisma.giocatore.update({
+            where: { id },
+            data: { attivo: !giocatore.attivo }
+        });
+
+        res.json({
+            message: `Stato tesseramento ${updated.attivo ? 'attivato' : 'disattivato (non rinnovato)'} con successo`,
+            giocatore: updated
+        });
+    } catch (error) {
+        console.error('[TOGGLE_ATTIVO_ERROR]', error);
+        res.status(500).json({ message: 'Errore durante la modifica dello stato tesserato' });
+    }
+};
+
 // DELETE /api/giocatori/:id
 export const deleteGiocatore = async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     try {
-        const giocatore = await prisma.giocatore.findUnique({ where: { id: id as string } });
+        const giocatore = await prisma.giocatore.findUnique({ where: { id } });
         if (!giocatore) {
             return res.status(404).json({ message: 'Giocatore non trovato' });
         }
@@ -302,6 +338,7 @@ export const deleteGiocatore = async (req: Request, res: Response) => {
 
         res.json({ message: 'Giocatore ed utente associato eliminati correttamente' });
     } catch (error) {
-        res.status(500).json({ message: 'Errore nell\'eliminazione del giocatore', error });
+        console.error('[DELETE_GIOCATORE_ERROR]', error);
+        res.status(500).json({ message: 'Errore nell\'eliminazione del giocatore' });
     }
 };

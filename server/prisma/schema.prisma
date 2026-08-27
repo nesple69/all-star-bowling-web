@@ -37,12 +37,15 @@ model Giocatore {
   certificatoMedicoScadenza DateTime?
   isAziendale               Boolean              @default(false)
   aziendaAffiliata          String?
+  attivo                    Boolean              @default(true)
   userId                    String               @unique
   user                      User                 @relation(fields: [userId], references: [id])
   iscrizioni                IscrizioneTorneo[]
   movimenti                 MovimentoContabile[]
   risultati                 RisultatoTorneo[]
   saldo                     SaldoBorsellino?
+
+  @@index([attivo])
 }
 
 model Stagione {

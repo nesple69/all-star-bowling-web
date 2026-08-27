@@ -32,6 +32,13 @@ router.put(
     giocatoriController.updateGiocatore
 );
 
+router.patch(
+    '/:id/toggle-attivo',
+    authenticateToken,
+    isAdmin,
+    giocatoriController.toggleStatoAttivo
+);
+
 router.delete(
     '/:id',
     authenticateToken,

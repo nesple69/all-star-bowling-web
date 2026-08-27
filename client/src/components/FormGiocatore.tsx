@@ -38,6 +38,7 @@ const FormGiocatore: React.FC<Props> = ({ giocatore, onClose, onSave }) => {
         certificatoMedicoScadenza: '',
         aziendaAffiliata: '',
         isAziendale: false,
+        attivo: true,
     });
 
     const [isLoading, setIsLoading] = useState(false);
@@ -60,6 +61,7 @@ const FormGiocatore: React.FC<Props> = ({ giocatore, onClose, onSave }) => {
                 certificatoMedicoScadenza: giocatore.certificatoMedicoScadenza ? giocatore.certificatoMedicoScadenza.split('T')[0] : '',
                 aziendaAffiliata: giocatore.aziendaAffiliata || '',
                 isAziendale: giocatore.isAziendale || false,
+                attivo: giocatore.attivo !== undefined ? giocatore.attivo : true,
             });
         }
     }, [giocatore]);
@@ -265,6 +267,21 @@ const FormGiocatore: React.FC<Props> = ({ giocatore, onClose, onSave }) => {
                             </div>
 
                             <div className="space-y-3">
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <div className="relative">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={formData.attivo}
+                                            onChange={e => setFormData({ ...formData, attivo: e.target.checked })}
+                                        />
+                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                                    </div>
+                                    <span className="text-xs font-bold text-dark uppercase tracking-wide">
+                                        Tesserato Attivo (Stagione Corrente)
+                                    </span>
+                                </label>
+
                                 <label className="flex items-center gap-3 cursor-pointer group">
                                     <div className="relative">
                                         <input

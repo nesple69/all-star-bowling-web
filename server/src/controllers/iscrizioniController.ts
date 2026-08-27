@@ -19,6 +19,7 @@ export const lookupTessera = async (req: Request, res: Response) => {
                 sesso: true,
                 telefono: true,
                 certificatoMedicoScadenza: true,
+                attivo: true,
                 userId: true,
                 saldo: { select: { saldoAttuale: true } },
                 iscrizioni: {
@@ -44,6 +45,7 @@ export const lookupTessera = async (req: Request, res: Response) => {
             cognome: giocatore.cognome,
             categoria: giocatore.categoria,
             sesso: giocatore.sesso,
+            attivo: giocatore.attivo,
             certificatoValido: isCertificatoValido,
             telefono: isAuthorized ? giocatore.telefono : undefined,
             certificatoMedicoScadenza: isAuthorized ? giocatore.certificatoMedicoScadenza : undefined,

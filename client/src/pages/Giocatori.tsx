@@ -24,6 +24,7 @@ interface Giocatore {
     certificatoMedicoScadenza?: string;
     aziendaAffiliata?: string;
     isAziendale?: boolean;
+    attivo?: boolean;
     torneiGiocati?: number;
     partiteGiocate?: number;
     user?: {
@@ -56,6 +57,7 @@ const Giocatori: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('ALL');
     const [selectedSettore, setSelectedSettore] = useState('ALL'); // 'ALL', 'SENIOR', 'AZIENDALE'
+    const [selectedStato, setSelectedStato] = useState<'ALL' | 'ATTIVI' | 'INATTIVI'>('ATTIVI'); // Default: solo attivi della stagione corrente
 
     // Modals state
     const [selectedGiocatore, setSelectedGiocatore] = useState<Giocatore | null>(null);
@@ -117,6 +119,22 @@ const Giocatori: React.FC = () => {
         }
     };
 
+    const handleToggleAttivo = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        try {
+            await axios.patch(`${API_BASE_URL}/api/giocatori/${id}/toggle-attivo`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            await refetch();
+        } catch (error) {
+            console.error('Errore durante la modifica dello stato tesserato', error);
+            alert('Errore durante la modifica dello stato.');
+        }
+    };
+
+    const countAttivi = useMemo(() => giocatori.filter((g: Giocatore) => g.attivo !== false).length, [giocatori]);
+    const countInattivi = useMemo(() => giocatori.filter((g: Giocatore) => g.attivo === false).length, [giocatori]);
+
     const filteredGiocatori = useMemo(() => {
         return giocatori
             .filter((g: Giocatore) => {
@@ -127,10 +145,15 @@ const Giocatori: React.FC = () => {
                 const matchesSettore = selectedSettore === 'ALL' ||
                     (selectedSettore === 'SENIOR' && g.isSenior) ||
                     (selectedSettore === 'AZIENDALE' && g.isAziendale);
-                return matchesSearch && matchesCategory && matchesSettore;
+                
+                const matchesStato = selectedStato === 'ALL' ||
+                    (selectedStato === 'ATTIVI' && g.attivo !== false) ||
+                    (selectedStato === 'INATTIVI' && g.attivo === false);
+
+                return matchesSearch && matchesCategory && matchesSettore && matchesStato;
             })
             .sort((a: Giocatore, b: Giocatore) => (b.mediaAttuale || 0) - (a.mediaAttuale || 0) || a.cognome.localeCompare(b.cognome));
-    }, [giocatori, searchTerm, selectedCategory, selectedSettore]);
+    }, [giocatori, searchTerm, selectedCategory, selectedSettore, selectedStato]);
 
     if (isLoading) {
         return (
@@ -149,7 +172,7 @@ const Giocatori: React.FC = () => {
                     <div>
                         <h1 className="text-3xl font-bold text-dark font-heading">LISTA GIOCATORI</h1>
                         <p className="text-gray-500 text-xs uppercase tracking-widest font-bold mt-1">
-                            {filteredGiocatori.length} Atleti Registrati
+                            {filteredGiocatori.length} Atleti Visualizzati • {countAttivi} Attivi in Rosa • {countInattivi} Storico/Non Rinnovati
                         </p>
                     </div>
                 </div>
@@ -166,6 +189,44 @@ const Giocatori: React.FC = () => {
                         Aggiungi Giocatore
                     </button>
                 )}
+            </div>
+
+            {/* Stato Tabs */}
+            <div className="flex items-center gap-2 border-b border-gray-200 pb-2 overflow-x-auto">
+                <button
+                    onClick={() => setSelectedStato('ATTIVI')}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 whitespace-nowrap ${
+                        selectedStato === 'ATTIVI'
+                            ? 'bg-green-600 text-white shadow-sm'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                >
+                    <span className="w-2 h-2 rounded-full bg-green-300"></span>
+                    Attivi Stagione ({countAttivi})
+                </button>
+
+                <button
+                    onClick={() => setSelectedStato('ALL')}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 whitespace-nowrap ${
+                        selectedStato === 'ALL'
+                            ? 'bg-primary text-white shadow-sm'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                >
+                    Tutti ({giocatori.length})
+                </button>
+
+                <button
+                    onClick={() => setSelectedStato('INATTIVI')}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 whitespace-nowrap ${
+                        selectedStato === 'INATTIVI'
+                            ? 'bg-gray-700 text-white shadow-sm'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                >
+                    <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                    Non Rinnovati / Storico ({countInattivi})
+                </button>
             </div>
 
             {/* Filters & Search */}
@@ -218,6 +279,7 @@ const Giocatori: React.FC = () => {
                             <tr className="bg-gray-50 border-b border-gray-200">
                                 <th className="px-2 py-3 text-[9px] font-black uppercase text-gray-400 tracking-wider text-center w-8">St</th>
                                 <th className="px-2 py-3 text-[9px] font-black uppercase text-gray-400 tracking-wider">Atleta</th>
+                                <th className="px-2 py-3 text-[9px] font-black uppercase text-gray-400 tracking-wider text-center">Stato</th>
                                 <th className="px-1 py-3 text-[9px] font-black uppercase text-gray-400 tracking-wider text-center">Cat</th>
                                 <th className="px-1 py-3 text-[9px] font-black uppercase text-gray-400 tracking-wider text-center">Sen</th>
                                 <th className="px-1 py-3 text-[9px] font-black uppercase text-gray-400 tracking-wider text-center">Az</th>
@@ -238,12 +300,13 @@ const Giocatori: React.FC = () => {
                                 const isCertificatoScaduto = g.certificatoMedicoScadenza
                                     ? new Date(g.certificatoMedicoScadenza) < new Date()
                                     : true;
+                                const isAttivo = g.attivo !== false;
 
                                 return (
                                     <tr
                                         key={g.id}
                                         onClick={() => setSelectedGiocatore(g)}
-                                        className="hover:bg-primary/5 transition-colors cursor-pointer group"
+                                        className={`hover:bg-primary/5 transition-colors cursor-pointer group ${!isAttivo ? 'bg-gray-50/50 opacity-75' : ''}`}
                                     >
                                         <td className="px-2 py-2 text-center">
                                             <div className="flex justify-center">
@@ -256,6 +319,19 @@ const Giocatori: React.FC = () => {
                                         </td>
                                         <td className="px-2 py-2">
                                             <p className="text-sm font-bold text-dark group-hover:text-primary transition-colors whitespace-nowrap">{g.cognome} {g.nome}</p>
+                                        </td>
+                                        <td className="px-2 py-2 text-center" onClick={(e) => { if (isAdmin()) handleToggleAttivo(e, g.id); }}>
+                                            <span
+                                                title={isAdmin() ? 'Clicca per attivare/disattivare stato' : undefined}
+                                                className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider inline-flex items-center gap-1 transition-all ${
+                                                    isAttivo
+                                                        ? 'bg-green-100 text-green-800 border border-green-300 hover:bg-green-200'
+                                                        : 'bg-gray-200 text-gray-700 border border-gray-300 hover:bg-gray-300'
+                                                }`}
+                                            >
+                                                <span className={`w-1.5 h-1.5 rounded-full ${isAttivo ? 'bg-green-600' : 'bg-gray-500'}`}></span>
+                                                {isAttivo ? 'Attivo' : 'Non Rinnovato'}
+                                            </span>
                                         </td>
                                         <td className="px-1 py-2 text-center">
                                             <span className={`px-1 py-0.5 border rounded text-[9px] font-black uppercase tracking-tight ${CATEGORY_COLORS[g.categoria] || 'text-gray-500 border-gray-400'}`}>

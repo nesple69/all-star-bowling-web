@@ -10,6 +10,7 @@ router.get('/attiva', stagioniController.getStagioneAttiva);
 
 // Endpoint Protetti (Solo ADMIN)
 router.post('/', authenticateToken, isAdmin, stagioniController.createStagione);
+router.post('/rinnovi-bulk', authenticateToken, isAdmin, stagioniController.bulkRinnovoTesserati);
 router.put('/:id', authenticateToken, isAdmin, stagioniController.updateStagione);
 router.delete('/:id', authenticateToken, isAdmin, stagioniController.deleteStagione);
 

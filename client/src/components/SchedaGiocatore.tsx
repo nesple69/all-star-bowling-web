@@ -158,6 +158,13 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, onClose, onEdit, onDelete
                                     <img src="/logo All Star.png" alt="Logo" className="w-10 h-10 object-contain brightness-0 invert opacity-20" />
                                 </div>
                                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-1">
+                                    <div className={`px-2.5 py-0.5 border-2 rounded-md text-[10px] font-black uppercase tracking-tight ${
+                                        giocatore.attivo !== false 
+                                            ? 'border-green-600/30 bg-green-50 text-green-700' 
+                                            : 'border-gray-300 bg-gray-100 text-gray-600'
+                                    }`}>
+                                        {giocatore.attivo !== false ? '● Tesserato Attivo' : '○ Non Rinnovato / Storico'}
+                                    </div>
                                     <div className="px-2 py-0.5 border-2 border-primary/30 bg-primary/5 text-primary rounded-md text-[10px] font-black uppercase tracking-tight">
                                         {giocatore.sesso}/{giocatore.categoria} {CATEGORY_LABELS[giocatore.categoria]?.split('-')[1]?.trim()}
                                     </div>
