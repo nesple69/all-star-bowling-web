@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import { API_BASE_URL } from '../config';
-import { Calendar, Plus, Trash2, CheckCircle2, AlertCircle, Save, ArrowLeft, Download, UserCheck, X, Search } from 'lucide-react';
+import { Calendar, Plus, Trash2, CheckCircle2, AlertCircle, Save, ArrowLeft, Download, UserCheck, X, Search, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 
@@ -18,9 +18,11 @@ interface GiocatoreRinnovo {
     id: string;
     nome: string;
     cognome: string;
+    telefono?: string;
     numeroTessera?: string;
     categoria: string;
     attivo?: boolean;
+    saldo?: any;
 }
 
 const GestioneStagioni: React.FC = () => {
@@ -49,9 +51,63 @@ const GestioneStagioni: React.FC = () => {
     const [showRinnoviModal, setShowRinnoviModal] = useState(false);
     const [giocatoriRinnovo, setGiocatoriRinnovo] = useState<GiocatoreRinnovo[]>([]);
     const [selectedMap, setSelectedMap] = useState<Record<string, boolean>>({});
+    const [sentWhatsAppMap, setSentWhatsAppMap] = useState<Record<string, boolean>>({});
     const [searchRinnovi, setSearchRinnovi] = useState('');
     const [isLoadingRinnovi, setIsLoadingRinnovi] = useState(false);
     const [isSavingRinnovi, setIsSavingRinnovi] = useState(false);
+
+    const calculateQuotaRinnovo = (g: GiocatoreRinnovo) => {
+        let saldoNum = 0;
+        if (typeof g.saldo === 'number') {
+            saldoNum = g.saldo;
+        } else if (g.saldo && typeof g.saldo.saldoAttuale !== 'undefined') {
+            saldoNum = Number(g.saldo.saldoAttuale);
+        }
+        const quotaAffiliazione = 60;
+        const targetBorsellino = 50;
+        const quotaBorsellino = Math.max(0, targetBorsellino - saldoNum);
+        const totale = quotaAffiliazione + quotaBorsellino;
+        return { saldoNum, quotaAffiliazione, quotaBorsellino, totale };
+    };
+
+    const generateWhatsAppRenewalMessage = (g: GiocatoreRinnovo) => {
+        const { saldoNum, quotaBorsellino, totale } = calculateQuotaRinnovo(g);
+        const saldoFormat = saldoNum.toFixed(2).replace('.', ',');
+        const quotaBorsellinoFormat = quotaBorsellino.toFixed(2).replace('.', ',');
+        const totaleFormat = totale.toFixed(2).replace('.', ',');
+
+        return `Ciao *${g.nome}*! ⭐
+
+È tempo di ripartire con la nuova stagione agonistica *2026/2027* con l'All Star Team! 🎳
+
+Per confermare il tuo tesseramento, ti chiediamo di effettuare un versamento complessivo di *${totaleFormat} €*, così suddiviso:
+
+🔹 *60,00 €*: Quota affiliazione e tesseramento stagione 2026/27
+🔹 *${quotaBorsellinoFormat} €*: Integrazione fondo gare/tornei _(il tuo saldo attuale nel borsellino è di ${saldoFormat} €)_
+
+🏦 *DATI PER IL BONIFICO:*
+• *IBAN:* IT63G0503470951000000001300
+• *Beneficiario:* ASD All Star Team
+• *Importo:* *${totaleFormat} €*
+• *Causale:* Tesseramento stagione agonistica 2026/27 - ${g.cognome} ${g.nome}
+
+Appena effettuato il bonifico, inviaci pure la ricevuta/contabile qui su WhatsApp.
+Grazie e in bocca al lupo per la nuova stagione! 🏆`;
+    };
+
+    const handleSendWhatsAppRenewal = (e: React.MouseEvent, g: GiocatoreRinnovo) => {
+        e.stopPropagation();
+        if (!g.telefono) {
+            alert(`Nessun numero di telefono registrato per ${g.cognome} ${g.nome}. Aggiorna la scheda giocatore per inserirlo.`);
+            return;
+        }
+        const msg = generateWhatsAppRenewalMessage(g);
+        const cleaned = g.telefono.replace(/\D/g, '');
+        const numero = cleaned.startsWith('39') ? cleaned : `39${cleaned}`;
+        const url = `https://wa.me/${numero}?text=${encodeURIComponent(msg)}`;
+        window.open(url, '_blank');
+        setSentWhatsAppMap(prev => ({ ...prev, [g.id]: true }));
+    };
 
     const handleOpenRinnoviModal = async () => {
         setIsLoadingRinnovi(true);
@@ -424,11 +480,14 @@ const GestioneStagioni: React.FC = () => {
                                 </div>
                             ) : filteredGiocatoriRinnovo.map(g => {
                                 const isChecked = !!selectedMap[g.id];
+                                const { saldoNum, totale } = calculateQuotaRinnovo(g);
+                                const isSent = !!sentWhatsAppMap[g.id];
+
                                 return (
                                     <div
                                         key={g.id}
                                         onClick={() => setSelectedMap({ ...selectedMap, [g.id]: !isChecked })}
-                                        className={`flex items-center justify-between p-3.5 hover:bg-gray-50/80 cursor-pointer transition-colors ${
+                                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-3 hover:bg-gray-50/80 cursor-pointer transition-colors ${
                                             isChecked ? 'bg-green-50/40' : 'bg-gray-50/20'
                                         }`}
                                     >
@@ -442,16 +501,47 @@ const GestioneStagioni: React.FC = () => {
                                             <div>
                                                 <p className="text-sm font-black text-dark uppercase">{g.cognome} {g.nome}</p>
                                                 <p className="text-[10px] text-gray-400 font-bold uppercase">
-                                                    Cat. {g.categoria} • Tessera: {g.numeroTessera || 'N/A'}
+                                                    Cat. {g.categoria} • Tessera: {g.numeroTessera || 'N/A'} {g.telefono ? `• 📞 ${g.telefono}` : '• ⚠️ No tel'}
                                                 </p>
                                             </div>
                                         </div>
 
-                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                                            isChecked ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'
-                                        }`}>
-                                            {isChecked ? 'Rinnova' : 'Non Rinnova'}
-                                        </span>
+                                        <div className="flex items-center justify-between sm:justify-end gap-3" onClick={e => e.stopPropagation()}>
+                                            {/* Riepilogo Saldo e Quota Calcolata */}
+                                            <div className="text-right">
+                                                <span className="text-[9px] font-bold text-gray-400 uppercase block">
+                                                    Saldo: {saldoNum.toFixed(2)} €
+                                                </span>
+                                                <span className="text-xs font-black text-dark uppercase block">
+                                                    Totale: <strong className="text-primary">{totale.toFixed(2)} €</strong>
+                                                </span>
+                                            </div>
+
+                                            {/* Pulsante WhatsApp */}
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleSendWhatsAppRenewal(e, g)}
+                                                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all cursor-pointer ${
+                                                    isSent
+                                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
+                                                        : 'bg-[#25D366] hover:bg-[#20ba5a] text-white hover:scale-105'
+                                                }`}
+                                                title={g.telefono ? `Invia messaggio WhatsApp a ${g.nome}` : 'Nessun telefono registrato'}
+                                            >
+                                                <MessageCircle className="w-3.5 h-3.5" />
+                                                {isSent ? 'Inviato ✓' : 'Invia WA'}
+                                            </button>
+
+                                            {/* Badge Stato Rinnovo */}
+                                            <span
+                                                onClick={() => setSelectedMap({ ...selectedMap, [g.id]: !isChecked })}
+                                                className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider cursor-pointer ${
+                                                    isChecked ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'
+                                                }`}
+                                            >
+                                                {isChecked ? 'Rinnova' : 'Non Rinnova'}
+                                            </span>
+                                        </div>
                                     </div>
                                 );
                             })}
