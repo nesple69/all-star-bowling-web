@@ -534,11 +534,18 @@ const Dashboard: React.FC = () => {
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         title="Invia sollecito WhatsApp"
-                                                        className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-transform hover:scale-110 shadow-sm flex items-center justify-center cursor-pointer"
+                                                        className="p-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-transform hover:scale-110 shadow-sm flex items-center justify-center cursor-pointer"
                                                     >
                                                         <WhatsAppIcon className="w-4 h-4" />
                                                     </a>
-                                                ) : null;
+                                                ) : (
+                                                    <span
+                                                        title="Nessun numero di telefono registrato"
+                                                        className="p-1.5 bg-gray-200 text-gray-400 rounded-lg cursor-not-allowed flex items-center justify-center"
+                                                    >
+                                                        <WhatsAppIcon className="w-4 h-4" />
+                                                    </span>
+                                                );
                                             })()}
                                         </div>
                                     </div>
