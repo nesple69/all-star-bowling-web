@@ -194,6 +194,14 @@ const Giocatori: React.FC = () => {
                 )}
             </div>
 
+            {/* Indicatore Conteggio Atleti Stagione */}
+            <div className="flex items-center gap-2">
+                <div className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-green-600 text-white shadow-md shadow-green-600/20 flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-green-300"></span>
+                    <span>Atleti Stagione Attiva ({filteredGiocatori.length})</span>
+                </div>
+            </div>
+
             {/* Filters & Search */}
             <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1">
