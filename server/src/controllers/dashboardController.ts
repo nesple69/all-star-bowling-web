@@ -98,6 +98,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
                     id: true,
                     nome: true,
                     cognome: true,
+                    telefono: true,
                     certificatoMedicoScadenza: true
                 }
             });
