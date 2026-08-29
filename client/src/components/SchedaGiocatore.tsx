@@ -378,8 +378,13 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, onClose, onEdit, onDelete
                                                         {/* Info Principali */}
                                                         <div className="flex-1 min-w-0 w-full order-2 md:order-1">
                                                             <div className="flex justify-between items-start mb-1">
-                                                                <h4 className="font-bold text-sm text-dark truncate pr-4">
-                                                                    {res.torneo?.nome || 'Torneo'}
+                                                                <h4 className="font-bold text-sm text-dark truncate pr-4 flex items-center gap-2">
+                                                                    <span>{res.torneo?.nome || 'Torneo'}</span>
+                                                                    {res.torneo?.stagione?.nome && (
+                                                                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold tracking-tight">
+                                                                            {res.torneo.stagione.nome}
+                                                                        </span>
+                                                                    )}
                                                                 </h4>
                                                             </div>
 

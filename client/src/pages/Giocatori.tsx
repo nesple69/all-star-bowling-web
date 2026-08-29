@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Filter, Plus, User as UserIcon, Star, Loader2, Users } from 'lucide-react';
+import { Search, Filter, Plus, User as UserIcon, Star, Loader2, Users, Calendar } from 'lucide-react';
 import SchedaGiocatore from '../components/SchedaGiocatore';
 import FormGiocatore from '../components/FormGiocatore';
 import { API_BASE_URL } from '../config';
@@ -58,6 +58,7 @@ const Giocatori: React.FC = () => {
     const [selectedCategory, setSelectedCategory] = useState('ALL');
     const [selectedSettore, setSelectedSettore] = useState('ALL'); // 'ALL', 'SENIOR', 'AZIENDALE'
     const [selectedStato, setSelectedStato] = useState<'ALL' | 'ATTIVI' | 'INATTIVI'>('ATTIVI'); // Default: solo attivi della stagione corrente
+    const [selectedStagioneId, setSelectedStagioneId] = useState<string>(''); // Default: vuoto -> attiva
 
     // Modals state
     const [selectedGiocatore, setSelectedGiocatore] = useState<Giocatore | null>(null);
@@ -66,17 +67,36 @@ const Giocatori: React.FC = () => {
 
     const { token, isAdmin } = useAuth();
 
+    // Fetch stagioni
+    const { data: stagioni = [] } = useQuery({
+        queryKey: ['stagioni'],
+        queryFn: async () => {
+            const res = await axios.get(`${API_BASE_URL}/api/stagioni`);
+            return res.data;
+        }
+    });
+
+    const stagioneAttiva = useMemo(() => stagioni.find((s: any) => s.attiva), [stagioni]);
+    const effectiveStagioneId = selectedStagioneId || (stagioneAttiva ? stagioneAttiva.id : '');
+    const currentStagioneObj = useMemo(() => {
+        if (effectiveStagioneId === 'ALL') return { nome: 'Tutte le stagioni (Storico Totale)' };
+        return stagioni.find((s: any) => s.id === effectiveStagioneId) || stagioneAttiva;
+    }, [stagioni, effectiveStagioneId, stagioneAttiva]);
+
     const fetchGiocatoriData = async () => {
         const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
         const res = await axios.get(`${API_BASE_URL}/api/giocatori`, {
-            params: { categoria: selectedCategory !== 'ALL' ? selectedCategory : undefined },
+            params: {
+                categoria: selectedCategory !== 'ALL' ? selectedCategory : undefined,
+                stagioneId: effectiveStagioneId || undefined
+            },
             ...config
         });
         return res.data;
     };
 
     const { data: giocatori = [], isLoading, refetch } = useQuery({
-        queryKey: ['giocatori', selectedCategory, token],
+        queryKey: ['giocatori', selectedCategory, effectiveStagioneId, token],
         queryFn: fetchGiocatoriData,
     });
 
@@ -268,7 +288,36 @@ const Giocatori: React.FC = () => {
                             <option value="AZIENDALE">Solo Aziendale</option>
                         </select>
                     </div>
+
+                    <div className="flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-primary" />
+                        <select
+                            className="bg-gray-50 border-2 border-primary/40 rounded-md px-4 py-2 font-bold text-sm text-dark focus:border-primary focus:ring-0 outline-none cursor-pointer"
+                            value={effectiveStagioneId}
+                            onChange={(e) => setSelectedStagioneId(e.target.value)}
+                        >
+                            {stagioni.map((s: any) => (
+                                <option key={s.id} value={s.id}>
+                                    {s.nome} {s.attiva ? '⭐ (Attiva)' : ''}
+                                </option>
+                            ))}
+                            <option value="ALL">Tutte le stagioni (Storico Globale)</option>
+                        </select>
+                    </div>
                 </div>
+            </div>
+
+            {/* Banner info stagione selezionata */}
+            <div className="flex items-center justify-between bg-primary/5 border border-primary/20 rounded-xl px-4 py-2 text-xs">
+                <div className="flex items-center gap-2 text-primary font-bold">
+                    <Calendar className="w-4 h-4" />
+                    <span>Statistiche visualizzate (Tornei, Partite, Media): <strong className="uppercase">{currentStagioneObj?.nome || 'Stagione Attiva'}</strong></span>
+                </div>
+                {effectiveStagioneId !== 'ALL' && currentStagioneObj?.attiva && (
+                    <span className="bg-green-100 text-green-800 text-[10px] font-black uppercase px-2 py-0.5 rounded-full">
+                        Stagione in corso
+                    </span>
+                )}
             </div>
 
             {/* Player Table */}
@@ -283,9 +332,9 @@ const Giocatori: React.FC = () => {
                                 <th className="px-1 py-3 text-[9px] font-black uppercase text-gray-400 tracking-wider text-center">Cat</th>
                                 <th className="px-1 py-3 text-[9px] font-black uppercase text-gray-400 tracking-wider text-center">Sen</th>
                                 <th className="px-1 py-3 text-[9px] font-black uppercase text-gray-400 tracking-wider text-center">Az</th>
-                                <th className="px-1 py-3 text-[9px] font-black uppercase text-gray-400 tracking-wider text-center">Trn</th>
-                                <th className="px-1 py-3 text-[9px] font-black uppercase text-gray-400 tracking-wider text-center">Prt</th>
-                                <th className="px-1 py-3 text-[9px] font-black uppercase text-gray-400 tracking-wider text-center">Med</th>
+                                <th className="px-1 py-3 text-[9px] font-black uppercase text-primary tracking-wider text-center" title="Tornei giocati nella stagione">Trn</th>
+                                <th className="px-1 py-3 text-[9px] font-black uppercase text-primary tracking-wider text-center" title="Partite giocate nella stagione">Prt</th>
+                                <th className="px-1 py-3 text-[9px] font-black uppercase text-primary tracking-wider text-center" title="Media nella stagione">Med</th>
                                 <th className="px-2 py-3 text-[9px] font-black uppercase text-gray-400 tracking-wider">Tessera</th>
                                 {isAdmin() && (
                                     <>

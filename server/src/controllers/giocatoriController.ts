@@ -24,14 +24,17 @@ export const getAllGiocatori = async (req: Request, res: Response) => {
             where.attivo = false;
         }
 
-        if (stagioneId) {
-            where.iscrizioni = {
-                some: {
-                    torneo: {
-                        stagioneId: stagioneId as string
-                    }
-                }
-            };
+        // Identifica stagione target (se stagioneId === 'ALL', calcola all-time; altrimenti usa stagioneId specificato o la stagione attiva)
+        let targetStagioneId: string | null = null;
+        if (stagioneId && stagioneId !== 'ALL') {
+            targetStagioneId = String(stagioneId);
+        } else if (!stagioneId) {
+            const stagioneAttiva = await prisma.stagione.findFirst({
+                where: { attiva: true }
+            });
+            if (stagioneAttiva) {
+                targetStagioneId = stagioneAttiva.id;
+            }
         }
 
         const giocatori = await prisma.giocatore.findMany({
@@ -43,29 +46,58 @@ export const getAllGiocatori = async (req: Request, res: Response) => {
                         ruolo: true
                     }
                 },
-                saldo: true,
-                _count: {
-                    select: { risultati: true }
-                }
+                saldo: true
             },
             orderBy: { cognome: 'asc' }
         });
 
-        const partiteStats = await prisma.risultatoTorneo.groupBy({
-            by: ['giocatoreId'],
-            _sum: {
-                partiteGiocate: true
+        // Risultati filtrati per la stagione target (se definita)
+        const whereRisultati: Prisma.RisultatoTorneoWhereInput = targetStagioneId
+            ? { torneo: { stagioneId: targetStagioneId } }
+            : {};
+
+        const risultatiStagione = await prisma.risultatoTorneo.findMany({
+            where: whereRisultati,
+            include: {
+                partite: true
             }
         });
 
-        const partiteMap = new Map(partiteStats.map(s => [s.giocatoreId, s._sum.partiteGiocate || 0]));
+        // Mappa delle statistiche per giocatore
+        const statsMap = new Map<string, { tornei: number, partite: number, birilli: number, migliorPartita: number }>();
+
+        risultatiStagione.forEach(r => {
+            const current = statsMap.get(r.giocatoreId) || { tornei: 0, partite: 0, birilli: 0, migliorPartita: 0 };
+            current.tornei += 1;
+            current.partite += r.partiteGiocate;
+            current.birilli += r.totaleBirilli;
+
+            const games = r.partite.filter(p => !p.isRiporto).map(p => p.birilli);
+            if (games.length > 0) {
+                const maxG = Math.max(...games);
+                if (maxG > current.migliorPartita) {
+                    current.migliorPartita = maxG;
+                }
+            }
+
+            statsMap.set(r.giocatoreId, current);
+        });
 
         const safeGiocatori = giocatori.map((g: any) => {
             const isOwnerOrAdmin = isAdmin || (currentUser && currentUser.userId === g.userId);
+            const playerStats = statsMap.get(g.id) || { tornei: 0, partite: 0, birilli: 0, migliorPartita: 0 };
+            const seasonMedia = playerStats.partite > 0
+                ? Number((playerStats.birilli / playerStats.partite).toFixed(2))
+                : 0;
+
             return {
                 ...g,
-                torneiGiocati: g._count.risultati,
-                partiteGiocate: partiteMap.get(g.id) || 0,
+                torneiGiocati: playerStats.tornei,
+                partiteGiocate: playerStats.partite,
+                totaleBirilli: playerStats.birilli,
+                mediaAttuale: seasonMedia,
+                migliorPartita: playerStats.migliorPartita,
+                stagioneRiferimentoId: targetStagioneId,
                 telefono: isOwnerOrAdmin ? g.telefono : undefined,
                 certificatoMedicoScadenza: isOwnerOrAdmin ? g.certificatoMedicoScadenza : undefined,
                 user: isOwnerOrAdmin ? g.user : undefined,
@@ -119,7 +151,11 @@ export const getGiocatoreById = async (req: Request, res: Response) => {
                 },
                 risultati: {
                     include: {
-                        torneo: true,
+                        torneo: {
+                            include: {
+                                stagione: true
+                            }
+                        },
                         partite: {
                             orderBy: { numeroPartita: 'asc' }
                         }
