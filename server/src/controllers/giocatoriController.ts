@@ -113,6 +113,7 @@ export const getAllGiocatori = async (req: Request, res: Response) => {
                 stagioneRiferimentoId: targetStagioneId,
                 telefono: isOwnerOrAdmin ? g.telefono : undefined,
                 certificatoMedicoScadenza: isOwnerOrAdmin ? g.certificatoMedicoScadenza : undefined,
+                dataSollecitoCertificato: isOwnerOrAdmin ? g.dataSollecitoCertificato : undefined,
                 user: isOwnerOrAdmin ? g.user : undefined,
                 saldo: isOwnerOrAdmin ? g.saldo : undefined
             };
@@ -363,6 +364,25 @@ export const toggleStatoAttivo = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('[TOGGLE_ATTIVO_ERROR]', error);
         res.status(500).json({ message: 'Errore durante la modifica dello stato tesserato' });
+    }
+};
+
+// PATCH /api/giocatori/:id/registra-sollecito-certificato (solo ADMIN)
+export const registraSollecitoCertificato = async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    try {
+        const now = new Date();
+        const updated = await prisma.giocatore.update({
+            where: { id },
+            data: { dataSollecitoCertificato: now }
+        });
+        res.json({
+            message: 'Sollecito certificato registrato con successo',
+            dataSollecitoCertificato: updated.dataSollecitoCertificato
+        });
+    } catch (error) {
+        console.error('[REGISTRA_SOLLECITO_ERROR]', error);
+        res.status(500).json({ message: 'Errore durante la registrazione del sollecito' });
     }
 };
 

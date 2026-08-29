@@ -38,6 +38,7 @@ interface Giocatore {
     dataNascita: string;
     telefono?: string;
     certificatoMedicoScadenza?: string;
+    dataSollecitoCertificato?: string;
     aziendaAffiliata?: string;
     isAziendale?: boolean;
     attivo?: boolean;
@@ -155,6 +156,25 @@ const Giocatori: React.FC = () => {
         } catch (error) {
             console.error('Errore durante l\'eliminazione del giocatore', error);
             alert('Errore durante l\'eliminazione del giocatore.');
+        }
+    };
+
+    const handleSendWhatsAppSollecito = async (e: React.MouseEvent, g: Giocatore) => {
+        e.stopPropagation();
+        const waLink = buildWhatsAppCertificatoLink(g.telefono, g.nome, g.certificatoMedicoScadenza);
+        if (!waLink) return;
+
+        window.open(waLink, '_blank');
+
+        if (token) {
+            try {
+                await axios.patch(`${API_BASE_URL}/api/giocatori/${g.id}/registra-sollecito-certificato`, {}, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                refetch();
+            } catch (err) {
+                console.error('Errore registrazione sollecito:', err);
+            }
         }
     };
 
@@ -377,25 +397,26 @@ const Giocatori: React.FC = () => {
                                             <>
                                                 <td className="px-2 py-2 text-xs font-semibold text-dark text-center whitespace-nowrap">{g.telefono || '-'}</td>
                                                 <td className="px-2 py-2 text-center">
-                                                    <div className="flex items-center justify-center gap-1.5">
-                                                        <span className={`text-xs font-bold ${isCertificatoScaduto ? 'text-red-500 animate-pulse' : 'text-green-600'}`}>
-                                                            {g.certificatoMedicoScadenza ? new Date(g.certificatoMedicoScadenza).toLocaleDateString('it-IT') : 'NO'}
-                                                        </span>
-                                                        {isCertificatoScaduto && (() => {
-                                                            const waLink = buildWhatsAppCertificatoLink(g.telefono, g.nome, g.certificatoMedicoScadenza);
-                                                            return waLink ? (
-                                                                <a
-                                                                    href={waLink}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                    title="Invia promemoria WhatsApp"
+                                                    <div className="flex flex-col items-center justify-center">
+                                                        <div className="flex items-center justify-center gap-1.5">
+                                                            <span className={`text-xs font-bold ${isCertificatoScaduto ? 'text-red-500 animate-pulse' : 'text-green-600'}`}>
+                                                                {g.certificatoMedicoScadenza ? new Date(g.certificatoMedicoScadenza).toLocaleDateString('it-IT') : 'NO'}
+                                                            </span>
+                                                            {isCertificatoScaduto && g.telefono && (
+                                                                <button
+                                                                    onClick={(e) => handleSendWhatsAppSollecito(e, g)}
+                                                                    title={g.dataSollecitoCertificato ? `Re-invia memo WhatsApp (Ultimo: ${new Date(g.dataSollecitoCertificato).toLocaleDateString('it-IT')} ${new Date(g.dataSollecitoCertificato).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })})` : 'Invia memo WhatsApp'}
                                                                     className="p-1 bg-green-600 hover:bg-green-700 text-white rounded transition-transform hover:scale-110 flex items-center justify-center cursor-pointer shadow-sm"
                                                                 >
                                                                     <WhatsAppIcon className="w-3.5 h-3.5" />
-                                                                </a>
-                                                            ) : null;
-                                                        })()}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        {g.dataSollecitoCertificato && (
+                                                            <span className="text-[8px] font-bold text-green-700 mt-0.5 whitespace-nowrap bg-green-50 px-1 py-0.2 rounded border border-green-200">
+                                                                💬 Memo: {new Date(g.dataSollecitoCertificato).toLocaleDateString('it-IT')}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </>

@@ -39,6 +39,13 @@ router.patch(
     giocatoriController.toggleStatoAttivo
 );
 
+router.patch(
+    '/:id/registra-sollecito-certificato',
+    authenticateToken,
+    isAdmin,
+    giocatoriController.registraSollecitoCertificato
+);
+
 router.delete(
     '/:id',
     authenticateToken,

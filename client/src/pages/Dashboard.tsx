@@ -101,10 +101,28 @@ const Dashboard: React.FC = () => {
         return response.data;
     };
 
-    const { data, isLoading, error: queryError } = useQuery({
+    const { data, isLoading, error: queryError, refetch } = useQuery({
         queryKey: ['dashboardStats', token],
         queryFn: fetchStats,
     });
+
+    const handleSendWhatsAppSollecito = async (atleta: any) => {
+        const waLink = buildWhatsAppCertificatoLink(atleta.telefono, atleta.nome, atleta.certificatoMedicoScadenza);
+        if (!waLink) return;
+
+        window.open(waLink, '_blank');
+
+        if (token) {
+            try {
+                await axios.patch(`${API_BASE_URL}/api/giocatori/${atleta.id}/registra-sollecito-certificato`, {}, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                refetch();
+            } catch (err) {
+                console.error('Errore registrazione sollecito:', err);
+            }
+        }
+    };
 
     const error = queryError ? (queryError as any).response?.data?.message || queryError.message || 'Errore di connessione' : null;
 
@@ -519,34 +537,34 @@ const Dashboard: React.FC = () => {
                                         <div className="flex flex-col">
                                             <span className="text-sm font-bold uppercase">{atleta.cognome} {atleta.nome}</span>
                                             <span className="text-[10px] font-black tracking-widest opacity-70">
-                                                {format(new Date(atleta.certificatoMedicoScadenza), 'dd/MM/yyyy')}
+                                                Scadenza: {format(new Date(atleta.certificatoMedicoScadenza), 'dd/MM/yyyy')}
                                             </span>
+                                            {atleta.dataSollecitoCertificato && (
+                                                <span className="text-[9px] font-bold text-green-700 mt-1 flex items-center gap-1 bg-green-100 px-1.5 py-0.5 rounded border border-green-200 w-fit">
+                                                    💬 Memo inviato: {format(new Date(atleta.dataSollecitoCertificato), 'dd/MM/yy HH:mm')}
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <div className={`text-xs font-black px-2 py-1 rounded ${isUrgent ? 'bg-red-600 text-white' : 'bg-orange-500 text-white'}`}>
                                                 {giorniRimanenti < 0 ? 'SCADUTO' : `${giorniRimanenti} GG`}
                                             </div>
-                                            {(() => {
-                                                const waLink = buildWhatsAppCertificatoLink(atleta.telefono, atleta.nome, atleta.certificatoMedicoScadenza);
-                                                return waLink ? (
-                                                    <a
-                                                        href={waLink}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        title="Invia sollecito WhatsApp"
-                                                        className="p-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-transform hover:scale-110 shadow-sm flex items-center justify-center cursor-pointer"
-                                                    >
-                                                        <WhatsAppIcon className="w-4 h-4" />
-                                                    </a>
-                                                ) : (
-                                                    <span
-                                                        title="Nessun numero di telefono registrato"
-                                                        className="p-1.5 bg-gray-200 text-gray-400 rounded-lg cursor-not-allowed flex items-center justify-center"
-                                                    >
-                                                        <WhatsAppIcon className="w-4 h-4" />
-                                                    </span>
-                                                );
-                                            })()}
+                                            {atleta.telefono ? (
+                                                <button
+                                                    onClick={() => handleSendWhatsAppSollecito(atleta)}
+                                                    title={atleta.dataSollecitoCertificato ? `Re-invia sollecito WhatsApp (Ultimo: ${format(new Date(atleta.dataSollecitoCertificato), 'dd/MM/yy HH:mm')})` : 'Invia sollecito WhatsApp'}
+                                                    className="p-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-transform hover:scale-110 shadow-sm flex items-center justify-center cursor-pointer"
+                                                >
+                                                    <WhatsAppIcon className="w-4 h-4" />
+                                                </button>
+                                            ) : (
+                                                <span
+                                                    title="Nessun numero di telefono registrato"
+                                                    className="p-1.5 bg-gray-200 text-gray-400 rounded-lg cursor-not-allowed flex items-center justify-center"
+                                                >
+                                                    <WhatsAppIcon className="w-4 h-4" />
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 );
