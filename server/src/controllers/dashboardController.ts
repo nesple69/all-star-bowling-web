@@ -12,9 +12,12 @@ export const getDashboardStats = async (req: Request, res: Response) => {
             where: { attiva: true }
         });
 
-        // 1. Totale iscritti per categoria e sesso
+        // 1. Totale iscritti per categoria e sesso (solo atleti attivi della stagione corrente)
         const statsPerCategoria = await prisma.giocatore.groupBy({
             by: ['categoria', 'sesso'],
+            where: {
+                attivo: true
+            },
             _count: {
                 id: true
             }
@@ -83,6 +86,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
             const limiteScadenza = addDays(oggi, 20);
             certificatiInScadenza = await prisma.giocatore.findMany({
                 where: {
+                    attivo: true,
                     certificatoMedicoScadenza: {
                         lte: limiteScadenza
                     }
