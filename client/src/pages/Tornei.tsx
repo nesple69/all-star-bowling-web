@@ -49,7 +49,24 @@ const Tornei: React.FC = () => {
     const [iscrittiMap, setIscrittiMap] = useState<Record<string, IscrittoPublic[]>>({});
     const [loadingIscritti, setLoadingIscritti] = useState<Record<string, boolean>>({});
     const [openIscritti, setOpenIscritti] = useState<Record<string, boolean>>({});
+    const [selectedStagioneId, setSelectedStagioneId] = useState<string>('');
     const navigate = useNavigate();
+
+    // Fetch stagioni
+    const { data: stagioni = [] } = useQuery({
+        queryKey: ['stagioni'],
+        queryFn: async () => {
+            const res = await axios.get(`${API_BASE_URL}/api/stagioni`);
+            return res.data;
+        }
+    });
+
+    const stagioneAttiva = React.useMemo(() => stagioni.find((s: any) => s.attiva), [stagioni]);
+    const effectiveStagioneId = selectedStagioneId || (stagioneAttiva ? stagioneAttiva.id : '');
+    const currentStagioneObj = React.useMemo(() => {
+        if (effectiveStagioneId === 'ALL') return { nome: 'Tutte le stagioni' };
+        return stagioni.find((s: any) => s.id === effectiveStagioneId) || stagioneAttiva;
+    }, [stagioni, effectiveStagioneId, stagioneAttiva]);
 
     const fetchIscritti = async (torneoId: string) => {
         if (iscrittiMap[torneoId]) {
@@ -70,7 +87,11 @@ const Tornei: React.FC = () => {
     };
 
     const fetchTorneiData = async () => {
-        const response = await axios.get(`${API_BASE_URL}/api/tornei/public`);
+        const response = await axios.get(`${API_BASE_URL}/api/tornei/public`, {
+            params: {
+                stagioneId: effectiveStagioneId || undefined
+            }
+        });
         const torneiData = response.data;
 
         // Carica disponibilità per tornei non completati
@@ -92,7 +113,7 @@ const Tornei: React.FC = () => {
     };
 
     const { data: torneiDataResult, isLoading, error: queryError } = useQuery({
-        queryKey: ['torneiPublicData'],
+        queryKey: ['torneiPublicData', effectiveStagioneId],
         queryFn: fetchTorneiData,
     });
 
@@ -145,13 +166,28 @@ const Tornei: React.FC = () => {
                                 <Trophy className="text-secondary w-8 h-8" />
                                 Calendario Tornei
                             </h1>
-                            {tornei.length > 0 && (
-                                <span className="text-[10px] font-black text-primary uppercase tracking-widest px-3 py-1.5 bg-primary/5 rounded-xl border border-primary/10 shadow-sm self-center">
-                                    {tornei[0].stagione.nome}
-                                </span>
-                            )}
+                            <span className="text-[10px] font-black text-primary uppercase tracking-widest px-3 py-1.5 bg-primary/5 rounded-xl border border-primary/10 shadow-sm self-center">
+                                {currentStagioneObj?.nome || 'Stagione Attiva'}
+                            </span>
                         </div>
                         <p className="text-gray-500 mt-1 font-medium italic">Scopri i prossimi eventi e consulta le classifiche ufficiali.</p>
+                    </div>
+
+                    {/* Selettore Stagione */}
+                    <div className="flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-primary" />
+                        <select
+                            className="bg-gray-50 border-2 border-primary/30 rounded-2xl px-4 py-2.5 font-black text-xs uppercase tracking-wider text-dark focus:border-primary focus:ring-0 outline-none cursor-pointer"
+                            value={effectiveStagioneId}
+                            onChange={(e) => setSelectedStagioneId(e.target.value)}
+                        >
+                            {stagioni.map((s: any) => (
+                                <option key={s.id} value={s.id}>
+                                    {s.nome} {s.attiva ? '⭐ (Attiva)' : ''}
+                                </option>
+                            ))}
+                            <option value="ALL">Tutte le stagioni</option>
+                        </select>
                     </div>
                 </div>
 

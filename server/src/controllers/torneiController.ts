@@ -63,9 +63,28 @@ const uploadToSupabase = async (file: Express.Multer.File): Promise<string> => {
 };
 
 // GET /api/tornei/public
-export const getTorneiPublici = async (_req: Request, res: Response) => {
+export const getTorneiPublici = async (req: Request, res: Response) => {
+    const { stagioneId } = req.query;
     try {
+        let targetStagioneId: string | undefined = undefined;
+        if (stagioneId && stagioneId !== 'ALL') {
+            targetStagioneId = String(stagioneId);
+        } else if (!stagioneId) {
+            const stagioneAttiva = await prisma.stagione.findFirst({
+                where: { attiva: true }
+            });
+            if (stagioneAttiva) {
+                targetStagioneId = stagioneAttiva.id;
+            }
+        }
+
+        const where: any = {};
+        if (targetStagioneId) {
+            where.stagioneId = targetStagioneId;
+        }
+
         const tornei = await prisma.torneo.findMany({
+            where,
             include: {
                 turni: true,
                 stagione: true,

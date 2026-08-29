@@ -27,6 +27,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         const prossimiTornei = await prisma.torneo.findMany({
             where: {
                 completato: false,
+                stagioneId: stagioneAttiva?.id,
                 dataInizio: {
                     gte: fourteenDaysAgo
                 }
