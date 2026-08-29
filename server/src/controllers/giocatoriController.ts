@@ -38,6 +38,13 @@ export const getAllGiocatori = async (req: Request, res: Response) => {
             targetStagioneId = stagioneAttiva.id;
         }
 
+        const isStagioneAttivaSelected = targetStagioneId && stagioneAttiva && targetStagioneId === stagioneAttiva.id;
+
+        // Se è la stagione attiva, prendi solo i giocatori attivi in rosa
+        if (isStagioneAttivaSelected) {
+            where.attivo = true;
+        }
+
         const giocatori = await prisma.giocatore.findMany({
             where,
             include: {
@@ -84,7 +91,12 @@ export const getAllGiocatori = async (req: Request, res: Response) => {
             statsMap.set(r.giocatoreId, current);
         });
 
-        const safeGiocatori = giocatori.map((g: any) => {
+        // Se è selezionata una stagione passata (non attiva), mostra solo chi ha preso parte a quella stagione
+        const giocatoriStagione = targetStagioneId && !isStagioneAttivaSelected
+            ? giocatori.filter((g: any) => statsMap.has(g.id))
+            : giocatori;
+
+        const safeGiocatori = giocatoriStagione.map((g: any) => {
             const isOwnerOrAdmin = isAdmin || (currentUser && currentUser.userId === g.userId);
             const playerStats = statsMap.get(g.id) || { tornei: 0, partite: 0, birilli: 0, migliorPartita: 0 };
             const seasonMedia = playerStats.partite > 0
