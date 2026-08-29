@@ -13,6 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../config';
 
 interface DashboardData {
+    stagioneAttiva?: { id: string; nome: string } | null;
     statsPerCategoria: { categoria: string; count: number }[];
     prossimiTornei: any[];
     ultimiTornei: {
@@ -186,9 +187,19 @@ const Dashboard: React.FC = () => {
 
             {/* 1. Header con cards statistiche */}
             <div className="space-y-4">
-                <div className="flex items-center justify-center gap-2 border-b-2 border-primary/20 pb-3 max-w-5xl mx-auto">
-                    <Users className="w-5 h-5 text-primary" />
-                    <h2 className="text-xl font-black uppercase tracking-tighter text-dark">I Nostri Atleti</h2>
+                <div className="flex flex-col items-center justify-center gap-1 border-b-2 border-primary/20 pb-3 max-w-5xl mx-auto text-center">
+                    <div className="flex items-center gap-2">
+                        <Users className="w-5 h-5 text-primary" />
+                        <h2 className="text-xl font-black uppercase tracking-tighter text-dark">I Nostri Atleti</h2>
+                        {data.stagioneAttiva && (
+                            <span className="text-[10px] font-black uppercase px-2.5 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-full">
+                                {data.stagioneAttiva.nome}
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                        {data.statsPerCategoria.reduce((sum, c) => sum + c.count, 0)} Atleti Confermati in Rosa
+                    </p>
                 </div>
                 <div className="flex flex-nowrap justify-start md:justify-center gap-2 max-w-6xl mx-auto px-4 overflow-x-auto pb-4 custom-scrollbar no-scrollbar-md">
                     {data.statsPerCategoria.sort((a, b) => a.categoria.localeCompare(b.categoria)).map((cat) => {

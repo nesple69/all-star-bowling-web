@@ -104,6 +104,10 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         }
 
         res.json({
+            stagioneAttiva: stagioneAttiva ? {
+                id: stagioneAttiva.id,
+                nome: stagioneAttiva.nome
+            } : null,
             statsPerCategoria: statsPerCategoria.map(s => ({
                 categoria: `${s.sesso}/${s.categoria}`,
                 count: s._count.id
