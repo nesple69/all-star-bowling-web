@@ -62,20 +62,36 @@ const uploadToSupabase = async (file: Express.Multer.File): Promise<string> => {
     return publicUrl;
 };
 
+import jwt from 'jsonwebtoken';
+
 // GET /api/tornei/public
 export const getTorneiPublici = async (req: Request, res: Response) => {
     const { stagioneId } = req.query;
-    try {
-        let targetStagioneId: string | undefined = undefined;
-        if (stagioneId && stagioneId !== 'ALL') {
-            targetStagioneId = String(stagioneId);
-        } else if (!stagioneId) {
-            const stagioneAttiva = await prisma.stagione.findFirst({
-                where: { attiva: true }
-            });
-            if (stagioneAttiva) {
-                targetStagioneId = stagioneAttiva.id;
+    const authHeader = req.headers.authorization;
+    let isAdmin = false;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        try {
+            const token = authHeader.substring(7);
+            const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+            if (decoded && decoded.role === 'ADMIN') {
+                isAdmin = true;
             }
+        } catch {}
+    }
+
+    try {
+        const stagioneAttiva = await prisma.stagione.findFirst({
+            where: { attiva: true }
+        });
+
+        let targetStagioneId: string | undefined = undefined;
+        // Solo l'admin può richiedere una stagione diversa da quella attiva
+        if (isAdmin && stagioneId && stagioneId !== 'ALL') {
+            targetStagioneId = String(stagioneId);
+        } else if (isAdmin && stagioneId === 'ALL') {
+            targetStagioneId = undefined; // Tutte le stagioni solo per admin
+        } else if (stagioneAttiva) {
+            targetStagioneId = stagioneAttiva.id;
         }
 
         const where: any = {};

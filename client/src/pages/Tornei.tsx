@@ -6,6 +6,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { API_BASE_URL } from '../config';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Torneo {
     id: string;
@@ -44,6 +45,7 @@ interface IscrittoPublic {
 }
 
 const Tornei: React.FC = () => {
+    const { isAdmin, token } = useAuth();
     const [filter, setFilter] = useState<'TUTTI' | 'IN_CORSO' | 'COMPLETATI'>('TUTTI');
     const [searchQuery, setSearchQuery] = useState('');
     const [iscrittiMap, setIscrittiMap] = useState<Record<string, IscrittoPublic[]>>({});
@@ -62,7 +64,11 @@ const Tornei: React.FC = () => {
     });
 
     const stagioneAttiva = React.useMemo(() => stagioni.find((s: any) => s.attiva), [stagioni]);
-    const effectiveStagioneId = selectedStagioneId || (stagioneAttiva ? stagioneAttiva.id : '');
+    // Solo l'admin può cambiare stagione; gli utenti standard vedono sempre la stagione attiva
+    const effectiveStagioneId = (isAdmin() && selectedStagioneId) 
+        ? selectedStagioneId 
+        : (stagioneAttiva ? stagioneAttiva.id : '');
+
     const currentStagioneObj = React.useMemo(() => {
         if (effectiveStagioneId === 'ALL') return { nome: 'Tutte le stagioni' };
         return stagioni.find((s: any) => s.id === effectiveStagioneId) || stagioneAttiva;
@@ -87,10 +93,12 @@ const Tornei: React.FC = () => {
     };
 
     const fetchTorneiData = async () => {
+        const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
         const response = await axios.get(`${API_BASE_URL}/api/tornei/public`, {
             params: {
                 stagioneId: effectiveStagioneId || undefined
-            }
+            },
+            ...config
         });
         const torneiData = response.data;
 
@@ -113,7 +121,7 @@ const Tornei: React.FC = () => {
     };
 
     const { data: torneiDataResult, isLoading, error: queryError } = useQuery({
-        queryKey: ['torneiPublicData', effectiveStagioneId],
+        queryKey: ['torneiPublicData', effectiveStagioneId, token],
         queryFn: fetchTorneiData,
     });
 
@@ -173,22 +181,24 @@ const Tornei: React.FC = () => {
                         <p className="text-gray-500 mt-1 font-medium italic">Scopri i prossimi eventi e consulta le classifiche ufficiali.</p>
                     </div>
 
-                    {/* Selettore Stagione */}
-                    <div className="flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-primary" />
-                        <select
-                            className="bg-gray-50 border-2 border-primary/30 rounded-2xl px-4 py-2.5 font-black text-xs uppercase tracking-wider text-dark focus:border-primary focus:ring-0 outline-none cursor-pointer"
-                            value={effectiveStagioneId}
-                            onChange={(e) => setSelectedStagioneId(e.target.value)}
-                        >
-                            {stagioni.map((s: any) => (
-                                <option key={s.id} value={s.id}>
-                                    {s.nome} {s.attiva ? '⭐ (Attiva)' : ''}
-                                </option>
-                            ))}
-                            <option value="ALL">Tutte le stagioni</option>
-                        </select>
-                    </div>
+                    {/* Selettore Stagione (SOLO ADMIN) */}
+                    {isAdmin() && (
+                        <div className="flex items-center gap-2">
+                            <Calendar className="w-5 h-5 text-primary" />
+                            <select
+                                className="bg-gray-50 border-2 border-primary/30 rounded-2xl px-4 py-2.5 font-black text-xs uppercase tracking-wider text-dark focus:border-primary focus:ring-0 outline-none cursor-pointer"
+                                value={effectiveStagioneId}
+                                onChange={(e) => setSelectedStagioneId(e.target.value)}
+                            >
+                                {stagioni.map((s: any) => (
+                                    <option key={s.id} value={s.id}>
+                                        {s.nome} {s.attiva ? '⭐ (Attiva)' : ''}
+                                    </option>
+                                ))}
+                                <option value="ALL">Tutte le stagioni (Admin)</option>
+                            </select>
+                        </div>
+                    )}
                 </div>
 
                 <div className="mt-8 flex flex-col md:flex-row gap-4">

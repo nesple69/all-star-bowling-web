@@ -77,9 +77,13 @@ const Giocatori: React.FC = () => {
     });
 
     const stagioneAttiva = useMemo(() => stagioni.find((s: any) => s.attiva), [stagioni]);
-    const effectiveStagioneId = selectedStagioneId || (stagioneAttiva ? stagioneAttiva.id : '');
+    // Solo l'admin può cambiare la stagione visualizzata; per gli utenti regolari è sempre la stagione attiva
+    const effectiveStagioneId = (isAdmin() && selectedStagioneId)
+        ? selectedStagioneId
+        : (stagioneAttiva ? stagioneAttiva.id : '');
+
     const currentStagioneObj = useMemo(() => {
-        if (effectiveStagioneId === 'ALL') return { nome: 'Tutte le stagioni (Storico Totale)' };
+        if (effectiveStagioneId === 'ALL') return { nome: 'Tutte le stagioni (Storico Globale)' };
         return stagioni.find((s: any) => s.id === effectiveStagioneId) || stagioneAttiva;
     }, [stagioni, effectiveStagioneId, stagioneAttiva]);
 
@@ -289,29 +293,31 @@ const Giocatori: React.FC = () => {
                         </select>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-primary" />
-                        <select
-                            className="bg-gray-50 border-2 border-primary/40 rounded-md px-4 py-2 font-bold text-sm text-dark focus:border-primary focus:ring-0 outline-none cursor-pointer"
-                            value={effectiveStagioneId}
-                            onChange={(e) => setSelectedStagioneId(e.target.value)}
-                        >
-                            {stagioni.map((s: any) => (
-                                <option key={s.id} value={s.id}>
-                                    {s.nome} {s.attiva ? '⭐ (Attiva)' : ''}
-                                </option>
-                            ))}
-                            <option value="ALL">Tutte le stagioni (Storico Globale)</option>
-                        </select>
-                    </div>
+                    {isAdmin() && (
+                        <div className="flex items-center gap-2">
+                            <Calendar className="w-5 h-5 text-primary" />
+                            <select
+                                className="bg-gray-50 border-2 border-primary/40 rounded-md px-4 py-2 font-bold text-sm text-dark focus:border-primary focus:ring-0 outline-none cursor-pointer"
+                                value={effectiveStagioneId}
+                                onChange={(e) => setSelectedStagioneId(e.target.value)}
+                            >
+                                {stagioni.map((s: any) => (
+                                    <option key={s.id} value={s.id}>
+                                        {s.nome} {s.attiva ? '⭐ (Attiva)' : ''}
+                                    </option>
+                                ))}
+                                <option value="ALL">Tutte le stagioni (Storico Globale)</option>
+                            </select>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Banner info stagione selezionata */}
+            {/* Banner info stagione */}
             <div className="flex items-center justify-between bg-primary/5 border border-primary/20 rounded-xl px-4 py-2 text-xs">
                 <div className="flex items-center gap-2 text-primary font-bold">
                     <Calendar className="w-4 h-4" />
-                    <span>Statistiche visualizzate (Tornei, Partite, Media): <strong className="uppercase">{currentStagioneObj?.nome || 'Stagione Attiva'}</strong></span>
+                    <span>Statistiche {isAdmin() ? 'visualizzate' : 'ufficiali'} (Tornei, Partite, Media): <strong className="uppercase">{currentStagioneObj?.nome || 'Stagione Attiva'}</strong></span>
                 </div>
                 {effectiveStagioneId !== 'ALL' && currentStagioneObj?.attiva && (
                     <span className="bg-green-100 text-green-800 text-[10px] font-black uppercase px-2 py-0.5 rounded-full">

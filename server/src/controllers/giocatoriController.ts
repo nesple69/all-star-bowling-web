@@ -24,17 +24,18 @@ export const getAllGiocatori = async (req: Request, res: Response) => {
             where.attivo = false;
         }
 
-        // Identifica stagione target (se stagioneId === 'ALL', calcola all-time; altrimenti usa stagioneId specificato o la stagione attiva)
+        // Identifica stagione target: per utenti non-admin è sempre e solo la stagione attiva
         let targetStagioneId: string | null = null;
-        if (stagioneId && stagioneId !== 'ALL') {
+        const stagioneAttiva = await prisma.stagione.findFirst({
+            where: { attiva: true }
+        });
+
+        if (isAdmin && stagioneId && stagioneId !== 'ALL') {
             targetStagioneId = String(stagioneId);
-        } else if (!stagioneId) {
-            const stagioneAttiva = await prisma.stagione.findFirst({
-                where: { attiva: true }
-            });
-            if (stagioneAttiva) {
-                targetStagioneId = stagioneAttiva.id;
-            }
+        } else if (isAdmin && stagioneId === 'ALL') {
+            targetStagioneId = null; // Storico globale solo per admin
+        } else if (stagioneAttiva) {
+            targetStagioneId = stagioneAttiva.id;
         }
 
         const giocatori = await prisma.giocatore.findMany({
