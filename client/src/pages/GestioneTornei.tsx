@@ -376,6 +376,19 @@ ASD All Star Team`;
         }
     };
 
+    const handleSetAttiva = async (stagione: any) => {
+        try {
+            await axios.put(`${API_BASE_URL}/api/stagioni/${stagione.id}`, {
+                ...stagione,
+                attiva: true
+            }, { headers });
+            await fetchStagioni();
+            alert(`✅ La stagione "${stagione.nome}" è ora la stagione ATTIVA su tutto il portale per tutti gli utenti!`);
+        } catch (err: any) {
+            alert(err.response?.data?.message || "Errore durante l'attivazione della stagione.");
+        }
+    };
+
     const handleDownloadBackup = async (stagioneId: string, stagioneName: string) => {
         try {
             const response = await axios.get(
@@ -750,8 +763,16 @@ ASD All Star Team`;
                                 <p className="text-xs font-bold text-gray-500">
                                     {format(new Date(stagioneCorrente.dataInizio), 'dd/MM/yy')} - {format(new Date(stagioneCorrente.dataFine), 'dd/MM/yy')}
                                 </p>
-                                {stagioneCorrente.attiva && (
+                                {stagioneCorrente.attiva ? (
                                     <span className="inline-block mt-1 bg-green-500 text-white text-[8px] font-black px-2 py-0.5 rounded uppercase">Attiva</span>
+                                ) : (
+                                    <button
+                                        onClick={() => handleSetAttiva(stagioneCorrente)}
+                                        className="inline-block mt-1 bg-amber-100 hover:bg-green-600 text-amber-900 hover:text-white border border-amber-300 text-[8px] font-black px-2 py-0.5 rounded uppercase transition-all cursor-pointer shadow-sm"
+                                        title="Imposta questa stagione come Attiva per tutto il sito"
+                                    >
+                                        ⭐ Rendi Attiva
+                                    </button>
                                 )}
                             </div>
                             <div className="flex items-center gap-2">
