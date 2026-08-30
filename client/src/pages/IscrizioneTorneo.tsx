@@ -118,7 +118,6 @@ const IscrizioneTorneo: React.FC = () => {
 
     // Step 1: Formazione Atleti
     const [slots, setSlots] = useState<AtletaSlot[]>([]);
-    const [nomeSquadra, setNomeSquadra] = useState('');
 
     useEffect(() => {
         if (torneo) {
@@ -287,7 +286,6 @@ const IscrizioneTorneo: React.FC = () => {
                 turnoId: selectedTurno,
                 secondoTurnoId: selectedSecondTurno || null,
                 sedeId: (selectedSede && selectedSede !== 'main') ? selectedSede : null,
-                nomeSquadra: nomeSquadra.trim() || undefined,
                 atleti: atletiPayload
             }, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
@@ -375,20 +373,6 @@ const IscrizioneTorneo: React.FC = () => {
                         Inserisci i numeri di tessera FISB per ciascun componente richiesto dalla tipologia del torneo.
                     </p>
                 </div>
-
-                {/* Nome Squadra opzionale per Doppio, Tris e Squadra */}
-                {torneo.tipologia !== 'SINGOLO' && (
-                    <div className="p-4 bg-gray-50/80 rounded-2xl border border-gray-100 space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Nome Coppia / Squadra (Opzionale)</label>
-                        <input
-                            type="text"
-                            placeholder="Es: Gli Strike Boys, Le Tigri, ecc..."
-                            value={nomeSquadra}
-                            onChange={(e) => setNomeSquadra(e.target.value)}
-                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl font-black uppercase text-sm outline-none focus:border-primary transition-all"
-                        />
-                    </div>
-                )}
 
                 {/* Griglia Slot Atleti */}
                 <div className="space-y-4">
@@ -655,12 +639,6 @@ const IscrizioneTorneo: React.FC = () => {
                     </h2>
 
                     <div className="space-y-3">
-                        {nomeSquadra.trim() && (
-                            <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span className="text-xs text-gray-500 font-bold uppercase">Formazione</span>
-                                <span className="font-black uppercase text-primary">{nomeSquadra}</span>
-                            </div>
-                        )}
                         <div className="flex justify-between items-center py-2 border-b border-gray-100">
                             <span className="text-xs text-gray-500 font-bold uppercase">Atleti Iscritti</span>
                             <span className="font-black uppercase text-right">
