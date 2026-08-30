@@ -133,32 +133,41 @@ const Contabilita: React.FC = () => {
 
         setLoadingWA(giocatore.id);
         try {
-            // Recupera tutti i movimenti della stagione corrente
-            const res = await axios.get(`${API_BASE_URL}/api/giocatori/${giocatore.id}/borsellino?soloAttiva=true`, {
+            // Recupera i movimenti del borsellino
+            const res = await axios.get(`${API_BASE_URL}/api/giocatori/${giocatore.id}/borsellino`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
             const movimenti = res.data.movimenti || [];
             const telefonoPulito = giocatore.telefono.replace(/\D/g, '');
             const telefonoFormattato = telefonoPulito.startsWith('39') ? telefonoPulito : `39${telefonoPulito}`;
+            const saldoFormatted = formatValuta(giocatore.saldoAttuale);
 
-            let estrattoConto = '';
+            let msg = `Ciao *${giocatore.nome}*! 🎳\nEcco il resoconto aggiornato del tuo *Borsellino Elettronico* (All Star Team):\n\n💰 *Saldo Attuale:* ${saldoFormatted}\n`;
+
             if (movimenti.length > 0) {
-                estrattoConto = '\n\n*ESTRATTO CONTO STAGIONE CORRENTE:*\n';
-                movimenti.forEach((m: any) => {
+                msg += `\n📋 *Ultimi Movimenti:*\n`;
+                const ultimi = movimenti.slice(0, 5);
+                ultimi.forEach((m: any) => {
                     const dataFmt = format(new Date(m.data), 'dd/MM/yy');
                     const isPositive = m.tipo === 'RICARICA';
                     const isRimborso = m.tipo === 'RIMBORSO';
                     const segno = isRimborso ? '+' : isPositive ? '+' : '-';
                     const importoFmt = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(m.importo));
                     const desc = m.descrizione ? ` (${m.descrizione})` : '';
-                    estrattoConto += `• ${dataFmt}: ${segno}${importoFmt}${desc}\n`;
+                    msg += `• ${dataFmt}: *${segno}${importoFmt}*${desc}\n`;
                 });
             }
 
-            const messaggio = `Ciao ${giocatore.nome}, il tuo credito è di ${formatValuta(giocatore.saldoAttuale)}. Ti chiediamo cortesemente di ricaricarlo per poter continuare la tua attività agonistica.${estrattoConto}\nGrazie!`;
-            const url = `https://wa.me/${telefonoFormattato}?text=${encodeURIComponent(messaggio)}`;
+            if (giocatore.saldoAttuale < 0) {
+                msg += `\n⚠️ Ti ricordiamo che il tuo conto è in negativo. Ti chiediamo cortesemente di ricaricarlo per poter partecipare alle prossime attività agonistiche.`;
+            } else if (giocatore.saldoAttuale < 15) {
+                msg += `\n💡 Il tuo credito è in esaurimento, ricordati di effettuare una ricarica alla prima occasione utile.`;
+            }
 
+            msg += `\nPer qualsiasi informazione contatta la segreteria. ⭐`;
+
+            const url = `https://wa.me/${telefonoFormattato}?text=${encodeURIComponent(msg)}`;
             window.open(url, '_blank');
         } catch (error) {
             console.error('Errore durante il recupero dell\'estratto conto:', error);
@@ -269,48 +278,47 @@ const Contabilita: React.FC = () => {
                                         </td>
                                         <td className="px-8 py-5">
                                             <div className="flex items-center justify-center gap-3">
-                                                {isLowBalance && (
-                                                    <div className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest animate-pulse ${isCritical ? 'bg-red-600 text-white shadow-lg shadow-red-100' : 'bg-orange-100 text-orange-600'}`}>
+                                                {isLowBalance ? (
+                                                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${isCritical ? 'bg-red-600 text-white shadow-md shadow-red-100 animate-pulse' : 'bg-orange-100 text-orange-600'}`}>
                                                         <AlertTriangle className="w-3.5 h-3.5" />
                                                         {isCritical ? 'Saldo Negativo' : 'Ricaricare'}
                                                     </div>
-                                                )}
-                                                {!isLowBalance && (
-                                                    <span className="px-4 py-1.5 bg-green-50 text-green-600 rounded-full text-[9px] font-black uppercase tracking-widest border-2 border-green-100">
-                                                        Conto in Regola
+                                                ) : (
+                                                    <span className="px-3 py-1 bg-green-50 text-green-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-green-200">
+                                                        In Regola
                                                     </span>
                                                 )}
 
-                                                {/* Azioni Sollecito / Download PDF */}
-                                                {isLowBalance && (
-                                                    <div className="flex gap-2">
-                                                        <button
-                                                            onClick={(e) => handleDownloadPDF(e, s)}
-                                                            disabled={loadingPDF === s.id}
-                                                            title="Scarica Estratto Conto PDF"
-                                                            className="p-2 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm group/pdf disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            {loadingPDF === s.id ? (
-                                                                <Loader2 className="w-5 h-5 animate-spin" />
-                                                            ) : (
-                                                                <FileDown className="w-5 h-5" />
-                                                            )}
-                                                        </button>
+                                                {/* Azioni Resoconto WhatsApp / Download PDF per tutti i giocatori */}
+                                                <div className="flex items-center gap-1.5 ml-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => handleWhatsApp(e, s)}
+                                                        disabled={loadingWA === s.id}
+                                                        title="Invia resoconto WhatsApp"
+                                                        className="p-2 bg-[#25D366] hover:bg-[#20ba59] text-white rounded-xl transition-all shadow-sm group/wa disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+                                                    >
+                                                        {loadingWA === s.id ? (
+                                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                                        ) : (
+                                                            <WhatsAppIcon className="w-4 h-4" />
+                                                        )}
+                                                    </button>
 
-                                                        <button
-                                                            onClick={(e) => handleWhatsApp(e, s)}
-                                                            disabled={loadingWA === s.id}
-                                                            title="Invia sollecito WhatsApp"
-                                                            className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-600 hover:text-white transition-all shadow-sm group/wa disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            {loadingWA === s.id ? (
-                                                                <Loader2 className="w-5 h-5 animate-spin" />
-                                                            ) : (
-                                                                <WhatsAppIcon className="w-5 h-5" />
-                                                            )}
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => handleDownloadPDF(e, s)}
+                                                        disabled={loadingPDF === s.id}
+                                                        title="Scarica Estratto Conto PDF"
+                                                        className="p-2 bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm group/pdf disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+                                                    >
+                                                        {loadingPDF === s.id ? (
+                                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                                        ) : (
+                                                            <FileDown className="w-4 h-4" />
+                                                        )}
+                                                    </button>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-8 py-5 text-right">
