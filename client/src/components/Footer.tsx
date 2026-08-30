@@ -63,9 +63,11 @@ const Footer: React.FC = () => {
                         <ul className="space-y-3">
                             <li>
                                 <a
-                                    href="/calendario_tornei.pdf"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                    href="#"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        alert('PDF Calendario Tornei in arrivo - In aggiornamento');
+                                    }}
                                     className="text-slate-400 hover:text-white transition-colors flex items-center gap-2 text-sm group"
                                 >
                                     <Calendar size={14} className="group-hover:text-primary transition-colors" />
