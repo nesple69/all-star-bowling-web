@@ -308,7 +308,7 @@ const Tornei: React.FC = () => {
                                                             return nome.length > 22 ? nome.substring(0, 20) + '…' : nome;
                                                         };
                                                         const sediConLocandina = (t.sedi || []).filter(s => s.locandina);
-                                                        const hasMain = !!t.locandina && !isScaduto2Giorni;
+                                                        const hasMain = !!t.locandina;
                                                         if (!hasMain && sediConLocandina.length === 0) return null;
                                                         return (
                                                             <>

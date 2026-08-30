@@ -76,14 +76,13 @@ const FormTorneo: React.FC = () => {
                     })) || []);
                     if (t.locandina) {
                         const fullUrl = t.locandina.startsWith('http') ? t.locandina : `${API_BASE_URL}${t.locandina}`;
-                        // Se la locandina è un URL esterno (http/https)
-                        if (t.locandina.startsWith('http')) {
+                        const isStorageUrl = t.locandina.includes('supabase.co') || t.locandina.includes('/uploads/');
+                        if (t.locandina.startsWith('http') && !isStorageUrl) {
                             setLocandinaMode('url');
                             setLocandinaUrl(t.locandina);
                         } else {
-                            setPreviewUrl(fullUrl);
+                            setLocandinaMode('upload');
                         }
-                        // Imposta sempre l'anteprima se presente, per vederla nel dropzone se si torna in upload mode
                         setPreviewUrl(fullUrl);
                     }
                 }
@@ -97,6 +96,10 @@ const FormTorneo: React.FC = () => {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            if (file.size > 20 * 1024 * 1024) {
+                alert('Il file selezionato supera il limite di 20MB.');
+                return;
+            }
             setSelectedFile(file);
             setPreviewUrl(URL.createObjectURL(file));
         }
@@ -169,12 +172,14 @@ const FormTorneo: React.FC = () => {
             }
         });
         if (selectedFile) {
-            console.log(`[CLIENT] Allegatando file: ${selectedFile.name} (${selectedFile.size} bytes)`);
+            console.log(`[CLIENT] Allegando file: ${selectedFile.name} (${selectedFile.size} bytes)`);
             data.append('locandina', selectedFile);
             data.append('locandina_main', selectedFile);
         } else if (locandinaMode === 'url' && locandinaUrl.trim()) {
             console.log(`[CLIENT] Utilizzando URL locandina: ${locandinaUrl}`);
             data.append('locandinaUrl', locandinaUrl.trim());
+        } else if (!previewUrl && !locandinaUrl) {
+            data.append('removeLocandina', 'true');
         }
 
         // Aggiungi sedi come stringa JSON (escludendo file e previewUrl)
@@ -191,14 +196,15 @@ const FormTorneo: React.FC = () => {
         try {
             console.log('Inviando dati torneo (FormData keys):', Array.from(data.keys()));
             const token = sessionStorage.getItem('token');
+            const authHeaders = { Authorization: `Bearer ${token}` };
             if (isEdit) {
                 await axios.put(`${API_BASE_URL}/api/tornei/${id}`, data, {
-                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+                    headers: authHeaders
                 });
                 setStatus({ type: 'success', message: 'Torneo aggiornato con successo!' });
             } else {
                 const res = await axios.post(`${API_BASE_URL}/api/tornei`, data, {
-                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+                    headers: authHeaders
                 });
                 setStatus({ type: 'success', message: 'Torneo creato! Ora puoi aggiungere i turni.' });
                 setTimeout(() => navigate(`/admin/tornei/modifica/${res.data.id}`), 1500);

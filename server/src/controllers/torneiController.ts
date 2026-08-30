@@ -8,17 +8,15 @@ import { createClient } from '@supabase/supabase-js';
 
 // Configurazione Supabase Storage Safe
 const getSupabaseClient = () => {
-    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const key = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
     if (!url || !key) {
-        console.error('[SUPABASE] Errore: Variabili SUPABASE_URL o KEY mancanti su Vercel!');
+        console.error('[SUPABASE] Errore: Variabili SUPABASE_URL o KEY mancanti!');
         return null;
     }
     return createClient(url, key);
 };
-
-const supabase = getSupabaseClient();
 
 // Configurazione Multer per caricamento Locandine (In Memoria per Vercel/Supabase)
 const storage = multer.memoryStorage();
@@ -34,15 +32,17 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilt
 export const upload = multer({
     storage,
     fileFilter,
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+    limits: { fileSize: 20 * 1024 * 1024 } // 20MB limit
 });
 
 const uploadToSupabase = async (file: Express.Multer.File): Promise<string> => {
+    const supabase = getSupabaseClient();
     if (!supabase) {
         throw new Error('Configurazione Supabase mancante sul server.');
     }
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const fileName = `locandina-${uniqueSuffix}${path.extname(file.originalname)}`;
+    const ext = path.extname(file.originalname) || (file.mimetype === 'application/pdf' ? '.pdf' : '.jpg');
+    const fileName = `locandina-${uniqueSuffix}${ext}`;
     
     const { data, error } = await supabase.storage
         .from('locandine')
@@ -52,6 +52,7 @@ const uploadToSupabase = async (file: Express.Multer.File): Promise<string> => {
         });
 
     if (error) {
+        console.error('[SUPABASE STORAGE ERROR]:', error);
         throw new Error(`Errore Supabase: ${error.message}`);
     }
 
@@ -350,7 +351,12 @@ export const updateTorneo = async (req: Request, res: Response) => {
             mostraBottoneIscrizione: (String(mostraBottoneIscrizione) === 'true' || mostraBottoneIscrizione === true),
             categorie: categorieData
         };
-        if (locandina) updateData.locandina = locandina;
+
+        if (req.body.removeLocandina === 'true' || req.body.removeLocandina === true || locandinaUrl === '') {
+            updateData.locandina = null;
+        } else if (locandina !== undefined) {
+            updateData.locandina = locandina;
+        }
 
         const torneoAggiornato = await prisma.$transaction(async (tx) => {
             const updated = await tx.torneo.update({

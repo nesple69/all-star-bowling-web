@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../config';
 import {
     Trophy, Plus, Edit2, Trash2, Calendar,
     MapPin, Settings, AlertCircle, Users, ChevronUp,
-    CheckCircle2, XCircle, MessageCircle, Save, X, Pencil, Download, UserCheck, Search
+    CheckCircle2, XCircle, MessageCircle, Save, X, Pencil, Download, UserCheck, Search, FileText
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -21,6 +21,7 @@ interface Torneo {
     dataFine: string | null;
     completato: boolean;
     costoIscrizione: number;
+    locandina?: string | null;
     stagione: {
         nome: string;
     };
@@ -838,6 +839,23 @@ ASD All Star Team`;
                                             {torneo.completato && (
                                                 <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 bg-green-100 text-green-700 rounded">
                                                     Completato
+                                                </span>
+                                            )}
+                                            {torneo.locandina ? (
+                                                <a
+                                                    href={torneo.locandina.startsWith('http') ? torneo.locandina : `${API_BASE_URL}${torneo.locandina}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 bg-amber-100 text-amber-800 rounded hover:bg-amber-200 transition-colors flex items-center gap-1"
+                                                    title="Visualizza Locandina"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <FileText className="w-3 h-3" />
+                                                    Locandina
+                                                </a>
+                                            ) : (
+                                                <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 bg-gray-50 text-gray-400 rounded border border-gray-100">
+                                                    No Locandina
                                                 </span>
                                             )}
                                         </div>

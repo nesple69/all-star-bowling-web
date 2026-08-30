@@ -319,7 +319,7 @@ const DettaglioTorneo: React.FC = () => {
                 </Link>
 
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                    {torneo.locandina && !isScaduto2Giorni && (
+                    {torneo.locandina && (
                         <a
                             href={torneo.locandina.startsWith('http') ? torneo.locandina : `${API_BASE_URL}${torneo.locandina}`}
                             target="_blank"
