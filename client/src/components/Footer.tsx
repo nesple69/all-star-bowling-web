@@ -45,7 +45,7 @@ const Footer: React.FC = () => {
                             </li>
                             <li>
                                 <a
-                                    href="https://www.fisb.it/repository/Modulistica/Regolamento-Tecnico-Sportivo-2025-2026/"
+                                    href="https://www.fisb.it/repository/reg-tecnico-sportivo-2020/Modulistica/Regolamento-Tecnico-Sportivo-2026-2027/"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-slate-400 hover:text-white transition-colors flex items-center gap-2 text-sm group"
