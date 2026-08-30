@@ -32,6 +32,12 @@ const CATEGORY_LABELS: Record<string, string> = {
     'DS': 'DS - Dirigenti'
 };
 
+const WhatsAppIcon = ({ className }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.03 0C5.399 0 .007 5.391 0 12.026c0 2.119.554 4.188 1.606 6.01L0 24l6.117-1.605a11.803 11.803 0 005.917 1.6c6.625 0 12.014-5.391 12.018-12.027a11.82 11.82 0 00-3.518-8.508z" />
+    </svg>
+);
+
 const SchedaGiocatore: React.FC<Props> = ({ giocatore, stagioneId, stagioneNome, onClose, onEdit, onDelete, isAdmin }) => {
     const { token } = useAuth();
     const [playerData, setPlayerData] = useState<any>(giocatore);
@@ -107,6 +113,37 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, stagioneId, stagioneNome,
         } finally {
             setIsWalletActionLoading(false);
         }
+    };
+
+    const handleSendWhatsAppBorsellino = () => {
+        const telefono = giocatore.telefono || playerData?.telefono;
+        if (!telefono) {
+            alert('Numero di telefono non disponibile per questo atleta.');
+            return;
+        }
+
+        const cleaned = telefono.replace(/\D/g, '');
+        const numero = cleaned.startsWith('39') ? cleaned : `39${cleaned}`;
+
+        const saldoFormatted = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(saldo || 0);
+
+        let msg = `Ciao *${giocatore.nome}*! 🎳\nEcco il resoconto aggiornato del tuo *Borsellino Elettronico* (All Star Team):\n\n💰 *Saldo Attuale:* ${saldoFormatted}\n`;
+
+        if (movimenti && movimenti.length > 0) {
+            msg += `\n📋 *Ultimi Movimenti:*\n`;
+            const ultimi = movimenti.slice(0, 5);
+            ultimi.forEach((m) => {
+                const dataFmt = format(new Date(m.data), 'dd/MM/yy');
+                const segno = m.tipo === 'RICARICA' ? '+' : '-';
+                const importoFmt = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(m.importo));
+                msg += `• ${dataFmt} - ${m.descrizione}: *${segno}${importoFmt}*\n`;
+            });
+        }
+
+        msg += `\nPer qualsiasi informazione contatta la segreteria. ⭐`;
+
+        const waLink = `https://wa.me/${numero}?text=${encodeURIComponent(msg)}`;
+        window.open(waLink, '_blank');
     };
 
     // Calcola la miglior partita dai risultati (ESCLUDENDO i riporti)
@@ -280,6 +317,15 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, stagioneId, stagioneNome,
                                             >
                                                 <History className="w-3.5 h-3.5" />
                                                 {showWalletHistory ? 'Nascondi Storico' : 'Vedi Storico Recente'}
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={handleSendWhatsAppBorsellino}
+                                                className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#25D366] hover:bg-[#20ba59] text-white rounded-xl font-black uppercase text-[10px] tracking-wider transition-all shadow-sm active:scale-95 cursor-pointer"
+                                            >
+                                                <WhatsAppIcon className="w-4 h-4" />
+                                                Invia Resoconto WhatsApp
                                             </button>
                                         </div>
 
