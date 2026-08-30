@@ -269,6 +269,11 @@ const IscrizioneTorneo: React.FC = () => {
             return;
         }
 
+        if (!isAdministrator && (!isSaldoOk || !isCertificatiOk)) {
+            setFormValidationWarning("per procedere contattare l'amministratore");
+            return;
+        }
+
         setIsSubmitting(true);
         setSubmitResult(null);
         setFormValidationWarning('');
@@ -449,21 +454,37 @@ const IscrizioneTorneo: React.FC = () => {
                                         </div>
 
                                         <div className="flex items-center gap-4 text-right">
-                                            <div>
-                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Borsellino</p>
-                                                <p className={`text-sm font-black ${hasSaldoSufficiente ? 'text-green-600' : 'text-red-500'}`}>
-                                                    € {saldoVal.toFixed(2)}
-                                                </p>
-                                            </div>
+                                            {isAdministrator ? (
+                                                <>
+                                                    <div>
+                                                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Borsellino</p>
+                                                        <p className={`text-sm font-black ${hasSaldoSufficiente ? 'text-green-600' : 'text-red-500'}`}>
+                                                            € {saldoVal.toFixed(2)}
+                                                        </p>
+                                                    </div>
 
-                                            <div>
-                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Certificato</p>
-                                                <p className={`text-xs font-black uppercase ${isScaduto ? 'text-red-500' : 'text-green-600'}`}>
-                                                    {isScaduto ? 'Scaduto' : 'In Regola'}
-                                                </p>
-                                            </div>
+                                                    <div>
+                                                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Certificato</p>
+                                                        <p className={`text-xs font-black uppercase ${isScaduto ? 'text-red-500' : 'text-green-600'}`}>
+                                                            {isScaduto ? 'Scaduto' : 'In Regola'}
+                                                        </p>
+                                                    </div>
 
-                                            <CheckCircle2 className="w-6 h-6 text-green-500 shrink-0" />
+                                                    <CheckCircle2 className="w-6 h-6 text-green-500 shrink-0" />
+                                                </>
+                                            ) : (
+                                                hasSaldoSufficiente && !isScaduto ? (
+                                                    <span className="text-[10px] font-black uppercase text-green-700 bg-green-100 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                                                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                                        In Regola
+                                                    </span>
+                                                ) : (
+                                                    <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs font-black uppercase tracking-tight">
+                                                        <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                                                        per procedere contattare l'amministratore
+                                                    </div>
+                                                )
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -682,22 +703,29 @@ const IscrizioneTorneo: React.FC = () => {
                     </div>
 
                     {/* Alert saldi o certificati */}
-                    {saldiInsufficienti.length > 0 && (
-                        <div className={`p-4 rounded-2xl flex items-center gap-3 text-xs font-bold ${isAdministrator ? 'bg-amber-50 border border-amber-200 text-amber-800' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+                    {!isAdministrator && (!isSaldoOk || !isCertificatiOk) && (
+                        <div className="p-4 rounded-2xl flex items-center gap-3 text-xs font-black uppercase tracking-tight bg-red-50 border border-red-200 text-red-700">
+                            <AlertCircle className="w-5 h-5 shrink-0" />
+                            <span>per procedere contattare l'amministratore</span>
+                        </div>
+                    )}
+
+                    {isAdministrator && saldiInsufficienti.length > 0 && (
+                        <div className="p-4 rounded-2xl flex items-center gap-3 text-xs font-bold bg-amber-50 border border-amber-200 text-amber-800">
                             <AlertCircle className="w-5 h-5 shrink-0" />
                             <div>
                                 <p className="font-black uppercase">Saldo insufficiente per: {saldiInsufficienti.map(g => `${g.cognome} ${g.nome} (€${Number(g.saldo?.saldoAttuale || 0).toFixed(2)})`).join(', ')}</p>
-                                <p className="mt-0.5">{isAdministrator ? 'In quanto amministratore puoi forzare l\'iscrizione portando il saldo in negativo.' : 'Ricarica i borsellini prima di procedere con l\'iscrizione.'}</p>
+                                <p className="mt-0.5">In quanto amministratore puoi forzare l'iscrizione portando il saldo in negativo.</p>
                             </div>
                         </div>
                     )}
 
-                    {certificatiScaduti.length > 0 && (
-                        <div className={`p-4 rounded-2xl flex items-center gap-3 text-xs font-bold ${isAdministrator ? 'bg-amber-50 border border-amber-200 text-amber-800' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+                    {isAdministrator && certificatiScaduti.length > 0 && (
+                        <div className="p-4 rounded-2xl flex items-center gap-3 text-xs font-bold bg-amber-50 border border-amber-200 text-amber-800">
                             <AlertCircle className="w-5 h-5 shrink-0" />
                             <div>
                                 <p className="font-black uppercase">Certificato medico scaduto per: {certificatiScaduti.map(g => `${g.cognome} ${g.nome}`).join(', ')}</p>
-                                <p className="mt-0.5">{isAdministrator ? 'Procedi con attenzione (override amministratore).' : 'Aggiorna i certificati medici prima di partecipare a gare agonistiche.'}</p>
+                                <p className="mt-0.5">Procedi con attenzione (override amministratore).</p>
                             </div>
                         </div>
                     )}

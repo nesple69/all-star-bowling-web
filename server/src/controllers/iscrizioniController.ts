@@ -318,7 +318,7 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
                 const scadenza = new Date(g.certificatoMedicoScadenza);
                 if (scadenza < oggi && !isAdmin) {
                     return res.status(400).json({
-                        message: `Certificato medico scaduto per ${g.nome} ${g.cognome}. Aggiorna il certificato prima di partecipare a gare agonistiche.`
+                        message: "per procedere contattare l'amministratore"
                     });
                 }
             }
@@ -395,7 +395,7 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
                     const saldoAttualeNum = Number(saldo?.saldoAttuale || 0);
 
                     if (!isAdmin && saldoAttualeNum < costo) {
-                        throw new Error(`Saldo insufficiente nel borsellino di ${g.nome} ${g.cognome} (Saldo: €${saldoAttualeNum.toFixed(2)}, Costo: €${costo.toFixed(2)}).`);
+                        throw new Error("per procedere contattare l'amministratore");
                     }
 
                     await tx.saldoBorsellino.upsert({
