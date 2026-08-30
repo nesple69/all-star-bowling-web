@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import {
     Trophy, AlertTriangle, Clock, CheckCircle2,
-    Users, Calendar, MapPin, CreditCard,
-    ChevronUp
+    Users, Calendar, MapPin, CreditCard
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -60,23 +59,6 @@ interface DashboardData {
     certificatiInScadenza: any[];
 }
 
-interface IscrittoPublic {
-    giocatore: {
-        nome: string;
-        cognome: string;
-        sesso: string;
-        categoria: string;
-    };
-    turno: {
-        giorno: string;
-        orarioInizio: string;
-    };
-    secondoTurno?: {
-        giorno: string;
-        orarioInizio: string;
-    } | null;
-}
-
 const CATEGORY_COLORS: Record<string, string> = {
     'A': 'from-amber-400 to-amber-600',
     'B': 'from-amber-300 to-amber-500',
@@ -89,10 +71,6 @@ const CATEGORY_COLORS: Record<string, string> = {
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     const { user, isAdmin, token } = useAuth();
-    const [iscrittiMap, setIscrittiMap] = useState<Record<string, IscrittoPublic[]>>({});
-    // @ts-ignore
-    const [loadingIscritti, setLoadingIscritti] = useState<Record<string, boolean>>({});
-    const [openIscritti, setOpenIscritti] = useState<Record<string, boolean>>({});
 
     const fetchStats = async (): Promise<DashboardData> => {
         const response = await axios.get(`${API_BASE_URL}/api/dashboard/stats`, {
@@ -125,25 +103,6 @@ const Dashboard: React.FC = () => {
     };
 
     const error = queryError ? (queryError as any).response?.data?.message || queryError.message || 'Errore di connessione' : null;
-
-    // @ts-ignore
-    const fetchIscritti = async (torneoId: string) => {
-        if (iscrittiMap[torneoId]) {
-            setOpenIscritti(prev => ({ ...prev, [torneoId]: !prev[torneoId] }));
-            return;
-        }
-
-        setLoadingIscritti(prev => ({ ...prev, [torneoId]: true }));
-        try {
-            const res = await axios.get(`${API_BASE_URL}/api/tornei/public/${torneoId}/iscritti`);
-            setIscrittiMap(prev => ({ ...prev, [torneoId]: res.data }));
-            setOpenIscritti(prev => ({ ...prev, [torneoId]: true }));
-        } catch (err) {
-            console.error('Errore caricamento iscritti:', err);
-        } finally {
-            setLoadingIscritti(prev => ({ ...prev, [torneoId]: false }));
-        }
-    };
 
     if (isLoading) {
         return (
@@ -278,64 +237,16 @@ const Dashboard: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    {/* NUOVA LOGICA: Unico tasto Dettagli e Iscrizione */}
-                                    <div className="flex flex-col gap-2 pt-2 border-t border-gray-50">
+                                    {/* Pulsante unico Vai a Torneo */}
+                                    <div className="pt-2 border-t border-gray-50">
                                         <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                fetchIscritti(torneo.id);
-                                            }}
-                                            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-white border border-gray-100 text-gray-500 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-50 transition-all shadow-sm"
-                                        >
-                                            <Users className="w-4 h-4" />
-                                            {openIscritti[torneo.id] ? 'Chiudi Atleti' : 'Vedi Iscritti'}
-                                        </button>
-
-                                        <button
-                                            onClick={() => navigate(`/tornei/${torneo.id}`)}
+                                            onClick={() => navigate('/tornei')}
                                             className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-secondary text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:shadow-xl hover:scale-[1.02] transition-all shadow-lg shadow-secondary/20"
                                         >
                                             <Trophy className="w-4 h-4" />
-                                            Dettagli e Iscrizione
+                                            Vai a Torneo
                                         </button>
                                     </div>
-
-                                    {/* Sezione Iscritti Espandibile (Opzionale, mantenuta se vuoi vederli subito) */}
-                                    {openIscritti[torneo.id] && iscrittiMap[torneo.id] && (
-                                        <div className="mt-2 pt-4 border-t border-gray-100 animate-in slide-in-from-top-2 duration-200 space-y-2">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <h4 className="text-[9px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                                                    Atleti Iscritti ({iscrittiMap[torneo.id].length})
-                                                </h4>
-                                                <button onClick={() => setOpenIscritti(prev => ({ ...prev, [torneo.id]: false }))}>
-                                                    <ChevronUp className="w-3 h-3 text-gray-300 hover:text-gray-500" />
-                                                </button>
-                                            </div>
-                                            <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
-                                                {iscrittiMap[torneo.id].length > 0 ? (
-                                                    iscrittiMap[torneo.id].map((isc, idx) => (
-                                                        <div key={idx} className="flex justify-between items-center bg-gray-50/50 p-3 rounded-lg border border-gray-100/50">
-                                                            <div className="flex flex-col">
-                                                                <span className="text-sm font-black uppercase text-dark">
-                                                                    {isc.giocatore.cognome} {isc.giocatore.nome}
-                                                                </span>
-                                                                <span className="text-sm font-bold text-gray-400 uppercase">
-                                                                    {isc.giocatore.sesso}/{isc.giocatore.categoria}
-                                                                </span>
-                                                            </div>
-                                                            <div className="text-right flex flex-col items-end">
-                                                                <span className="text-sm font-black text-primary uppercase bg-primary/5 px-2 py-1 rounded-md">
-                                                                    {format(new Date(isc.turno.orarioInizio.replace('Z', '')), 'dd/MM HH:mm')}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <p className="text-[10px] text-gray-400 font-bold uppercase text-center py-2">Nessun iscritto</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             ))
                         ) : (
