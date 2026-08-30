@@ -204,13 +204,13 @@ const Giocatori: React.FC = () => {
     }
 
     return (
-        <div className="space-y-8 px-4">
+        <div className="space-y-6 sm:space-y-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex items-center gap-3">
-                    <Users className="w-8 h-8 text-primary" />
+                    <Users className="w-7 h-7 sm:w-8 sm:h-8 text-primary shrink-0" />
                     <div>
-                        <h1 className="text-3xl font-bold text-dark font-heading">LISTA GIOCATORI</h1>
-                        <p className="text-gray-500 text-xs uppercase tracking-widest font-bold mt-1">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-dark font-heading leading-tight">LISTA GIOCATORI</h1>
+                        <p className="text-gray-500 text-[10px] sm:text-xs uppercase tracking-widest font-bold mt-1">
                             {filteredGiocatori.length} Atleti nella Stagione • <span className="text-primary">{currentStagioneObj?.nome}</span>
                         </p>
                     </div>
@@ -222,7 +222,7 @@ const Giocatori: React.FC = () => {
                             setSelectedGiocatore(null);
                             setIsFormOpen(true);
                         }}
-                        className="bg-secondary hover:bg-secondary/90 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all hover:scale-105 active:scale-95 uppercase text-xs tracking-widest"
+                        className="w-full sm:w-auto bg-secondary hover:bg-secondary/90 text-white px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all hover:scale-105 active:scale-95 uppercase text-xs tracking-widest"
                     >
                         <Plus className="w-4 h-4" />
                         Aggiungi Giocatore
@@ -232,30 +232,30 @@ const Giocatori: React.FC = () => {
 
             {/* Indicatore Conteggio Atleti Stagione */}
             <div className="flex items-center gap-2">
-                <div className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-green-600 text-white shadow-md shadow-green-600/20 flex items-center gap-2.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-green-300"></span>
+                <div className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-green-600 text-white shadow-md shadow-green-600/20 flex items-center gap-2">
+                    <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-green-300 shrink-0"></span>
                     <span>Atleti Stagione Attiva ({filteredGiocatori.length})</span>
                 </div>
             </div>
 
             {/* Filters & Search */}
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4">
+            <div className="bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-3 sm:gap-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                         type="text"
                         placeholder="Cerca per nome o tessera..."
-                        className="w-full pl-10 pr-4 py-2 bg-gray-50 border-2 border-gray-200 rounded-md focus:border-primary focus:ring-0 transition-colors outline-none"
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-primary focus:bg-white transition-colors outline-none text-sm font-medium"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3">
                     <div className="flex items-center gap-2">
-                        <Filter className="w-5 h-5 text-gray-500" />
+                        <Filter className="w-4 h-4 text-gray-400 shrink-0" />
                         <select
-                            className="bg-gray-50 border-2 border-gray-200 rounded-md px-4 py-2 font-semibold text-sm focus:border-primary focus:ring-0 outline-none"
+                            className="w-full sm:w-auto bg-gray-50 border-2 border-gray-100 rounded-xl px-3 py-2 font-bold text-xs focus:border-primary focus:bg-white outline-none cursor-pointer"
                             value={selectedCategory}
                             onChange={(e) => setSelectedCategory(e.target.value)}
                         >
@@ -266,9 +266,9 @@ const Giocatori: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-gray-500" />
+                        <Users className="w-4 h-4 text-gray-400 shrink-0" />
                         <select
-                            className="bg-gray-50 border-2 border-gray-200 rounded-md px-4 py-2 font-semibold text-sm focus:border-primary focus:ring-0 outline-none"
+                            className="w-full sm:w-auto bg-gray-50 border-2 border-gray-100 rounded-xl px-3 py-2 font-bold text-xs focus:border-primary focus:bg-white outline-none cursor-pointer"
                             value={selectedSettore}
                             onChange={(e) => setSelectedSettore(e.target.value)}
                         >
@@ -280,9 +280,9 @@ const Giocatori: React.FC = () => {
 
                     {isAdmin() && (
                         <div className="flex items-center gap-2">
-                            <Calendar className="w-5 h-5 text-primary" />
+                            <Calendar className="w-4 h-4 text-primary shrink-0" />
                             <select
-                                className="bg-gray-50 border-2 border-primary/40 rounded-md px-4 py-2 font-bold text-sm text-dark focus:border-primary focus:ring-0 outline-none cursor-pointer"
+                                className="w-full sm:w-auto bg-gray-50 border-2 border-primary/30 rounded-xl px-3 py-2 font-bold text-xs text-dark focus:border-primary focus:bg-white outline-none cursor-pointer"
                                 value={effectiveStagioneId}
                                 onChange={(e) => setSelectedStagioneId(e.target.value)}
                             >

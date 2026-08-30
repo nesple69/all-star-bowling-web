@@ -170,27 +170,27 @@ const Tornei: React.FC = () => {
     return (
         <div className="space-y-8 animate-fade-in text-dark pb-20">
             {/* Header */}
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="bg-white p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sm:gap-6">
                     <div>
-                        <div className="flex items-center gap-3 flex-wrap">
-                            <h1 className="text-3xl font-black uppercase tracking-tight flex items-center gap-3">
-                                <Trophy className="text-secondary w-8 h-8" />
+                        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                            <h1 className="text-xl sm:text-3xl font-black uppercase tracking-tight flex items-center gap-2 sm:gap-3">
+                                <Trophy className="text-secondary w-6 h-6 sm:w-8 sm:h-8 shrink-0" />
                                 Calendario Tornei
                             </h1>
-                            <span className="text-[10px] font-black text-primary uppercase tracking-widest px-3 py-1.5 bg-primary/5 rounded-xl border border-primary/10 shadow-sm self-center">
+                            <span className="text-[10px] font-black text-primary uppercase tracking-widest px-2.5 py-1 sm:px-3 sm:py-1.5 bg-primary/5 rounded-xl border border-primary/10 shadow-sm self-center">
                                 {currentStagioneObj?.nome || 'Stagione Attiva'}
                             </span>
                         </div>
-                        <p className="text-gray-500 mt-1 font-medium italic">Scopri i prossimi eventi e consulta le classifiche ufficiali.</p>
+                        <p className="text-gray-500 mt-1 font-medium italic text-xs sm:text-sm">Scopri i prossimi eventi e consulta le classifiche ufficiali.</p>
                     </div>
 
                     {/* Selettore Stagione (SOLO ADMIN) */}
                     {isAdmin() && (
-                        <div className="flex items-center gap-2">
-                            <Calendar className="w-5 h-5 text-primary" />
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <Calendar className="w-5 h-5 text-primary shrink-0" />
                             <select
-                                className="bg-gray-50 border-2 border-primary/30 rounded-2xl px-4 py-2.5 font-black text-xs uppercase tracking-wider text-dark focus:border-primary focus:ring-0 outline-none cursor-pointer"
+                                className="w-full sm:w-auto bg-gray-50 border-2 border-primary/30 rounded-2xl px-4 py-2.5 font-black text-xs uppercase tracking-wider text-dark focus:border-primary focus:ring-0 outline-none cursor-pointer"
                                 value={effectiveStagioneId}
                                 onChange={(e) => setSelectedStagioneId(e.target.value)}
                             >
@@ -205,23 +205,23 @@ const Tornei: React.FC = () => {
                     )}
                 </div>
 
-                <div className="mt-8 flex flex-col md:flex-row gap-4">
+                <div className="mt-6 sm:mt-8 flex flex-col md:flex-row gap-3 sm:gap-4">
                     <div className="relative flex-1">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 w-5 h-5" />
                         <input
                             type="text"
                             placeholder="Cerca torneo o sede..."
-                            className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:border-primary outline-none font-bold transition-all text-sm"
+                            className="w-full pl-12 pr-4 py-3 sm:py-3.5 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:border-primary outline-none font-bold transition-all text-sm"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
-                    <div className="flex bg-gray-50 p-1 rounded-2xl border border-gray-100">
+                    <div className="flex bg-gray-50 p-1 rounded-2xl border border-gray-100 overflow-x-auto justify-between sm:justify-start">
                         {(['TUTTI', 'IN_CORSO', 'COMPLETATI'] as const).map((f) => (
                             <button
                                 key={f}
                                 onClick={() => setFilter(f)}
-                                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === f
+                                className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex-1 sm:flex-initial text-center whitespace-nowrap ${filter === f
                                     ? 'bg-white text-primary shadow-sm'
                                     : 'text-gray-400 hover:text-gray-600'
                                     }`}
