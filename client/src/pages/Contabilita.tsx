@@ -56,66 +56,73 @@ const Contabilita: React.FC = () => {
         return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(valore));
     };
 
+    const generatePDFDocument = (giocatore: SaldoGiocatore, movimenti: any[], periodoLabel: string = 'ultimi 20 movimenti') => {
+        const doc = new jsPDF();
+        doc.setFontSize(22);
+        doc.setTextColor(40);
+        doc.text('Estratto Conto Borsellino', 14, 22);
+
+        doc.setFontSize(13);
+        doc.text(`Giocatore: ${giocatore.cognome} ${giocatore.nome}`, 14, 32);
+        doc.text(`Tessera: ${giocatore.numeroTessera || 'N/D'}`, 14, 40);
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Filtro periodo: ${periodoLabel.toUpperCase()}`, 14, 47);
+        doc.text(`Data di emissione: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 53);
+
+        if (movimenti.length > 0) {
+            const tableColumn = ["Data", "Tipo", "Descrizione", "Importo"];
+            const tableRows = movimenti.map((m: any) => {
+                const dataFmt = format(new Date(m.data), 'dd/MM/yy HH:mm');
+                const tipoFmt = m.tipo.replace('_', ' ');
+                const descFmt = m.descrizione || '-';
+                const isPositive = m.tipo === 'RICARICA';
+                const isRimborso = m.tipo === 'RIMBORSO';
+                const segno = isRimborso ? '+' : isPositive ? '+' : '-';
+                const importoFmt = `${segno}${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(m.importo))}`;
+                return [dataFmt, tipoFmt, descFmt, importoFmt];
+            });
+
+            autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: 60,
+                theme: 'striped',
+                headStyles: { fillColor: [41, 128, 185] }
+            });
+        } else {
+            doc.setFontSize(11);
+            doc.setTextColor(150);
+            doc.text('Nessun movimento registrato nel periodo.', 14, 65);
+        }
+
+        const finalY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY : 65;
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+
+        if (giocatore.saldoAttuale < 0) {
+            doc.setTextColor(220, 38, 38);
+        } else {
+            doc.setTextColor(22, 163, 74);
+        }
+        doc.text(`Saldo Attuale: ${formatValuta(giocatore.saldoAttuale)}`, 14, finalY + 15);
+
+        const safeCognome = giocatore.cognome.replace(/\s+/g, '_');
+        const safeNome = giocatore.nome.replace(/\s+/g, '_');
+        doc.save(`Estratto_Conto_${safeCognome}_${safeNome}.pdf`);
+    };
+
     const handleDownloadPDF = async (e: React.MouseEvent, giocatore: SaldoGiocatore) => {
         e.stopPropagation();
         setLoadingPDF(giocatore.id);
-        
+
         try {
-            const res = await axios.get(`${API_BASE_URL}/api/giocatori/${giocatore.id}/borsellino?soloAttiva=true`, {
+            const res = await axios.get(`${API_BASE_URL}/api/giocatori/${giocatore.id}/borsellino?limit=20`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
             const movimenti = res.data.movimenti || [];
-
-            const doc = new jsPDF();
-            doc.setFontSize(22);
-            doc.setTextColor(40);
-            doc.text('Estratto Conto', 14, 22);
-            
-            doc.setFontSize(14);
-            doc.text(`Giocatore: ${giocatore.cognome} ${giocatore.nome}`, 14, 32);
-            doc.text(`Tessera: ${giocatore.numeroTessera || 'N/D'}`, 14, 40);
-            
-            const dataOdierna = format(new Date(), 'dd/MM/yyyy');
-            doc.setFontSize(10);
-            doc.text(`Data di emissione: ${dataOdierna}`, 14, 48);
-
-            if (movimenti.length > 0) {
-                const tableColumn = ["Data", "Tipo", "Descrizione", "Importo"];
-                const tableRows = movimenti.map((m: any) => {
-                    const dataFmt = format(new Date(m.data), 'dd/MM/yy');
-                    const tipoFmt = m.tipo.replace('_', ' ');
-                    const descFmt = m.descrizione || '-';
-                    const isPositive = m.tipo === 'RICARICA';
-                    const isRimborso = m.tipo === 'RIMBORSO';
-                    const segno = isRimborso ? '+' : isPositive ? '+' : '-';
-                    const importoFmt = `${segno}${new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(m.importo))}`;
-                    return [dataFmt, tipoFmt, descFmt, importoFmt];
-                });
-
-                autoTable(doc, {
-                    head: [tableColumn],
-                    body: tableRows,
-                    startY: 55,
-                    theme: 'striped',
-                    headStyles: { fillColor: [41, 128, 185] }
-                });
-            }
-
-            const finalY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY : 55;
-            doc.setFontSize(14);
-            doc.setFont("helvetica", "bold");
-            
-            if (giocatore.saldoAttuale < 0) {
-                doc.setTextColor(220, 38, 38);
-            } else {
-                doc.setTextColor(22, 163, 74);
-            }
-            doc.text(`Saldo Corrente: ${formatValuta(giocatore.saldoAttuale)}`, 14, finalY + 15);
-
-            const safeCognome = giocatore.cognome.replace(/\s+/g, '_');
-            const safeNome = giocatore.nome.replace(/\s+/g, '_');
-            doc.save(`Estratto_Conto_${safeCognome}_${safeNome}.pdf`);
+            generatePDFDocument(giocatore, movimenti, 'degli ultimi 20 movimenti');
         } catch (error) {
             console.error('Errore durante il recupero dell\'estratto conto per PDF:', error);
             alert('Errore durante la generazione del PDF.');
@@ -125,7 +132,7 @@ const Contabilita: React.FC = () => {
     };
 
     const handleWhatsApp = async (e: React.MouseEvent, giocatore: SaldoGiocatore) => {
-        e.stopPropagation(); // Evita di aprire la modale
+        e.stopPropagation();
         if (!giocatore.telefono) {
             alert('Numero di telefono non disponibile per questo giocatore.');
             return;
@@ -133,39 +140,29 @@ const Contabilita: React.FC = () => {
 
         setLoadingWA(giocatore.id);
         try {
-            // Recupera i movimenti del borsellino
-            const res = await axios.get(`${API_BASE_URL}/api/giocatori/${giocatore.id}/borsellino`, {
+            // Recupera gli ultimi 20 movimenti del borsellino
+            const res = await axios.get(`${API_BASE_URL}/api/giocatori/${giocatore.id}/borsellino?limit=20`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
             const movimenti = res.data.movimenti || [];
+            
+            // Genera e scarica automaticamente il PDF per l'invio in allegato
+            generatePDFDocument(giocatore, movimenti, 'degli ultimi 20 movimenti');
+
             const telefonoPulito = giocatore.telefono.replace(/\D/g, '');
             const telefonoFormattato = telefonoPulito.startsWith('39') ? telefonoPulito : `39${telefonoPulito}`;
             const saldoFormatted = formatValuta(giocatore.saldoAttuale);
 
-            let msg = `Ciao *${giocatore.nome}*! 🎳\nEcco il resoconto aggiornato del tuo *Borsellino Elettronico* (All Star Team):\n\n💰 *Saldo Attuale:* ${saldoFormatted}\n`;
-
-            if (movimenti.length > 0) {
-                msg += `\n📋 *Ultimi Movimenti:*\n`;
-                const ultimi = movimenti.slice(0, 5);
-                ultimi.forEach((m: any) => {
-                    const dataFmt = format(new Date(m.data), 'dd/MM/yy');
-                    const isPositive = m.tipo === 'RICARICA';
-                    const isRimborso = m.tipo === 'RIMBORSO';
-                    const segno = isRimborso ? '+' : isPositive ? '+' : '-';
-                    const importoFmt = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(m.importo));
-                    const desc = m.descrizione ? ` (${m.descrizione})` : '';
-                    msg += `• ${dataFmt}: *${segno}${importoFmt}*${desc}\n`;
-                });
-            }
+            let msg = `Ciao *${giocatore.nome}*! 🎳\nEcco il resoconto aggiornato del tuo *Borsellino Elettronico* (All Star Team):\n\n💰 *Saldo Attuale:* ${saldoFormatted}\n\n📎 *Ti abbiamo allegato a questo messaggio il documento PDF con il riepilogo dettagliato degli ultimi 20 movimenti registrati sul tuo conto.*\n`;
 
             if (giocatore.saldoAttuale < 0) {
-                msg += `\n⚠️ Ti ricordiamo che il tuo conto è in negativo. Ti chiediamo cortesemente di ricaricarlo per poter partecipare alle prossime attività agonistiche.`;
+                msg += `\n⚠️ Ti ricordiamo che il tuo saldo è attualmente in negativo. Ti chiediamo cortesemente di effettuare una ricarica per le prossime attività agonistiche.\n`;
             } else if (giocatore.saldoAttuale < 15) {
-                msg += `\n💡 Il tuo credito è in esaurimento, ricordati di effettuare una ricarica alla prima occasione utile.`;
+                msg += `\n💡 Il tuo credito è in esaurimento, ricordati di effettuare una ricarica alla prima occasione utile.\n`;
             }
 
-            msg += `\nPer qualsiasi informazione contatta la segreteria. ⭐`;
+            msg += `\nPer qualsiasi chiarimento contatta la segreteria. ⭐`;
 
             const url = `https://wa.me/${telefonoFormattato}?text=${encodeURIComponent(msg)}`;
             window.open(url, '_blank');

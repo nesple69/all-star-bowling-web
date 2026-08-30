@@ -3,12 +3,12 @@ import { TipoMovimento, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth';
 
-// GET /api/giocatori/:id/borsellino
 export const getBorsellinoGiocatore = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     const authReq = req as AuthRequest;
     const currentUser = authReq.user;
     const soloAttiva = req.query.soloAttiva === 'true' || req.query.soloAttiva === '1';
+    const { dataInizio, dataFine, limit } = req.query;
 
     try {
         const giocatore = await prisma.giocatore.findUnique({
@@ -31,7 +31,17 @@ export const getBorsellinoGiocatore = async (req: Request, res: Response) => {
 
         let whereClause: any = { giocatoreId: id };
 
-        if (soloAttiva) {
+        if (dataInizio || dataFine) {
+            whereClause.data = {};
+            if (dataInizio) {
+                whereClause.data.gte = new Date(dataInizio as string);
+            }
+            if (dataFine) {
+                const fine = new Date(dataFine as string);
+                fine.setHours(23, 59, 59, 999);
+                whereClause.data.lte = fine;
+            }
+        } else if (soloAttiva) {
             const stagioneAttiva = await prisma.stagione.findFirst({
                 where: { attiva: true }
             });
@@ -43,10 +53,12 @@ export const getBorsellinoGiocatore = async (req: Request, res: Response) => {
             }
         }
 
+        const takeLimit = limit === 'all' || limit === '0' ? undefined : (limit ? parseInt(limit as string, 10) : undefined);
+
         const movimenti = await prisma.movimentoContabile.findMany({
             where: whereClause,
             orderBy: { data: 'desc' },
-            take: soloAttiva ? undefined : 100
+            take: takeLimit
         });
 
         res.json({
