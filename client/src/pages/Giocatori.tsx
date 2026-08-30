@@ -441,6 +441,8 @@ const Giocatori: React.FC = () => {
             {selectedGiocatore && (
                 <SchedaGiocatore
                     giocatore={selectedGiocatore}
+                    stagioneId={effectiveStagioneId}
+                    stagioneNome={currentStagioneObj?.nome}
                     onClose={() => setSelectedGiocatore(null)}
                     onEdit={handleEditClick}
                     onDelete={handleDeleteGiocatore}

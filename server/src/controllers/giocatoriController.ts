@@ -149,11 +149,37 @@ export const getGiocatoriStats = async (_req: Request, res: Response) => {
 // GET /api/giocatori/:id
 export const getGiocatoreById = async (req: Request, res: Response) => {
     const { id } = req.params;
+    const { stagioneId } = req.query;
     const authReq = req as AuthRequest;
     const currentUser = authReq.user;
     const isAdmin = currentUser?.role === 'ADMIN';
 
     try {
+        let targetStagioneId: string | null = null;
+        const stagioneAttiva = await prisma.stagione.findFirst({
+            where: { attiva: true }
+        });
+
+        if (isAdmin && stagioneId && stagioneId !== 'ALL') {
+            targetStagioneId = String(stagioneId);
+        } else if (isAdmin && stagioneId === 'ALL') {
+            targetStagioneId = null; // Storico globale per admin
+        } else if (stagioneId && stagioneId !== 'ALL') {
+            targetStagioneId = String(stagioneId);
+        } else if (stagioneAttiva) {
+            targetStagioneId = stagioneAttiva.id;
+        }
+
+        const whereRisultati: Prisma.RisultatoTorneoWhereInput = {
+            giocatoreId: id as string,
+            ...(targetStagioneId ? { torneo: { stagioneId: targetStagioneId } } : {})
+        };
+
+        const whereIscrizioni: Prisma.IscrizioneTorneoWhereInput = {
+            giocatoreId: id as string,
+            ...(targetStagioneId ? { torneo: { stagioneId: targetStagioneId } } : {})
+        };
+
         const giocatore = await prisma.giocatore.findUnique({
             where: { id: id as string },
             include: {
@@ -161,9 +187,11 @@ export const getGiocatoreById = async (req: Request, res: Response) => {
                     select: { email: true, nome: true, cognome: true }
                 },
                 iscrizioni: {
+                    where: whereIscrizioni,
                     include: { torneo: true }
                 },
                 risultati: {
+                    where: whereRisultati,
                     include: {
                         torneo: {
                             include: {
@@ -183,10 +211,36 @@ export const getGiocatoreById = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Giocatore non trovato' });
         }
 
+        // Calcolo statistiche specifiche per la stagione richiesta
+        let torneiCount = giocatore.risultati.length;
+        let partiteCount = 0;
+        let birilliCount = 0;
+        let maxGame = 0;
+
+        giocatore.risultati.forEach(r => {
+            partiteCount += r.partiteGiocate;
+            birilliCount += r.totaleBirilli;
+            const games = r.partite.filter(p => !p.isRiporto).map(p => p.birilli);
+            if (games.length > 0) {
+                const mg = Math.max(...games);
+                if (mg > maxGame) maxGame = mg;
+            }
+        });
+
+        const seasonMedia = partiteCount > 0 ? Number((birilliCount / partiteCount).toFixed(2)) : 0;
         const isAuthorized = isAdmin || (currentUser && currentUser.userId === giocatore.userId);
 
         const safeGiocatore = {
             ...giocatore,
+            mediaAttuale: seasonMedia,
+            totaleBirilli: birilliCount,
+            partiteGiocate: partiteCount,
+            torneiGiocati: torneiCount,
+            migliorPartita: maxGame,
+            stagioneRiferimentoId: targetStagioneId,
+            stagioneRiferimentoNome: targetStagioneId && stagioneAttiva && targetStagioneId === stagioneAttiva.id
+                ? stagioneAttiva.nome
+                : undefined,
             telefono: isAuthorized ? (giocatore as any).telefono : undefined,
             certificatoMedicoScadenza: isAuthorized ? (giocatore as any).certificatoMedicoScadenza : undefined,
             user: isAuthorized ? (giocatore as any).user : { nome: giocatore.nome, cognome: giocatore.cognome },

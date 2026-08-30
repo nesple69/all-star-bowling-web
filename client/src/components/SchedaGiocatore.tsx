@@ -15,6 +15,8 @@ import { API_BASE_URL } from '../config';
 
 interface Props {
     giocatore: any;
+    stagioneId?: string;
+    stagioneNome?: string;
     onClose: () => void;
     onEdit: () => void;
     onDelete: () => void;
@@ -30,8 +32,9 @@ const CATEGORY_LABELS: Record<string, string> = {
     'DS': 'DS - Dirigenti'
 };
 
-const SchedaGiocatore: React.FC<Props> = ({ giocatore, onClose, onEdit, onDelete, isAdmin }) => {
+const SchedaGiocatore: React.FC<Props> = ({ giocatore, stagioneId, stagioneNome, onClose, onEdit, onDelete, isAdmin }) => {
     const { token } = useAuth();
+    const [playerData, setPlayerData] = useState<any>(giocatore);
     const [saldo, setSaldo] = useState<number | null>(null);
     const [movimenti, setMovimenti] = useState<any[]>([]);
     const [isWalletLoading, setIsWalletLoading] = useState(false);
@@ -61,8 +64,11 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, onClose, onEdit, onDelete
     const fetchPlayerResults = async () => {
         setIsLoadingResults(true);
         try {
-            const res = await axios.get(`${API_BASE_URL}/api/giocatori/${giocatore.id}`);
+            const res = await axios.get(`${API_BASE_URL}/api/giocatori/${giocatore.id}`, {
+                params: { stagioneId: stagioneId || undefined }
+            });
             setResults(res.data.risultati || []);
+            setPlayerData(res.data);
         } catch (err) {
             console.error('Errore caricamento risultati:', err);
         } finally {
@@ -73,7 +79,7 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, onClose, onEdit, onDelete
     useEffect(() => {
         fetchWalletData();
         fetchPlayerResults();
-    }, [giocatore.id, isAdmin]);
+    }, [giocatore.id, stagioneId, isAdmin]);
 
     const handleWalletAction = async (type: 'ricarica' | 'addebito') => {
         if (!walletAmount || parseFloat(walletAmount) <= 0) {
@@ -106,9 +112,9 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, onClose, onEdit, onDelete
     // Calcola la miglior partita dai risultati (ESCLUDENDO i riporti)
     const migliorPartita = results.length > 0
         ? Math.max(...results.flatMap(r => r.partite?.filter((p: any) => !p.isRiporto).map((p: any) => p.birilli) || [0]))
-        : 0;
+        : (playerData?.migliorPartita || 0);
 
-    // Data per il grafico basata sui risultati reali
+    // Data per il grafico basata sui risultati reali della stagione
     const chartData = results.length > 0
         ? results
             .filter(r => r.torneo?.dataInizio || r.createdAt)
@@ -120,14 +126,7 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, onClose, onEdit, onDelete
                     media: r.partiteGiocate > 0 ? Math.round(r.totaleBirilli / r.partiteGiocate) : 0
                 };
             })
-        : [
-            { data: 'Gen', media: 185 },
-            { data: 'Feb', media: 192 },
-            { data: 'Mar', media: 188 },
-            { data: 'Apr', media: 205 },
-            { data: 'Mag', media: 198 },
-            { data: 'Giu', media: 212 },
-        ];
+        : [];
 
     const isCertificatoScaduto = giocatore.certificatoMedicoScadenza
         ? new Date(giocatore.certificatoMedicoScadenza) < new Date()
@@ -158,16 +157,17 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, onClose, onEdit, onDelete
                                     <img src="/logo All Star.png" alt="Logo" className="w-10 h-10 object-contain brightness-0 invert opacity-20" />
                                 </div>
                                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-1">
-                                    <div className={`px-2.5 py-0.5 border-2 rounded-md text-[10px] font-black uppercase tracking-tight ${
-                                        giocatore.attivo !== false 
-                                            ? 'border-green-600/30 bg-green-50 text-green-700' 
-                                            : 'border-gray-300 bg-gray-100 text-gray-600'
-                                    }`}>
-                                        {giocatore.attivo !== false ? '● Tesserato Attivo' : '○ Non Rinnovato / Storico'}
+                                    <div className="px-2.5 py-0.5 border-2 rounded-md text-[10px] font-black uppercase tracking-tight border-green-600/30 bg-green-50 text-green-700">
+                                        ● Tesserato Attivo
                                     </div>
                                     <div className="px-2 py-0.5 border-2 border-primary/30 bg-primary/5 text-primary rounded-md text-[10px] font-black uppercase tracking-tight">
                                         {giocatore.sesso}/{giocatore.categoria} {CATEGORY_LABELS[giocatore.categoria]?.split('-')[1]?.trim()}
                                     </div>
+                                    {stagioneNome && (
+                                        <div className="px-2 py-0.5 border-2 border-amber-300/60 bg-amber-50 text-amber-800 rounded-md text-[10px] font-black uppercase tracking-tight">
+                                            {stagioneNome}
+                                        </div>
+                                    )}
                                     {giocatore.isSenior && (
                                         <div className="px-2 py-0.5 border-2 border-secondary bg-secondary text-white rounded-md text-[10px] font-black uppercase tracking-tight shadow-sm">
                                             Circuito Senior • Fascia {giocatore.fasciaSenior}
@@ -203,7 +203,7 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, onClose, onEdit, onDelete
                                         <span className="text-[10px] font-bold uppercase">Media Totale</span>
                                         <TrendingUp className="w-4 h-4" />
                                     </div>
-                                    <p className="text-3xl font-bold">{giocatore.mediaAttuale?.toFixed(2) || '0.00'}</p>
+                                    <p className="text-3xl font-bold">{playerData?.mediaAttuale != null ? Number(playerData.mediaAttuale).toFixed(2) : '0.00'}</p>
                                 </div>
 
                                 <div className="bg-white border-2 border-gray-100 p-4 rounded-xl shadow-sm hover:border-secondary/30 transition-colors">
@@ -219,7 +219,7 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, onClose, onEdit, onDelete
                                         <span className="text-[10px] font-bold uppercase">Totale Birilli</span>
                                         <Target className="w-4 h-4 text-red-400" />
                                     </div>
-                                    <p className="text-3xl font-bold text-dark">{giocatore.totaleBirilli?.toLocaleString() || '0'}</p>
+                                    <p className="text-3xl font-bold text-dark">{playerData?.totaleBirilli?.toLocaleString() || '0'}</p>
                                 </div>
 
                                 {/* Borsellino Section (Solo Admin) */}
@@ -356,7 +356,7 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, onClose, onEdit, onDelete
                         <div className="lg:col-span-2">
                             <h3 className="font-heading font-bold uppercase text-sm tracking-widest text-[#2C3E50] border-b-2 border-[#F8B500]/20 pb-2 mb-6 flex items-center gap-2">
                                 <Trophy className="w-5 h-5 text-[#F8B500]" />
-                                Tornei Giocati
+                                Tornei Giocati {stagioneNome ? `(${stagioneNome})` : ''}
                             </h3>
 
                             {isLoadingResults ? (
@@ -452,7 +452,7 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, onClose, onEdit, onDelete
                             ) : (
                                 <div className="text-center py-10 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-100">
                                     <Trophy className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-                                    <p className="text-gray-300 font-bold uppercase text-[9px] tracking-widest">Nessun torneo registrato.</p>
+                                    <p className="text-gray-300 font-bold uppercase text-[9px] tracking-widest">Nessun torneo disputato per questa stagione.</p>
                                 </div>
                             )
                             }
@@ -462,47 +462,55 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, onClose, onEdit, onDelete
                         <div className="lg:col-span-3 flex flex-col">
                             <h3 className="font-heading font-bold uppercase text-sm tracking-widest text-primary border-b-2 border-primary/20 pb-2 mb-6">Andamento Media</h3>
 
-                            <div className="flex-1 min-h-[300px] w-full bg-white p-4">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={chartData}>
-                                        <defs>
-                                            <linearGradient id="colorMedia" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#5DADE2" stopOpacity={0.8} />
-                                                <stop offset="95%" stopColor="#5DADE2" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ECEFF1" />
-                                        <XAxis
-                                            dataKey="data"
-                                            axisLine={false}
-                                            tickLine={false}
-                                            tick={{ fill: '#90A4AE', fontSize: 12 }}
-                                        />
-                                        <YAxis
-                                            domain={['dataMin - 10', 'dataMax + 10']}
-                                            axisLine={false}
-                                            tickLine={false}
-                                            tick={{ fill: '#90A4AE', fontSize: 12 }}
-                                        />
-                                        <Tooltip
-                                            contentStyle={{
-                                                borderRadius: '8px',
-                                                border: 'none',
-                                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                                fontFamily: 'Montserrat'
-                                            }}
-                                        />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="media"
-                                            stroke="#5DADE2"
-                                            strokeWidth={3}
-                                            fillOpacity={1}
-                                            fill="url(#colorMedia)"
-                                        />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
+                            {chartData.length > 0 ? (
+                                <div className="flex-1 min-h-[300px] w-full bg-white p-4">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={chartData}>
+                                            <defs>
+                                                <linearGradient id="colorMedia" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#5DADE2" stopOpacity={0.8} />
+                                                    <stop offset="95%" stopColor="#5DADE2" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ECEFF1" />
+                                            <XAxis
+                                                dataKey="data"
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: '#90A4AE', fontSize: 12 }}
+                                            />
+                                            <YAxis
+                                                domain={['dataMin - 10', 'dataMax + 10']}
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: '#90A4AE', fontSize: 12 }}
+                                            />
+                                            <Tooltip
+                                                contentStyle={{
+                                                    borderRadius: '8px',
+                                                    border: 'none',
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                                    fontFamily: 'Montserrat'
+                                                }}
+                                            />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="media"
+                                                stroke="#5DADE2"
+                                                strokeWidth={3}
+                                                fillOpacity={1}
+                                                fill="url(#colorMedia)"
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center min-h-[160px] bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100 p-8 text-center">
+                                    <TrendingUp className="w-8 h-8 text-gray-300 mb-2" />
+                                    <p className="text-xs font-black uppercase text-gray-400">Nessun andamento disponibile per questa stagione</p>
+                                    <p className="text-[10px] text-gray-300 font-bold mt-1">I dati appariranno non appena l'atleta parteciperà a un torneo.</p>
+                                </div>
+                            )}
 
                             <div className="mt-8 p-4 bg-blue-50 border-l-4 border-primary rounded-r-lg text-xs text-blue-900 leading-relaxed italic">
                                 "La costanza è la chiave per l'eccellenza. Il grafico mostra le prestazioni medie calcolate sugli ultimi tornei ufficiali."
