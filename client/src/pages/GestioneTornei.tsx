@@ -36,6 +36,9 @@ interface Iscrizione {
     stato: string;
     note: string | null;
     createdAt: string;
+    gruppoId?: string | null;
+    nomeSquadra?: string | null;
+    isRiserva?: boolean;
     giocatore: {
         id: string;
         nome: string;

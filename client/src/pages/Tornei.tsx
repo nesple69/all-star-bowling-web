@@ -28,6 +28,10 @@ interface Torneo {
 }
 
 interface IscrittoPublic {
+    id?: string;
+    gruppoId?: string | null;
+    nomeSquadra?: string | null;
+    isRiserva?: boolean;
     giocatore: {
         nome: string;
         cognome: string;
@@ -410,27 +414,59 @@ const Tornei: React.FC = () => {
                                             </h4>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
-                                            {iscrittiMap[t.id].length > 0 ? (
-                                                iscrittiMap[t.id].map((isc, idx) => (
-                                                    <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[12px] font-black uppercase text-dark">
-                                                                {isc.giocatore.cognome} {isc.giocatore.nome}
-                                                            </span>
-                                                            <span className="text-[10px] font-bold text-gray-400 uppercase">
-                                                                {isc.giocatore.sesso}/{isc.giocatore.categoria}
-                                                            </span>
+                                            {(() => {
+                                                const list = iscrittiMap[t.id] || [];
+                                                if (list.length === 0) {
+                                                    return <p className="text-[10px] font-bold text-gray-300 italic py-2 col-span-full">Ancora nessun iscritto</p>;
+                                                }
+
+                                                const groups: { key: string; nomeSquadra?: string | null; turno: any; iscritti: IscrittoPublic[] }[] = [];
+                                                const map = new Map<string, typeof groups[0]>();
+
+                                                for (const isc of list) {
+                                                    const groupKey = isc.gruppoId || `single_${isc.id || (isc.giocatore as any)?.id || Math.random()}`;
+                                                    if (!map.has(groupKey)) {
+                                                        const grp = {
+                                                            key: groupKey,
+                                                            nomeSquadra: isc.nomeSquadra,
+                                                            turno: isc.turno,
+                                                            iscritti: []
+                                                        };
+                                                        map.set(groupKey, grp);
+                                                        groups.push(grp);
+                                                    }
+                                                    map.get(groupKey)!.iscritti.push(isc);
+                                                }
+
+                                                return groups.map((grp) => (
+                                                    <div key={grp.key} className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm space-y-2">
+                                                        {grp.nomeSquadra && (
+                                                            <div className="flex items-center justify-between border-b border-gray-100 pb-1.5">
+                                                                <span className="text-xs font-black uppercase text-primary tracking-wider">{grp.nomeSquadra}</span>
+                                                                <span className="text-[9px] font-bold text-gray-400 uppercase">{grp.iscritti.length} Atleti</span>
+                                                            </div>
+                                                        )}
+                                                        <div className="space-y-1.5">
+                                                            {grp.iscritti.map((isc, idx) => (
+                                                                <div key={idx} className="flex justify-between items-center text-xs">
+                                                                    <span className="font-black uppercase text-dark">
+                                                                        {isc.giocatore.cognome} {isc.giocatore.nome}
+                                                                        {isc.isRiserva && <span className="ml-1.5 text-[8px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-black">RISERVA</span>}
+                                                                    </span>
+                                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">
+                                                                        {isc.giocatore.sesso}/{isc.giocatore.categoria}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
                                                         </div>
-                                                        <div className="text-right">
+                                                        <div className="text-right pt-2 border-t border-gray-50">
                                                             <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10 uppercase">
-                                                                {format(new Date(isc.turno.orarioInizio), 'dd/MM HH:mm')}
+                                                                {format(new Date(grp.turno?.orarioInizio || 0), 'dd/MM HH:mm')}
                                                             </span>
                                                         </div>
                                                     </div>
-                                                ))
-                                            ) : (
-                                                <p className="text-[10px] font-bold text-gray-300 italic py-2 col-span-full">Ancora nessun iscritto</p>
-                                            )}
+                                                ));
+                                            })()}
                                         </div>
                                     </div>
                                 )}

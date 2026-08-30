@@ -104,6 +104,9 @@ model IscrizioneTorneo {
   turnoId        String
   secondoTurnoId String?
   sedeId         String?
+  gruppoId       String?
+  nomeSquadra    String?
+  isRiserva      Boolean           @default(false)
   stato          StatoIscrizione   @default(PENDENTE)
   note           String?
   createdAt      DateTime          @default(now())
@@ -116,6 +119,7 @@ model IscrizioneTorneo {
   @@unique([torneoId, giocatoreId])
   @@index([torneoId, turnoId])
   @@index([giocatoreId])
+  @@index([gruppoId])
 }
 
 model RisultatoTorneo {

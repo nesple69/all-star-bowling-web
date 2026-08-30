@@ -1,16 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import { API_BASE_URL } from '../config';
 import {
     Trophy, Calendar, MapPin, Download,
-    ChevronLeft, Users, CheckCircle2, AlertCircle, 
-    FileText, UserPlus, Search, X, Loader2
+    ChevronLeft, Users, FileText, UserPlus, CheckCircle2
 } from 'lucide-react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { useAuth } from '../contexts/AuthContext';
 
 interface Risultato {
     id: string;
@@ -47,7 +45,7 @@ interface Torneo {
     turni: any[];
     mostraBottoneIscrizione: boolean;
     costoIscrizione: number;
-    sedi: { id: string, nome: string, categorie: string[], locandina?: string | null }[];
+    sedi: { id: string; nome: string; categorie: string[]; locandina?: string | null }[];
 }
 
 interface Disponibilita {
@@ -57,36 +55,16 @@ interface Disponibilita {
     postiTotali: number;
     postiOccupati: number;
     postiRimanenti: number;
-    sede?: { id: string, nome: string } | null;
-}
-
-interface GiocatoreFound {
-    id: string;
-    nome: string;
-    cognome: string;
-    categoria: string;
-    sesso: string;
-    certificatoMedicoScadenza: string | null;
-    saldo: { saldoAttuale: number };
+    sede?: { id: string; nome: string } | null;
 }
 
 const DettaglioTorneo: React.FC = () => {
     const { id } = useParams();
-    const { isAdmin, token } = useAuth();
-    const [isRegistering, setIsRegistering] = useState(false);
-    const [status, setStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
-    
-    // Nuovi stati per iscrizione senza login
-    const [showModal, setShowModal] = useState(false);
-    const [selectedTurnoId, setSelectedTurnoId] = useState<string | null>(null);
-    const [tesseraInput, setTesseraInput] = useState('');
-    const [giocatoreFound, setGiocatoreFound] = useState<GiocatoreFound | null>(null);
-    const [isSearching, setIsSearching] = useState(false);
+    const navigate = useNavigate();
     const [disponibilita, setDisponibilita] = useState<any[]>([]);
     const [iscritti, setIscritti] = useState<any[]>([]);
     const [showIscritti, setShowIscritti] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [searchError, setSearchError] = useState('');
 
     const fetchTorneoData = async () => {
         const resTorneo = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}`);
@@ -105,7 +83,7 @@ const DettaglioTorneo: React.FC = () => {
         };
     };
 
-    const { data, refetch } = useQuery({
+    const { data } = useQuery({
         queryKey: ['torneoDetail', id],
         queryFn: fetchTorneoData,
         enabled: !!id
@@ -113,96 +91,8 @@ const DettaglioTorneo: React.FC = () => {
 
     const torneo = data?.torneo;
 
-    // Ricerca giocatore per tessera
-    useEffect(() => {
-        const delayDebounceFn = setTimeout(async () => {
-            if (tesseraInput.length >= 3) {
-                setIsSearching(true);
-                setSearchError('');
-                try {
-                    const res = await axios.get(`${API_BASE_URL}/api/tornei/lookup-tessera/${tesseraInput}`, {
-                        headers: token ? { Authorization: `Bearer ${token}` } : {}
-                    });
-                    setGiocatoreFound(res.data);
-                } catch (err: any) {
-                    setGiocatoreFound(null);
-                    setSearchError(err.response?.data?.message || 'Giocatore non trovato');
-                } finally {
-                    setIsSearching(false);
-                }
-            } else {
-                setGiocatoreFound(null);
-            }
-        }, 500);
-
-        return () => clearTimeout(delayDebounceFn);
-    }, [tesseraInput]);
-
-    const handleOpenIscrizione = (turnoId: string) => {
-        setSelectedTurnoId(turnoId);
-        setShowModal(true);
-        setTesseraInput('');
-        setGiocatoreFound(null);
-        setSearchError('');
-        setStatus({ type: null, message: '' });
-    };
-
-    const handleConfirmRegistration = async () => {
-        if (!giocatoreFound || !selectedTurnoId || !torneo) return;
-
-        const costo = Number(torneo.costoIscrizione || 0);
-        const saldo = Number(giocatoreFound.saldo?.saldoAttuale || 0);
-
-        if (costo > 0 && saldo < costo) {
-            if (isAdmin()) {
-                if (!window.confirm(`Il giocatore ha un saldo insufficiente (€${saldo.toFixed(2)}). Vuoi procedere ugualmente come amministratore? Il saldo andrà in negativo.`)) {
-                    return;
-                }
-            } else {
-                alert("Saldo insufficiente nel borsellino. Ricarica il tuo borsellino o contatta l'amministratore.");
-                return;
-            }
-        }
-
-        // Controllo certificato medico
-        if (giocatoreFound.certificatoMedicoScadenza) {
-            const scadenza = new Date(giocatoreFound.certificatoMedicoScadenza);
-            if (scadenza < new Date()) {
-                if (isAdmin()) {
-                    if (!window.confirm(`Il certificato medico di questo atleta è scaduto (${format(scadenza, 'dd/MM/yyyy')}). Vuoi procedere ugualmente?`)) {
-                        return;
-                    }
-                } else {
-                    alert('Aggiorna il tuo certificato medico prima di partecipare a gare agonistiche, grazie.');
-                    return;
-                }
-            }
-        }
-
-        if (!window.confirm(`Confermi l'iscrizione per ${giocatoreFound.nome} ${giocatoreFound.cognome}?`)) return;
-
-        setIsRegistering(true);
-        try {
-            await axios.post(`${API_BASE_URL}/api/tornei/iscriviti`, {
-                torneoId: id,
-                turnoId: selectedTurnoId,
-                giocatoreId: giocatoreFound.id
-            }, {
-                headers: token ? { Authorization: `Bearer ${token}` } : {}
-            });
-            setStatus({ type: 'success', message: 'Iscrizione effettuata con successo!' });
-            setTimeout(() => {
-                setShowModal(false);
-                setTesseraInput('');
-                setGiocatoreFound(null);
-                setStatus({ type: null, message: '' });
-                refetch();
-            }, 1000);
-        } catch (err: any) {
-            setStatus({ type: 'error', message: err.response?.data?.message || 'Errore durante l\'iscrizione.' });
-        } finally {
-            setIsRegistering(false);
-        }
+    const handleOpenIscrizione = (turnoId?: string) => {
+        navigate(`/tornei/${id}/iscrizione${turnoId ? `?turnoId=${turnoId}` : ''}`);
     };
 
     if (isLoading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
@@ -212,107 +102,6 @@ const DettaglioTorneo: React.FC = () => {
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 animate-fade-in pb-20 text-dark">
-            {/* Modal Iscrizione */}
-            {showModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-dark/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl relative">
-                        <button 
-                            onClick={() => setShowModal(false)}
-                            className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-dark"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-
-                        <div className="p-8 space-y-6">
-                            <div className="text-center space-y-2">
-                                <div className="inline-flex p-4 bg-primary/10 text-primary rounded-3xl mb-2">
-                                    <UserPlus className="w-8 h-8" />
-                                </div>
-                                <h3 className="text-2xl font-black uppercase tracking-tight">Iscrizione Rapida</h3>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Inserisci la tua tessera FISB</p>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="relative">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
-                                    <input 
-                                        type="text"
-                                        placeholder="NUMERO TESSERA..."
-                                        value={tesseraInput}
-                                        onChange={(e) => setTesseraInput(e.target.value)}
-                                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent focus:border-primary focus:bg-white rounded-2xl font-black uppercase text-sm transition-all outline-none"
-                                        autoFocus
-                                    />
-                                    {isSearching && (
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                                            <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                                        </div>
-                                    )}
-                                </div>
-
-                                {searchError && (
-                                    <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600">
-                                        <AlertCircle className="w-4 h-4" />
-                                        <p className="text-[10px] font-black uppercase tracking-widest">{searchError}</p>
-                                    </div>
-                                )}
-
-                                {giocatoreFound && (
-                                    <div className="p-5 bg-gray-50 rounded-[2rem] border border-gray-100 space-y-4 animate-in slide-in-from-bottom-2">
-                                        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-dark text-white flex items-center justify-center rounded-xl font-black">
-                                                    {giocatoreFound.nome[0]}{giocatoreFound.cognome[0]}
-                                                </div>
-                                                <div>
-                                                    <p className="font-black uppercase text-sm leading-none">{giocatoreFound.cognome} {giocatoreFound.nome}</p>
-                                                    <p className="text-[10px] font-black text-primary uppercase mt-1 tracking-widest">{giocatoreFound.sesso}/{giocatoreFound.categoria}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100">
-                                            <div className="text-left">
-                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Costo Iscrizione</p>
-                                                <p className="text-lg font-black text-dark">€ {Number(torneo.costoIscrizione || 0).toFixed(2)}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Tuo Borsellino</p>
-                                                <p className={`text-lg font-black ${Number(giocatoreFound.saldo?.saldoAttuale || 0) < Number(torneo.costoIscrizione || 0) ? 'text-red-500' : 'text-green-600'}`}>
-                                                    € {Number(giocatoreFound.saldo?.saldoAttuale || 0).toFixed(2)}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <button 
-                                            onClick={handleConfirmRegistration}
-                                            disabled={isRegistering}
-                                            className="w-full py-4 bg-secondary text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-secondary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
-                                        >
-                                            {isRegistering ? (
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                            ) : (
-                                                <>
-                                                    <CheckCircle2 className="w-4 h-4" />
-                                                    Conferma Iscrizione
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                )}
-
-                                {status.message && (
-                                    <div className={`p-4 rounded-2xl flex items-center gap-3 ${status.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
-                                        {status.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                                        <p className="text-[10px] font-black uppercase tracking-widest">{status.message}</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Nav & Action */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <Link to="/tornei" className="flex items-center gap-2 text-gray-400 hover:text-primary transition-colors font-black uppercase text-xs tracking-widest group">
@@ -485,35 +274,66 @@ const DettaglioTorneo: React.FC = () => {
                                             return acc;
                                         }, {});
 
-                                        return Object.entries(grouped).map(([venue, members], vIdx) => (
-                                            <div key={vIdx} className="space-y-4">
-                                                <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
-                                                    <MapPin className="w-4 h-4 text-primary/50" />
-                                                    <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">
-                                                        {venue} ({members.length})
-                                                    </h3>
-                                                </div>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                    {members.map((isc, idx) => (
-                                                        <div key={idx} className="flex justify-between items-center bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
-                                                            <div className="flex flex-col">
-                                                                <span className="text-sm font-black uppercase text-dark">
-                                                                    {isc.giocatore.cognome} {isc.giocatore.nome}
-                                                                </span>
-                                                                <span className="text-[10px] font-bold text-gray-400 uppercase">
-                                                                    {isc.giocatore.sesso}/{isc.giocatore.categoria}
-                                                                </span>
+                                        return Object.entries(grouped).map(([venue, members], vIdx) => {
+                                            const teamGroups: { key: string; nomeSquadra?: string | null; turno: any; iscritti: any[] }[] = [];
+                                            const map = new Map<string, typeof teamGroups[0]>();
+
+                                            for (const isc of members) {
+                                                const groupKey = isc.gruppoId || `single_${isc.id || isc.giocatore?.id || Math.random()}`;
+                                                if (!map.has(groupKey)) {
+                                                    const grp = {
+                                                        key: groupKey,
+                                                        nomeSquadra: isc.nomeSquadra,
+                                                        turno: isc.turno,
+                                                        iscritti: []
+                                                    };
+                                                    map.set(groupKey, grp);
+                                                    teamGroups.push(grp);
+                                                }
+                                                map.get(groupKey)!.iscritti.push(isc);
+                                            }
+
+                                            return (
+                                                <div key={vIdx} className="space-y-4">
+                                                    <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                                                        <MapPin className="w-4 h-4 text-primary/50" />
+                                                        <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">
+                                                            {venue} ({members.length} {members.length === 1 ? 'Atleta' : 'Atleti'})
+                                                        </h3>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                        {teamGroups.map((grp) => (
+                                                            <div key={grp.key} className="bg-gray-50/60 p-4 rounded-2xl border border-gray-100 space-y-2">
+                                                                {grp.nomeSquadra && (
+                                                                    <div className="flex items-center justify-between border-b border-gray-100 pb-1.5">
+                                                                        <span className="text-xs font-black uppercase text-primary tracking-wider">{grp.nomeSquadra}</span>
+                                                                        <span className="text-[9px] font-bold text-gray-400 uppercase">{grp.iscritti.length} Atleti</span>
+                                                                    </div>
+                                                                )}
+                                                                <div className="space-y-1.5">
+                                                                    {grp.iscritti.map((isc, idx) => (
+                                                                        <div key={idx} className="flex justify-between items-center text-xs">
+                                                                            <span className="font-black uppercase text-dark">
+                                                                                {isc.giocatore.cognome} {isc.giocatore.nome}
+                                                                                {isc.isRiserva && <span className="ml-1.5 text-[8px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-black">RISERVA</span>}
+                                                                            </span>
+                                                                            <span className="text-[10px] font-bold text-gray-400 uppercase">
+                                                                                {isc.giocatore.sesso}/{isc.giocatore.categoria}
+                                                                            </span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                                <div className="text-right pt-2 border-t border-gray-100/60">
+                                                                    <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10 uppercase">
+                                                                        {format(new Date(grp.turno?.orarioInizio || 0), 'dd/MM HH:mm')}
+                                                                    </span>
+                                                                </div>
                                                             </div>
-                                                            <div className="text-right">
-                                                                <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-1 rounded-md border border-primary/10">
-                                                                    {format(new Date(isc.turno?.orarioInizio || 0), 'dd/MM HH:mm')}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ));
+                                            );
+                                        });
                                     })()}
                                 </div>
                             ) : (
@@ -546,7 +366,7 @@ const DettaglioTorneo: React.FC = () => {
                                                 </div>
                                             </div>
                                             <button
-                                                disabled={isEsaurito || isRegistering}
+                                                disabled={isEsaurito}
                                                 onClick={() => handleOpenIscrizione(t.id)}
                                                 className={`w-full py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${isEsaurito ? 'bg-gray-100 text-gray-400' : 'bg-primary text-white shadow-lg shadow-primary/20 hover:scale-105'}`}
                                             >

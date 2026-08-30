@@ -148,6 +148,7 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
             include: {
                 giocatore: {
                     select: {
+                        id: true,
                         nome: true,
                         cognome: true,
                         sesso: true,
@@ -156,6 +157,7 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
                 },
                 turno: {
                     select: {
+                        id: true,
                         giorno: true,
                         orarioInizio: true,
                         sede: { select: { id: true, nome: true } }
@@ -163,6 +165,7 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
                 },
                 secondoTurno: {
                     select: {
+                        id: true,
                         giorno: true,
                         orarioInizio: true
                     }
@@ -180,24 +183,20 @@ export const getIscrizioniPublic = async (req: Request, res: Response) => {
         });
 
         const mappedIscrizioni = ordinati.map(iscr => {
-            if (iscr.sede) {
-                return {
-                    giocatore: iscr.giocatore,
-                    turno: iscr.turno,
-                    secondoTurno: iscr.secondoTurno,
-                    sede: iscr.sede
-                };
-            }
-
             const torneoSedeDefault = torneoInfo?.sede
                 ? { nome: torneoInfo.sede }
                 : (torneoInfo?.sedi && torneoInfo.sedi.length === 1 ? torneoInfo.sedi[0] : null);
 
             return {
+                id: iscr.id,
                 giocatore: iscr.giocatore,
                 turno: iscr.turno,
                 secondoTurno: iscr.secondoTurno,
-                sede: (iscr.turno as any)?.sede || torneoSedeDefault
+                sede: iscr.sede || (iscr.turno as any)?.sede || torneoSedeDefault,
+                gruppoId: iscr.gruppoId,
+                nomeSquadra: iscr.nomeSquadra,
+                isRiserva: iscr.isRiserva,
+                stato: iscr.stato
             };
         });
 
@@ -238,9 +237,9 @@ export const getDisponibilitaTurni = async (req: Request, res: Response) => {
     }
 };
 
-// POST /api/tornei/iscriviti (Giocatore - Iscrizione con Borsellino)
+// POST /api/tornei/iscriviti (Giocatore / Formazione - Iscrizione con Borsellino)
 export const iscriviGiocatore = async (req: any, res: Response) => {
-    const { torneoId, turnoId, giocatoreId, secondoTurnoId, sedeId } = req.body;
+    const { torneoId, turnoId, giocatoreId, atleti, nomeSquadra, secondoTurnoId, sedeId } = req.body;
     const isAdmin = req.user?.role === 'ADMIN';
 
     try {
@@ -249,21 +248,79 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
             include: { turni: true, sedi: true }
         });
 
-        const giocatore = await prisma.giocatore.findUnique({
-            where: { id: giocatoreId }
+        if (!torneo) return res.status(404).json({ message: 'Torneo non trovato.' });
+
+        // Normalizza lista atleti
+        let atletiInput: { giocatoreId: string; isRiserva?: boolean }[] = [];
+        if (Array.isArray(atleti) && atleti.length > 0) {
+            atletiInput = atleti.filter(a => a && a.giocatoreId && typeof a.giocatoreId === 'string' && a.giocatoreId.trim() !== '');
+        } else if (giocatoreId) {
+            atletiInput = [{ giocatoreId, isRiserva: false }];
+        }
+
+        const titolari = atletiInput.filter(a => !a.isRiserva);
+        const riserve = atletiInput.filter(a => !!a.isRiserva);
+
+        // Determinazione atleti obbligatori in base alla tipologia torneo
+        let requiredTitolari = 1;
+        let maxRiserve = 0;
+        switch (torneo.tipologia) {
+            case 'SINGOLO':
+                requiredTitolari = 1;
+                maxRiserve = 0;
+                break;
+            case 'DOPPIO':
+                requiredTitolari = 2;
+                maxRiserve = 0;
+                break;
+            case 'TRIS':
+                requiredTitolari = 3;
+                maxRiserve = 1;
+                break;
+            case 'SQUADRA_4':
+                requiredTitolari = 4;
+                maxRiserve = 1;
+                break;
+            default:
+                requiredTitolari = 1;
+                break;
+        }
+
+        // Controllo completezza dati obbligatori
+        if (titolari.length < requiredTitolari) {
+            return res.status(400).json({ message: 'inserisci tutti i dati necessari' });
+        }
+
+        if (riserve.length > maxRiserve) {
+            return res.status(400).json({ message: `Puoi inserire al massimo ${maxRiserve} riserva per questo torneo.` });
+        }
+
+        // Verifica unicità atleti inseriti
+        const allIds = atletiInput.map(a => a.giocatoreId);
+        if (new Set(allIds).size !== allIds.length) {
+            return res.status(400).json({ message: 'Lo stesso atleta non può essere inserito più volte.' });
+        }
+
+        // Recupera dati atleti dal database
+        const giocatori = await prisma.giocatore.findMany({
+            where: { id: { in: allIds } },
+            include: { saldo: true }
         });
 
-        if (!giocatore) return res.status(404).json({ message: 'Giocatore non trovato.' });
+        if (giocatori.length !== allIds.length) {
+            return res.status(404).json({ message: 'Uno o più atleti non sono stati trovati nel database.' });
+        }
 
-        // Validazione Certificato Medico
-        if (giocatore.certificatoMedicoScadenza) {
-            const oggi = new Date();
-            const scadenza = new Date(giocatore.certificatoMedicoScadenza);
-
-            if (scadenza < oggi) {
-                return res.status(400).json({
-                    message: 'aggiorna il tuo certificato medico prima di partecipare a gare agonistiche, grazie'
-                });
+        // Validazione Certificato Medico per ciascun atleta
+        const oggi = new Date();
+        for (const g of giocatori) {
+            if (g.certificatoMedicoScadenza) {
+                const scadenza = new Date(g.certificatoMedicoScadenza);
+                if (scadenza < oggi && !isAdmin) {
+                    return res.status(400).json({
+                        message: `Certificato medico scaduto per ${g.nome} ${g.cognome}. Aggiorna il certificato prima di partecipare a gare agonistiche.`
+                    });
+                }
             }
         }
 
@@ -274,12 +331,12 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
             }
         });
 
-        if (!torneo || !turno) return res.status(404).json({ message: 'Torneo o Turno non trovato.' });
+        if (!turno) return res.status(404).json({ message: 'Turno non trovato.' });
 
         // Validazione Seconda Scelta
         const numTurni = torneo.turni.length;
         if (numTurni > 1 && !secondoTurnoId) {
-            return res.status(400).json({ message: 'Scegli anche una turno di riserva nel caso la tua prima scelta non fosse disponibile.' });
+            return res.status(400).json({ message: 'Scegli anche un turno di riserva nel caso la prima scelta non fosse disponibile.' });
         }
 
         if (secondoTurnoId && secondoTurnoId === turnoId) {
@@ -291,16 +348,17 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
             if (!extraTurno) return res.status(400).json({ message: 'Turno di riserva non valido per questo torneo.' });
         }
 
-        // --- AUTO-ASSEGNAZIONE SEDE BASATA SU CATEGORIA ---
+        // Auto-assegnazione sede
         let autoSedeId = sedeId;
         if (!autoSedeId && torneo.sedi.length > 0) {
             if (torneo.sedi.length === 1) {
                 autoSedeId = torneo.sedi[0].id;
             } else {
-                const fullCat = `${giocatore.sesso}/${giocatore.categoria}`;
+                const g0 = giocatori[0];
+                const fullCat = `${g0.sesso}/${g0.categoria}`;
                 const targetSede = torneo.sedi.find(s => 
                     s.categorie.includes(fullCat) || 
-                    s.categorie.includes(giocatore.categoria)
+                    s.categorie.includes(g0.categoria)
                 );
                 if (targetSede) autoSedeId = targetSede.id;
             }
@@ -309,63 +367,86 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
         const costo = Math.abs(Number((torneo as any).costoIscrizione || 0));
 
         const risultato = await prisma.$transaction(async (tx) => {
-            // Verifica duplicati atomica
-            const esistente = await tx.iscrizioneTorneo.findFirst({
-                where: { torneoId, giocatoreId }
-            });
-            if (esistente) throw new Error('Sei già iscritto a questo torneo.');
+            // Verifica duplicati atomica per tutti gli atleti
+            for (const g of giocatori) {
+                const esistente = await tx.iscrizioneTorneo.findFirst({
+                    where: { torneoId, giocatoreId: g.id }
+                });
+                if (esistente) {
+                    throw new Error(`${g.nome} ${g.cognome} è già iscritto a questo torneo.`);
+                }
+            }
 
             // Verifica disponibilità posti atomica
             const occupati = await tx.iscrizioneTorneo.count({
                 where: { turnoId }
             });
-            if (occupati >= turno.postiDisponibili) {
-                throw new Error('Turno esaurito.');
+            if (occupati + titolari.length > turno.postiDisponibili) {
+                throw new Error('Posti insufficienti nel turno selezionato.');
             }
 
+            // Controllo e aggiornamento borsellino per ciascun atleta titolare
             if (costo > 0) {
-                const saldo = await tx.saldoBorsellino.findUnique({ where: { giocatoreId } });
-                
-                // Se non è admin, controlla se il saldo è sufficiente
-                if (!isAdmin && (!saldo || Number(saldo.saldoAttuale) < costo)) {
-                    throw new Error('Saldo insufficiente nel borsellino.');
+                for (const g of giocatori) {
+                    const isRiservaAthlete = atletiInput.find(a => a.giocatoreId === g.id)?.isRiserva;
+                    if (isRiservaAthlete) continue;
+
+                    const saldo = await tx.saldoBorsellino.findUnique({ where: { giocatoreId: g.id } });
+                    const saldoAttualeNum = Number(saldo?.saldoAttuale || 0);
+
+                    if (!isAdmin && saldoAttualeNum < costo) {
+                        throw new Error(`Saldo insufficiente nel borsellino di ${g.nome} ${g.cognome} (Saldo: €${saldoAttualeNum.toFixed(2)}, Costo: €${costo.toFixed(2)}).`);
+                    }
+
+                    await tx.saldoBorsellino.upsert({
+                        where: { giocatoreId: g.id },
+                        create: {
+                            giocatoreId: g.id,
+                            saldoAttuale: -costo
+                        },
+                        update: {
+                            saldoAttuale: { decrement: costo }
+                        }
+                    });
+
+                    await tx.movimentoContabile.create({
+                        data: {
+                            giocatoreId: g.id,
+                            importo: costo,
+                            tipo: 'ISCRIZIONE_TORNEO',
+                            descrizione: `Iscrizione torneo: ${torneo.nome}`
+                        }
+                    });
                 }
-
-                await tx.saldoBorsellino.upsert({
-                    where: { giocatoreId },
-                    create: {
-                        giocatoreId,
-                        saldoAttuale: -costo
-                    },
-                    update: {
-                        saldoAttuale: { decrement: costo }
-                    }
-                });
-
-                // Importo registrato come positivo per consistenza contabile
-                await tx.movimentoContabile.create({
-                    data: {
-                        giocatoreId,
-                        importo: costo,
-                        tipo: 'ISCRIZIONE_TORNEO',
-                        descrizione: `Iscrizione torneo: ${torneo.nome}`
-                    }
-                });
             }
 
-            return await tx.iscrizioneTorneo.create({
-                data: {
-                    torneoId,
-                    giocatoreId,
-                    turnoId,
-                    secondoTurnoId: secondoTurnoId || null,
-                    sedeId: autoSedeId || (turno as any).sedeId || null,
-                    stato: 'PENDENTE'
-                }
-            });
+            const gruppoId = (torneo.tipologia !== 'SINGOLO' || atletiInput.length > 1) 
+                ? (typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : Math.random().toString(36).substring(2)) 
+                : null;
+
+            // Creazione iscrizioni
+            const created = [];
+            for (const a of atletiInput) {
+                const iscr = await tx.iscrizioneTorneo.create({
+                    data: {
+                        torneoId,
+                        giocatoreId: a.giocatoreId,
+                        turnoId,
+                        secondoTurnoId: secondoTurnoId || null,
+                        sedeId: autoSedeId || (turno as any).sedeId || null,
+                        gruppoId,
+                        nomeSquadra: nomeSquadra?.trim() || null,
+                        isRiserva: !!a.isRiserva,
+                        stato: 'PENDENTE'
+                    }
+                });
+                created.push(iscr);
+            }
+
+            return created;
         });
 
-        res.json({ message: 'Iscrizione inviata! In attesa di conferma.', iscrizione: risultato });
+        res.json({ message: 'Iscrizione inviata con successo!', iscrizioni: risultato });
     } catch (err: any) {
         res.status(400).json({ message: err.message || 'Errore durante l\'iscrizione.' });
     }
