@@ -120,7 +120,9 @@ const DettaglioTorneo: React.FC = () => {
                 setIsSearching(true);
                 setSearchError('');
                 try {
-                    const res = await axios.get(`${API_BASE_URL}/api/tornei/lookup-tessera/${tesseraInput}`);
+                    const res = await axios.get(`${API_BASE_URL}/api/tornei/lookup-tessera/${tesseraInput}`, {
+                        headers: token ? { Authorization: `Bearer ${token}` } : {}
+                    });
                     setGiocatoreFound(res.data);
                 } catch (err: any) {
                     setGiocatoreFound(null);

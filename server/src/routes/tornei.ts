@@ -11,7 +11,7 @@ router.get('/public/:id', torneiController.getTorneoPublicById);
 router.get('/public/:id/disponibilita', iscrizioniController.getDisponibilitaTurni);
 router.get('/public/:id/iscritti', iscrizioniController.getIscrizioniPublic);
 router.get('/classifiche', torneiController.getClassifiche);
-router.get('/lookup-tessera/:tessera', iscrizioniController.lookupTessera);
+router.get('/lookup-tessera/:tessera', optionalAuthenticate, iscrizioniController.lookupTessera);
 router.post('/iscriviti', optionalAuthenticate, iscrizioniController.iscriviGiocatore);
 
 // --- Endpoint Protetti (Solo ADMIN) ---

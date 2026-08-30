@@ -98,7 +98,9 @@ const IscrizioneTorneo: React.FC = () => {
         setSubmitResult(null);
 
         try {
-            const res = await axios.get(`${API_BASE_URL}/api/tornei/lookup-tessera/${tessera.trim()}`);
+            const res = await axios.get(`${API_BASE_URL}/api/tornei/lookup-tessera/${tessera.trim()}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
             const player = res.data;
             setGiocatore(player);
 

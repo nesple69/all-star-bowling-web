@@ -38,7 +38,7 @@ export const lookupTessera = async (req: Request, res: Response) => {
             ? new Date(giocatore.certificatoMedicoScadenza) >= new Date()
             : false;
 
-        // Se autorizzato, ritorna tutti i campi; altrimenti solo dati minimizzati per iscrizione anonima
+        // Ritorna i dati necessari per l'iscrizione al torneo e verifica borsellino
         res.json({
             id: giocatore.id,
             nome: giocatore.nome,
@@ -48,8 +48,8 @@ export const lookupTessera = async (req: Request, res: Response) => {
             attivo: giocatore.attivo,
             certificatoValido: isCertificatoValido,
             telefono: isAuthorized ? giocatore.telefono : undefined,
-            certificatoMedicoScadenza: isAuthorized ? giocatore.certificatoMedicoScadenza : undefined,
-            saldo: isAuthorized ? giocatore.saldo : undefined,
+            certificatoMedicoScadenza: giocatore.certificatoMedicoScadenza,
+            saldo: giocatore.saldo ? { saldoAttuale: Number(giocatore.saldo.saldoAttuale) } : { saldoAttuale: 0 },
             iscrizioni: isAuthorized ? giocatore.iscrizioni : []
         });
     } catch (err) {
