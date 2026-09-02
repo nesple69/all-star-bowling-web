@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, FileText, Calendar, Users } from 'lucide-react';
+import { ExternalLink, FileText, Users } from 'lucide-react';
 
 const Footer: React.FC = () => {
     return (
@@ -61,19 +61,6 @@ const Footer: React.FC = () => {
                     <div className="space-y-4">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-primary/80">Documentazione</h3>
                         <ul className="space-y-3">
-                            <li>
-                                <a
-                                    href="#"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        alert('PDF Calendario Tornei in arrivo - In aggiornamento');
-                                    }}
-                                    className="text-slate-400 hover:text-white transition-colors flex items-center gap-2 text-sm group"
-                                >
-                                    <Calendar size={14} className="group-hover:text-primary transition-colors" />
-                                    Calendario Tornei (PDF)
-                                </a>
-                            </li>
                             <li>
                                 <a
                                     href="#"

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, User as UserIcon, Trophy, Users, Home, Settings, CreditCard } from 'lucide-react';
+import { LogOut, User as UserIcon, Trophy, Users, Home, Settings, CreditCard, Calendar } from 'lucide-react';
 
 const Header: React.FC = () => {
     const { user, logout, isAdmin } = useAuth();
@@ -62,6 +62,19 @@ const Header: React.FC = () => {
                                 {item.label}
                             </Link>
                         ))}
+
+                        {/* Link Calendario Stagione (PDF) ad alta visibilità */}
+                        <a
+                            href="/documenti/calendario-stagione-agonistica-2026-27.pdf"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-yellow-200 text-slate-900 font-black uppercase text-xs px-4 py-2 rounded-md shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105 border border-amber-200/60 ring-2 ring-amber-400/40 ml-1 group"
+                            title="Visualizza e scarica il Calendario Stagione Agonistica 2026/27 (PDF)"
+                        >
+                            <Calendar className="w-4 h-4 text-slate-900 group-hover:rotate-6 transition-transform" />
+                            <span>CALENDARIO</span>
+                            <span className="bg-slate-900 text-amber-300 text-[9px] px-1.5 py-0.5 rounded font-bold tracking-tight">PDF</span>
+                        </a>
                     </nav>
 
                     {/* User Profile / Logout / Login */}
@@ -105,18 +118,31 @@ const Header: React.FC = () => {
             </div >
 
             {/* Navigation - Mobile (Horizontal Scrollable) */}
-            <div className="lg:hidden bg-black/15 overflow-x-auto no-scrollbar border-t border-white/10 py-1">
+            <div className="lg:hidden bg-black/15 overflow-x-auto no-scrollbar border-t border-white/10 py-1.5">
                 <div className="flex px-3 py-1 min-w-max gap-1.5 justify-start items-center">
                     {navItems.map((item) => (
                         <Link
                             key={item.path}
                             to={item.path}
-                            className={`flex items-center gap-1.5 text-white font-bold uppercase text-xs px-3 py-2 transition-all rounded-lg ${isActive(item.path) ? 'bg-white/25 shadow-sm ring-1 ring-white/30' : 'hover:bg-white/10'
+                            className={`flex items-center gap-1.5 text-white font-bold uppercase text-xs px-3 py-2 transition-all rounded-lg shrink-0 ${isActive(item.path) ? 'bg-white/25 shadow-sm ring-1 ring-white/30' : 'hover:bg-white/10'
                                 }`}
                         >
                             {item.icon} {item.label}
                         </Link>
                     ))}
+
+                    {/* Link Calendario Mobile */}
+                    <a
+                        href="/documenti/calendario-stagione-agonistica-2026-27.pdf"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-amber-300 text-slate-900 font-black uppercase text-xs px-3 py-2 rounded-lg shadow-sm border border-amber-200/60 shrink-0"
+                        title="Visualizza e scarica il Calendario Stagione Agonistica 2026/27 (PDF)"
+                    >
+                        <Calendar className="w-4 h-4 text-slate-900" />
+                        <span>CALENDARIO</span>
+                        <span className="bg-slate-900 text-amber-300 text-[8px] px-1 py-0.2 rounded font-bold">PDF</span>
+                    </a>
                 </div>
             </div>
         </header >

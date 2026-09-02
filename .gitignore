@@ -17,6 +17,8 @@ server/.env
 *.txt
 *.csv
 *.pdf
+!client/public/documenti/*.pdf
+!client/public/*.pdf
 !README.md
 !LICENSE
 !DEPLOYMENT_SUCCESS.md

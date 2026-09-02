@@ -23,6 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 
-# Documenti PDF privati
-public/documenti/*.pdf
+# Documenti PDF
+!public/documenti/*.pdf
 !public/documenti/.gitkeep
