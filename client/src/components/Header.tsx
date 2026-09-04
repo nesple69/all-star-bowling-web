@@ -31,20 +31,25 @@ const Header: React.FC = () => {
     return (
         <header className="bg-gradient-to-r from-primary to-light-blue shadow-lg">
             <div className="container mx-auto px-4 md:px-6 lg:px-12">
-                <div className="flex justify-between items-center h-16 sm:h-20">
+                <div className="flex justify-between items-center min-h-[72px] sm:min-h-[84px] py-2">
 
                     {/* Logo & Title */}
-                    <Link to="/" className="flex items-center gap-2 sm:gap-3 group relative z-30 min-w-0">
-                        <div className="group-hover:scale-105 transition-transform w-12 h-12 sm:w-20 sm:h-20 md:w-48 md:h-48 flex items-center justify-center md:-my-12 shrink-0">
-                            <img src="/logo All Star.png" alt="Logo" className="w-full h-full object-contain filter drop-shadow-lg" onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI0Y4QjUwMCIgZD0iTTEyIDFsMy4zOSA2LjY4IDcuNjEgMS4xLTUuNSA1LjM2IDEuMyA3LjYyLTkuOC0zLjY2LTYuOCA0Ljk2IDEuMy03LjYyLTUuNS01LjM2IDcuNjEtMS4xTDEyIDFsMy4zOSA2LjY4eiIvPjwvc3ZnPg==';
-                            }} />
+                    <Link to="/" className="flex items-center gap-2.5 sm:gap-3.5 group relative z-30 min-w-0 py-1">
+                        <div className="group-hover:scale-105 transition-transform w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 flex items-center justify-center shrink-0">
+                            <img
+                                src="/logo All Star.png"
+                                alt="ALL STAR TEAM Logo"
+                                className="w-full h-full max-h-full object-contain filter drop-shadow-md"
+                                onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI0Y4QjUwMCIgZD0iTTEyIDFsMy4zOSA2LjY4IDcuNjEgMS4xLTUuNSA1LjM2IDEuMyA3LjYyLTkuOC0zLjY2LTYuOCA0Ljk2IDEuMy03LjYyLTUuNS01LjM2IDcuNjEtMS4xTDEyIDFsMy4zOSA2LjY4eiIvPjwvc3ZnPg==';
+                                }}
+                            />
                         </div>
                         <div className="flex flex-col justify-center">
-                            <h1 className="text-white text-base sm:text-xl md:text-2xl font-bold font-heading uppercase tracking-wide leading-tight">
-                                ALL STAR <span className="text-amber-300 sm:text-white">TEAM</span>
+                            <h1 className="text-white text-base sm:text-xl md:text-2xl font-black font-heading uppercase tracking-wide leading-tight">
+                                ALL STAR <span className="text-amber-300">TEAM</span>
                             </h1>
-                            <p className="text-white/80 text-[10px] sm:text-xs font-semibold tracking-wider italic uppercase leading-none">bowling asd</p>
+                            <p className="text-white/80 text-[10px] sm:text-xs font-bold tracking-wider italic uppercase leading-none">bowling asd</p>
                         </div>
                     </Link>
 
