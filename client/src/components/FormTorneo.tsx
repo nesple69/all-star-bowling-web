@@ -9,6 +9,8 @@ import {
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { format } from 'date-fns';
 
+const CATEGORIE_TORNEO = ['M/A', 'M/B', 'M/C', 'M/D', 'M/ES', 'F/A', 'F/B', 'F/C', 'F/D', 'F/ES'];
+
 const FormTorneo: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -323,7 +325,7 @@ const FormTorneo: React.FC = () => {
                                     </div>
                                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-tight mb-3">Seleziona tutte le categorie ammesse a questo torneo (verranno mostrate nelle classifiche e nei filtri)</p>
                                     <div className="flex flex-wrap gap-2">
-                                        {['M/A', 'M/B', 'M/C', 'M/D', 'F/A', 'F/B', 'F/C', 'F/D'].map(cat => (
+                                        {CATEGORIE_TORNEO.map(cat => (
                                             <button
                                                 key={cat}
                                                 type="button"
@@ -383,7 +385,7 @@ const FormTorneo: React.FC = () => {
                                                         <div className="space-y-2">
                                                             <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Categorie assegnate a questa sede</label>
                                                             <div className="flex flex-wrap gap-1.5">
-                                                                {['M/A', 'M/B', 'M/C', 'M/D', 'F/A', 'F/B', 'F/C', 'F/D'].map(cat => (
+                                                                {CATEGORIE_TORNEO.map(cat => (
                                                                     <button
                                                                         key={cat}
                                                                         type="button"
