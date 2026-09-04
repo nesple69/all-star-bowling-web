@@ -49,7 +49,7 @@ const FormGiocatore: React.FC<Props> = ({ giocatore, onClose, onSave }) => {
             setFormData({
                 nome: giocatore.nome || '',
                 cognome: giocatore.cognome || '',
-                email: giocatore.user?.email || '',
+                email: giocatore.user?.email || giocatore.email || '',
                 password: '', // Non pre-popoliamo la password in modifica
                 dataNascita: giocatore.dataNascita ? giocatore.dataNascita.split('T')[0] : '',
                 telefono: giocatore.telefono || '',
@@ -168,36 +168,34 @@ const FormGiocatore: React.FC<Props> = ({ giocatore, onClose, onSave }) => {
                         {/* Sezione Accesso / Tecnico */}
                         <div className="space-y-4">
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-1">Dati Club & Accesso</h3>
-                            {!isEditing && (
-                                <>
-                                    <div>
-                                        <label className="block text-xs font-bold text-dark uppercase mb-1.5 ml-1">Email (Accesso App) *</label>
-                                        <div className="relative">
-                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                            <input
-                                                type="email"
-                                                required
-                                                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-md focus:border-primary outline-none"
-                                                value={formData.email}
-                                                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-dark uppercase mb-1.5 ml-1">Password Iniziale</label>
-                                        <div className="relative">
-                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                            <input
-                                                type="password"
-                                                placeholder="Bowling2026! (Default)"
-                                                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-md focus:border-primary outline-none"
-                                                value={formData.password}
-                                                onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-                                </>
-                            )}
+                            <div>
+                                <label className="block text-xs font-bold text-dark uppercase mb-1.5 ml-1">Email (Accesso App) *</label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <input
+                                        type="email"
+                                        required
+                                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-md focus:border-primary outline-none"
+                                        value={formData.email}
+                                        onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-dark uppercase mb-1.5 ml-1">
+                                    {isEditing ? 'Nuova Password (opzionale)' : 'Password Iniziale'}
+                                </label>
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <input
+                                        type="password"
+                                        placeholder={isEditing ? 'Lascia vuoto per non modificare' : 'Bowling2026! (Default)'}
+                                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-md focus:border-primary outline-none"
+                                        value={formData.password}
+                                        onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                    />
+                                </div>
+                            </div>
                             <div>
                                 <label className="block text-xs font-bold text-dark uppercase mb-1.5 ml-1">Categoria FISB *</label>
                                 <select

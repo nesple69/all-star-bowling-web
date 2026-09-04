@@ -139,8 +139,8 @@ const Giocatori: React.FC = () => {
         }
     };
 
-    const handleEditClick = () => {
-        setEditingGiocatore(selectedGiocatore);
+    const handleEditClick = (g?: any) => {
+        setEditingGiocatore(g || selectedGiocatore);
         setIsFormOpen(true);
         setSelectedGiocatore(null);
     };

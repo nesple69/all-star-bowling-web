@@ -339,6 +339,8 @@ export const updateGiocatore = async (req: Request, res: Response) => {
     const {
         nome,
         cognome,
+        email,
+        password,
         dataNascita,
         telefono,
         numeroTessera,
@@ -355,6 +357,40 @@ export const updateGiocatore = async (req: Request, res: Response) => {
     } = req.body;
 
     try {
+        const existingGiocatore = await prisma.giocatore.findUnique({
+            where: { id: id as string },
+            include: { user: true }
+        });
+
+        if (!existingGiocatore) {
+            return res.status(404).json({ message: 'Giocatore non trovato' });
+        }
+
+        if (existingGiocatore.userId) {
+            const userDataToUpdate: any = {};
+            if (nome) userDataToUpdate.nome = nome;
+            if (cognome) userDataToUpdate.cognome = cognome;
+
+            if (email && email !== existingGiocatore.user.email) {
+                const emailInUse = await prisma.user.findUnique({ where: { email } });
+                if (emailInUse && emailInUse.id !== existingGiocatore.userId) {
+                    return res.status(400).json({ message: 'Email già in uso da un altro utente' });
+                }
+                userDataToUpdate.email = email;
+            }
+
+            if (password && password.trim() !== '') {
+                userDataToUpdate.password = await bcrypt.hash(password, 10);
+            }
+
+            if (Object.keys(userDataToUpdate).length > 0) {
+                await prisma.user.update({
+                    where: { id: existingGiocatore.userId },
+                    data: userDataToUpdate
+                });
+            }
+        }
+
         let mediaAttuale = undefined;
         if (totaleBirilli !== undefined && partiteGiocate > 0) {
             mediaAttuale = totaleBirilli / partiteGiocate;
@@ -385,6 +421,14 @@ export const updateGiocatore = async (req: Request, res: Response) => {
                 attivo: attivo !== undefined ? (attivo === true || attivo === 'true') : undefined,
                 totaleBirilli: totaleBirilli !== undefined ? totaleBirilli : undefined,
                 mediaAttuale: mediaAttuale
+            },
+            include: {
+                user: {
+                    select: {
+                        email: true,
+                        ruolo: true
+                    }
+                }
             }
         });
 

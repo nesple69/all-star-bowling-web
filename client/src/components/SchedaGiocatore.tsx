@@ -18,7 +18,7 @@ interface Props {
     stagioneId?: string;
     stagioneNome?: string;
     onClose: () => void;
-    onEdit: () => void;
+    onEdit: (data?: any) => void;
     onDelete: () => void;
     isAdmin: boolean;
 }
@@ -372,7 +372,7 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, stagioneId, stagioneNome,
                                             <Mail className="h-4 w-4 text-primary" />
                                             <div>
                                                 <p className="text-[10px] text-gray-400 font-bold uppercase">Email</p>
-                                                <p className="text-sm font-medium">{giocatore.user?.email || 'N/D'}</p>
+                                                <p className="text-sm font-medium">{playerData?.user?.email || giocatore.user?.email || 'N/D'}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -581,7 +581,7 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, stagioneId, stagioneNome,
                         </button>
 
                         <button
-                            onClick={onEdit}
+                            onClick={() => onEdit(playerData || giocatore)}
                             className="bg-secondary hover:bg-secondary/90 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-md flex items-center gap-2 uppercase text-xs tracking-widest"
                         >
                             <Edit className="w-4 h-4" />
