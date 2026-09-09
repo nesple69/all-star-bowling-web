@@ -9,6 +9,8 @@ export const getStagioni = async (_req: Request, res: Response) => {
         });
         res.json(stagioni);
     } catch (error) {
+        console.error('[GET_STAGIONI_ERROR]', error);
+        res.status(500).json({ message: 'Errore nel recupero delle stagioni', error });
     }
 };
 

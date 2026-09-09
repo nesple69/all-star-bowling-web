@@ -12,7 +12,7 @@
     "client": "npm run dev --workspace=client",
     "server": "npm run dev --workspace=server",
     "dev": "concurrently \"npm run client\" \"npm run server\"",
-    "build": "npm run build --workspace=server && npm run build --workspace=client && rm -rf public && mkdir public && cp -r client/dist/* public/",
+    "build": "npm run build --workspace=server && npm run build --workspace=client && node -e \"const fs=require('fs'); fs.rmSync('public', {recursive:true, force:true}); fs.cpSync('client/dist', 'public', {recursive:true});\"",
     "install-all": "npm install",
     "postinstall": "cd server && prisma generate"
   },

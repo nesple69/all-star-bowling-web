@@ -583,7 +583,8 @@ export const cancellaIscrizione = async (req: Request, res: Response) => {
         const costo = Number((iscrizione.torneo as any).costoIscrizione || 0);
 
         await prisma.$transaction(async (tx) => {
-            if (costo > 0) {
+            // Rimborsa solo se l'iscrizione non era già stata rifiutata (che ha già erogato il rimborso)
+            if (costo > 0 && iscrizione.stato !== 'RIFIUTATA') {
                 await tx.saldoBorsellino.update({
                     where: { giocatoreId: iscrizione.giocatoreId },
                     data: { saldoAttuale: { increment: costo } }
