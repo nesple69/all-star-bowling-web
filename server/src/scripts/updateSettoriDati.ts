@@ -32,7 +32,7 @@ const data = [
     { tessera: 'AF2070', cognome: 'POLLESCHI', nome: 'CARLO', cat: 'ES', senior: 'A' },
     { tessera: 'AA3364', cognome: 'ROSSI', nome: 'FEDERICO', cat: 'A', senior: 'A' },
     { tessera: 'AA8937', cognome: 'ROTONDI', nome: 'DAVID', cat: 'B', senior: 'B' },
-    { tessera: 'AD7524', cognome: 'SIMONCINI', nome: 'LUCA', cat: 'C', senior: 'B' },
+    { tessera: 'AD7524', cognome: 'SIMONCINI', nome: 'LUCA', cat: 'B', senior: 'B' },
     { tessera: 'AA9884', cognome: 'SPAGNOLI', nome: 'DAVIDE', cat: 'A', senior: 'A' },
     { tessera: 'AC3818', cognome: 'SPLENDIANI', nome: 'NEDO DANIELE', cat: 'B', azienda: 'MIN. PUBBL. ISTR. TOSCANA', senior: 'A' },
     { tessera: 'AA2961', cognome: 'STEFANI', nome: 'MASSIMO', cat: 'B', senior: 'A' },
