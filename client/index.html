@@ -15,6 +15,30 @@
   <meta name="apple-mobile-web-app-title" content="ALL STAR" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>ALL STAR TEAM - Bowling Association</title>
+  <style>
+    vercel-live-feedback,
+    #vercel-toolbar,
+    [data-vercel-toolbar] {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+      opacity: 0 !important;
+    }
+  </style>
+  <script>
+    // Blocca intercettazione tasti negli input (es: AltGr + @ per la chiocciola)
+    window.addEventListener('keydown', function(e) {
+      var t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+        e.stopPropagation();
+      }
+    }, true);
+    // Elimina cookie residui della toolbar
+    try {
+      document.cookie = "_vercel_toolbar=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+      document.cookie = "__vercel_toolbar=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+    } catch(err) {}
+  </script>
 </head>
 
 <body>
