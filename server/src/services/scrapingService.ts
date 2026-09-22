@@ -311,8 +311,9 @@ export const fetchTorneoFederazione = async (url: string): Promise<TorneoData> =
 };
 
 export const matchGiocatori = async (nomiFederazione: string[]) => {
-    // Recupera tutti i giocatori dal DB per il matching
+    // Recupera solo i giocatori ATTIVI dal DB per il matching
     const giocatoriDb = await prisma.giocatore.findMany({
+        where: { attivo: true },
         select: { id: true, nome: true, cognome: true }
     });
 

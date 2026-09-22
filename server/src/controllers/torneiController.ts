@@ -169,8 +169,23 @@ export const getTorneiAdmin = async (req: Request, res: Response) => {
     const { stagioneId } = req.query;
     console.log('GET /api/tornei (Admin) - stagioneId:', stagioneId);
     try {
+        let where: any = {};
+        if (stagioneId && stagioneId !== 'ALL') {
+            where.stagioneId = String(stagioneId);
+        } else if (stagioneId === 'ALL') {
+            where = {};
+        } else {
+            // Se non specificato, mostra di default solo i tornei della stagione attiva
+            const stagioneAttiva = await prisma.stagione.findFirst({
+                where: { attiva: true }
+            });
+            if (stagioneAttiva) {
+                where.stagioneId = stagioneAttiva.id;
+            }
+        }
+
         const tornei = await prisma.torneo.findMany({
-            where: stagioneId ? { stagioneId: stagioneId as string } : {},
+            where,
             include: {
                 _count: {
                     select: { iscrizioni: true, risultati: true }

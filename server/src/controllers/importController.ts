@@ -79,19 +79,23 @@ export const importTorneoData = async (req: Request, res: Response) => {
             }
 
             if (giocatoreId) {
+                const giocatoreDb = await prisma.giocatore.findUnique({
+                    where: { id: giocatoreId },
+                    select: { sesso: true, fasciaSenior: true, attivo: true }
+                });
+
+                // Se il giocatore non esiste o non è attivo (e non è specificato come override manuale intenzionale), lo scartiamo
+                if (!giocatoreDb || (!giocatoreDb.attivo && !matchesOverride?.[item.atleta])) {
+                    unmatched.push(item.atleta);
+                    continue;
+                }
+
                 let divisioneVal = item.divisione || null;
 
                 if (isAziendaleOSenior) {
-                    const giocatoreDb = await prisma.giocatore.findUnique({
-                        where: { id: giocatoreId },
-                        select: { sesso: true, fasciaSenior: true }
-                    });
-
-                    if (giocatoreDb) {
-                        const sessoStr = giocatoreDb.sesso === 'F' ? 'Femminile' : 'Maschile';
-                        const fasciaStr = giocatoreDb.fasciaSenior !== 'NONE' ? ` Fascia ${giocatoreDb.fasciaSenior}` : '';
-                        divisioneVal = `${sessoStr}${fasciaStr}`;
-                    }
+                    const sessoStr = giocatoreDb.sesso === 'F' ? 'Femminile' : 'Maschile';
+                    const fasciaStr = giocatoreDb.fasciaSenior !== 'NONE' ? ` Fascia ${giocatoreDb.fasciaSenior}` : '';
+                    divisioneVal = `${sessoStr}${fasciaStr}`;
                 }
 
                 // Gestione Riporti

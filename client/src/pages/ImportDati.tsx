@@ -60,7 +60,7 @@ const ImportDati: React.FC = () => {
             axios.get(`${API_BASE_URL}/api/tornei`, {
                 headers: { Authorization: `Bearer ${token}` }
             }),
-            axios.get(`${API_BASE_URL}/api/giocatori`, {
+            axios.get(`${API_BASE_URL}/api/giocatori?attivo=true`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
         ]);
@@ -185,7 +185,7 @@ const ImportDati: React.FC = () => {
                                     onChange={(e) => setSelectedTorneoId(e.target.value)}
                                     className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-primary/20 focus:bg-white rounded-2xl outline-none transition-all font-medium text-dark"
                                 >
-                                    <option value="">-- Seleziona un torneo locale --</option>
+                                    <option value="">-- Seleziona un torneo della stagione in corso --</option>
                                     {tornei.map((t: Torneo) => (
                                         <option key={t.id} value={t.id}>{t.nome} ({new Date(t.dataInizio).toLocaleDateString()})</option>
                                     ))}
@@ -273,21 +273,44 @@ const ImportDati: React.FC = () => {
                                                     </td>
                                                     <td className="px-5 py-4">
                                                         {isMatched ? (
-                                                            <div className="flex items-center gap-2 text-green-600 font-bold text-xs">
+                                                            <div className="flex items-center gap-2 text-green-600 font-bold text-xs bg-green-50 px-2.5 py-1.5 rounded-lg border border-green-200 w-fit">
                                                                 <UserCheck className="w-4 h-4" />
-                                                                Match Trovato
+                                                                Tesserato All Star Team
+                                                            </div>
+                                                        ) : manualId ? (
+                                                            <div className="flex flex-col gap-1">
+                                                                <div className="flex items-center gap-1.5 text-amber-700 font-bold text-xs">
+                                                                    <UserCheck className="w-4 h-4" />
+                                                                    Abbinato manualmente
+                                                                </div>
+                                                                <select
+                                                                    value={manualId}
+                                                                    onChange={(e) => setManualMatches(prev => ({ ...prev, [item.atleta]: e.target.value }))}
+                                                                    className="w-full p-1.5 bg-amber-100/60 text-amber-800 text-[11px] font-bold rounded-lg border border-amber-300 outline-none"
+                                                                >
+                                                                    <option value="">-- Rimuovi abbinamento --</option>
+                                                                    {giocatori.map((g: Giocatore) => (
+                                                                        <option key={g.id} value={g.id}>{g.cognome} {g.nome}</option>
+                                                                    ))}
+                                                                </select>
                                                             </div>
                                                         ) : (
-                                                            <select
-                                                                value={manualId || ''}
-                                                                onChange={(e) => setManualMatches(prev => ({ ...prev, [item.atleta]: e.target.value }))}
-                                                                className="w-full p-2 bg-amber-100/50 text-amber-700 text-xs font-bold rounded-lg border-none outline-none"
-                                                            >
-                                                                <option value="">-- Corrispondenza manuale --</option>
-                                                                {giocatori.map((g: Giocatore) => (
-                                                                    <option key={g.id} value={g.id}>{g.cognome} {g.nome}</option>
-                                                                ))}
-                                                            </select>
+                                                            <div className="flex flex-col gap-1.5">
+                                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md w-fit">
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                                                                    Esterno (Non verrà importato)
+                                                                </span>
+                                                                <select
+                                                                    value=""
+                                                                    onChange={(e) => setManualMatches(prev => ({ ...prev, [item.atleta]: e.target.value }))}
+                                                                    className="w-full p-1.5 bg-gray-50 text-gray-500 text-[11px] font-medium rounded-lg border border-gray-200 outline-none hover:border-primary/40 transition-colors"
+                                                                >
+                                                                    <option value="">-- Abbina solo se socio attivo --</option>
+                                                                    {giocatori.map((g: Giocatore) => (
+                                                                        <option key={g.id} value={g.id}>{g.cognome} {g.nome}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
                                                         )}
                                                     </td>
                                                     <td className="px-5 py-4 text-center">
