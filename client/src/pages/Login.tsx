@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { User as UserIcon, Lock, AlertCircle } from 'lucide-react';
+import { User as UserIcon, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 const Login: React.FC = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
@@ -88,14 +89,22 @@ const Login: React.FC = () => {
                                 <input
                                     id="password"
                                     name="password"
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     autoComplete="current-password"
                                     required
-                                    className="appearance-none relative block w-full px-10 py-3 border-2 border-gray-100 placeholder-gray-400 text-dark rounded-lg focus:outline-none focus:border-primary focus:ring-0 transition-colors sm:text-sm font-medium"
+                                    className="appearance-none relative block w-full px-10 py-3 border-2 border-gray-100 placeholder-gray-400 text-dark rounded-lg focus:outline-none focus:border-primary focus:ring-0 transition-colors sm:text-sm font-medium pr-10"
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-primary transition-colors cursor-pointer"
+                                    title={showPassword ? "Nascondi password" : "Mostra password"}
+                                >
+                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                </button>
                             </div>
                         </div>
                     </div>
