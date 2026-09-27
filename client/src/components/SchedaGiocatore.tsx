@@ -70,8 +70,10 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, stagioneId, stagioneNome,
     const fetchPlayerResults = async () => {
         setIsLoadingResults(true);
         try {
+            const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
             const res = await axios.get(`${API_BASE_URL}/api/giocatori/${giocatore.id}`, {
-                params: { stagioneId: stagioneId || undefined }
+                params: { stagioneId: stagioneId || undefined },
+                ...config
             });
             setResults(res.data.risultati || []);
             setPlayerData(res.data);
@@ -85,7 +87,7 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, stagioneId, stagioneNome,
     useEffect(() => {
         fetchWalletData();
         fetchPlayerResults();
-    }, [giocatore.id, stagioneId, isAdmin]);
+    }, [giocatore.id, stagioneId, isAdmin, token]);
 
     const handleWalletAction = async (type: 'ricarica' | 'addebito') => {
         if (!walletAmount || parseFloat(walletAmount) <= 0) {
@@ -581,7 +583,19 @@ const SchedaGiocatore: React.FC<Props> = ({ giocatore, stagioneId, stagioneNome,
                         </button>
 
                         <button
-                            onClick={() => onEdit(playerData || giocatore)}
+                            onClick={() => {
+                                const merged = {
+                                    ...giocatore,
+                                    ...(playerData || {}),
+                                    user: {
+                                        ...(giocatore.user || {}),
+                                        ...(playerData?.user || {})
+                                    },
+                                    telefono: playerData?.telefono ?? giocatore.telefono,
+                                    certificatoMedicoScadenza: playerData?.certificatoMedicoScadenza ?? giocatore.certificatoMedicoScadenza
+                                };
+                                onEdit(merged);
+                            }}
                             className="bg-secondary hover:bg-secondary/90 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-md flex items-center gap-2 uppercase text-xs tracking-widest"
                         >
                             <Edit className="w-4 h-4" />
