@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { X, Save, AlertCircle, Calendar, Phone, CreditCard, Building, Mail, Lock, ShieldAlert } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { API_BASE_URL } from '../config';
 
 interface Props {
     giocatore?: any;
@@ -22,6 +25,7 @@ const FASCIE_SENIOR = ['A', 'B', 'C'];
 
 
 const FormGiocatore: React.FC<Props> = ({ giocatore, onClose, onSave }) => {
+    const { token } = useAuth();
     const isEditing = !!giocatore;
     const [formData, setFormData] = useState({
         nome: '',
@@ -46,25 +50,50 @@ const FormGiocatore: React.FC<Props> = ({ giocatore, onClose, onSave }) => {
 
     useEffect(() => {
         if (giocatore) {
+            const initialEmail = giocatore.user?.email || giocatore.email || '';
+            const initialPhone = giocatore.telefono || '';
+            const initialCert = giocatore.certificatoMedicoScadenza ? giocatore.certificatoMedicoScadenza.split('T')[0] : '';
+
             setFormData({
                 nome: giocatore.nome || '',
                 cognome: giocatore.cognome || '',
-                email: giocatore.user?.email || giocatore.email || '',
+                email: initialEmail,
                 password: '', // Non pre-popoliamo la password in modifica
                 dataNascita: giocatore.dataNascita ? giocatore.dataNascita.split('T')[0] : '',
-                telefono: giocatore.telefono || '',
+                telefono: initialPhone,
                 numeroTessera: giocatore.numeroTessera || '',
                 sesso: giocatore.sesso || 'M',
                 categoria: giocatore.categoria || 'D',
                 isSenior: giocatore.isSenior || false,
                 fasciaSenior: giocatore.fasciaSenior || 'NONE',
-                certificatoMedicoScadenza: giocatore.certificatoMedicoScadenza ? giocatore.certificatoMedicoScadenza.split('T')[0] : '',
+                certificatoMedicoScadenza: initialCert,
                 aziendaAffiliata: giocatore.aziendaAffiliata || '',
                 isAziendale: giocatore.isAziendale || false,
                 attivo: giocatore.attivo !== undefined ? giocatore.attivo : true,
             });
+
+            // Se stiamo modificando un giocatore esistente e l'email o il telefono non sono stati passati,
+            // recuperali immediatamente con una richiesta autenticata
+            if (giocatore.id && (!initialEmail || !initialPhone)) {
+                const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+                axios.get(`${API_BASE_URL}/api/giocatori/${giocatore.id}`, config)
+                    .then(res => {
+                        if (res.data) {
+                            const fEmail = res.data.user?.email || res.data.email;
+                            const fPhone = res.data.telefono;
+                            const fCert = res.data.certificatoMedicoScadenza ? res.data.certificatoMedicoScadenza.split('T')[0] : '';
+                            setFormData(prev => ({
+                                ...prev,
+                                email: prev.email || fEmail || '',
+                                telefono: prev.telefono || fPhone || '',
+                                certificatoMedicoScadenza: prev.certificatoMedicoScadenza || fCert || ''
+                            }));
+                        }
+                    })
+                    .catch(err => console.error('Fallback fetch player error:', err));
+            }
         }
-    }, [giocatore]);
+    }, [giocatore, token]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
