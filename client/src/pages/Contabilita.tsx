@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import {
     Search, User, Loader2, ArrowLeftRight,
-    AlertTriangle, ChevronRight, Wallet, FileDown
+    AlertTriangle, ChevronRight, Wallet, FileDown, Calendar
 } from 'lucide-react';
 import DettaglioBorsellino from '../components/DettaglioBorsellino';
 import { format } from 'date-fns';
@@ -26,6 +26,7 @@ interface SaldoGiocatore {
     numeroTessera: string;
     telefono: string | null;
     saldoAttuale: number;
+    attivo?: boolean;
 }
 
 const Contabilita: React.FC = () => {
@@ -33,16 +34,38 @@ const Contabilita: React.FC = () => {
     const [loadingWA, setLoadingWA] = useState<string | null>(null);
     const [loadingPDF, setLoadingPDF] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedStagioneId, setSelectedStagioneId] = useState<string>('');
     const { token } = useAuth();
+
+    // Recupero stagioni
+    const { data: stagioni = [] } = useQuery({
+        queryKey: ['stagioni'],
+        queryFn: async () => {
+            const res = await axios.get(`${API_BASE_URL}/api/stagioni`);
+            return res.data;
+        }
+    });
+
+    const stagioneAttiva = useMemo(() => stagioni.find((s: any) => s.attiva), [stagioni]);
+    const effectiveStagioneId = selectedStagioneId || (stagioneAttiva ? stagioneAttiva.id : '');
+
+    const currentStagioneObj = useMemo(() => {
+        if (effectiveStagioneId === 'ALL') return { nome: 'Tutte le stagioni (Storico Globale)', attiva: false };
+        return stagioni.find((s: any) => s.id === effectiveStagioneId) || stagioneAttiva;
+    }, [stagioni, effectiveStagioneId, stagioneAttiva]);
+
     const fetchSaldiData = async () => {
         const res = await axios.get(`${API_BASE_URL}/api/contabilita/saldi`, {
+            params: {
+                stagioneId: effectiveStagioneId || undefined
+            },
             headers: { Authorization: `Bearer ${token}` }
         });
         return res.data as SaldoGiocatore[];
     };
 
     const { data: saldi = [], isLoading, refetch: fetchSaldi } = useQuery({
-        queryKey: ['saldi', token],
+        queryKey: ['saldi', effectiveStagioneId, token],
         queryFn: fetchSaldiData,
         enabled: !!token
     });
@@ -194,14 +217,56 @@ const Contabilita: React.FC = () => {
                     </div>
                     <div>
                         <h1 className="text-3xl font-black text-dark font-heading uppercase tracking-tighter">Gestione Contabilità</h1>
-                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-1">Supervisione Borsellini Giocatori</p>
+                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-1">
+                            Supervisione Borsellini • <span className="text-primary font-bold">{currentStagioneObj?.nome || 'Stagione Corrente'}</span>
+                        </p>
                     </div>
                 </div>
 
-                <div className="bg-white px-4 py-2 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Sistema Online</span>
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                    {/* Selettore Stagione */}
+                    <div className="bg-white px-3 py-2 rounded-2xl border-2 border-primary/20 shadow-sm flex items-center gap-2 w-full sm:w-auto">
+                        <Calendar className="w-4 h-4 text-primary shrink-0" />
+                        <select
+                            className="bg-transparent font-bold text-xs text-dark focus:outline-none cursor-pointer py-0.5 pr-2 w-full sm:w-auto"
+                            value={effectiveStagioneId}
+                            onChange={(e) => setSelectedStagioneId(e.target.value)}
+                        >
+                            {stagioni.map((s: any) => (
+                                <option key={s.id} value={s.id}>
+                                    {s.nome} {s.attiva ? '⭐ (Attiva)' : ''}
+                                </option>
+                            ))}
+                            <option value="ALL">Tutte le stagioni (Storico Globale)</option>
+                        </select>
+                    </div>
+
+                    <div className="bg-white px-4 py-2 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Sistema Online</span>
+                    </div>
                 </div>
+            </div>
+
+            {/* Banner info stagione */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-primary/5 border border-primary/20 rounded-2xl px-5 py-3 text-xs">
+                <div className="flex items-center gap-2 text-primary font-bold">
+                    <Calendar className="w-4 h-4 shrink-0" />
+                    <span>
+                        Stagione Agonistica: <strong className="uppercase">{currentStagioneObj?.nome || 'Stagione Attiva'}</strong>
+                        {effectiveStagioneId !== 'ALL' && currentStagioneObj?.attiva && (
+                            <span className="ml-2 font-normal text-gray-500 hidden sm:inline">(mostrati solo i giocatori regolarmente tesserati per questa stagione)</span>
+                        )}
+                        {effectiveStagioneId === 'ALL' && (
+                            <span className="ml-2 font-normal text-gray-500 hidden sm:inline">(mostrati tutti i giocatori a sistema, inclusi non rinnovati e storici)</span>
+                        )}
+                    </span>
+                </div>
+                {effectiveStagioneId !== 'ALL' && currentStagioneObj?.attiva && (
+                    <span className="bg-green-100 text-green-800 text-[10px] font-black uppercase px-2.5 py-1 rounded-full whitespace-nowrap">
+                        Stagione in corso
+                    </span>
+                )}
             </div>
 
             {/* Ricerca e Statistiche Rapide */}
@@ -221,7 +286,9 @@ const Contabilita: React.FC = () => {
 
                 <div className="bg-dark p-4 rounded-3xl flex items-center justify-between text-white shadow-xl">
                     <div>
-                        <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">Totale Giocatori</p>
+                        <p className="text-[9px] font-black uppercase opacity-60 tracking-widest">
+                            {effectiveStagioneId !== 'ALL' && currentStagioneObj?.attiva ? 'Tesserati Stagione' : 'Totale Giocatori'}
+                        </p>
                         <p className="text-2xl font-black">{saldi.length}</p>
                     </div>
                     <div className="p-3 bg-white/10 rounded-2xl">
@@ -258,7 +325,14 @@ const Contabilita: React.FC = () => {
                                                 <div className="w-10 h-10 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400 group-hover:bg-primary group-hover:text-white transition-colors">
                                                     <User className="w-5 h-5" />
                                                 </div>
-                                                <p className="text-sm font-black text-dark uppercase">{s.cognome} {s.nome}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-sm font-black text-dark uppercase">{s.cognome} {s.nome}</p>
+                                                    {s.attivo === false && (
+                                                        <span className="text-[9px] font-bold text-gray-400 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-md uppercase tracking-tight">
+                                                            Non rinnovato
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-8 py-5">

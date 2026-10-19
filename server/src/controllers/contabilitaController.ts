@@ -228,14 +228,56 @@ export const getAllMovimenti = async (req: Request, res: Response) => {
 
 // GET /api/contabilita/saldi
 export const getAllSaldi = async (req: Request, res: Response) => {
+    const { stagioneId } = req.query;
+
     try {
+        const stagioneAttiva = await prisma.stagione.findFirst({
+            where: { attiva: true }
+        });
+
+        let targetStagioneId: string | null = null;
+        if (stagioneId && stagioneId !== 'ALL') {
+            targetStagioneId = String(stagioneId);
+        } else if (stagioneId === 'ALL') {
+            targetStagioneId = null; // Storico completo
+        } else if (stagioneAttiva) {
+            targetStagioneId = stagioneAttiva.id; // Default: stagione attiva
+        }
+
+        const isStagioneAttivaSelected = targetStagioneId && stagioneAttiva && targetStagioneId === stagioneAttiva.id;
+
+        let where: Prisma.GiocatoreWhereInput = {};
+
+        if (isStagioneAttivaSelected) {
+            // Per la stagione attiva, mostriamo solo i giocatori con tesseramento rinnovato/attivo
+            where = { attivo: true };
+        } else if (targetStagioneId) {
+            // Per una stagione specifica passata, includiamo chi ha fatto parte di quella stagione
+            const targetStagione = await prisma.stagione.findUnique({
+                where: { id: targetStagioneId }
+            });
+
+            if (targetStagione) {
+                where = {
+                    OR: [
+                        { risultati: { some: { torneo: { stagioneId: targetStagioneId } } } },
+                        { iscrizioni: { some: { torneo: { stagioneId: targetStagioneId } } } },
+                        { movimenti: { some: { data: { gte: targetStagione.dataInizio, lte: targetStagione.dataFine } } } }
+                    ]
+                };
+            }
+        }
+        // Se targetStagioneId è null (ALL), where rimane vuoto per includere tutti i giocatori conservati
+
         const saldi = await prisma.giocatore.findMany({
+            where,
             select: {
                 id: true,
                 nome: true,
                 cognome: true,
                 numeroTessera: true,
                 telefono: true,
+                attivo: true,
                 saldo: {
                     select: {
                         saldoAttuale: true
@@ -254,6 +296,7 @@ export const getAllSaldi = async (req: Request, res: Response) => {
             cognome: g.cognome,
             numeroTessera: g.numeroTessera,
             telefono: g.telefono,
+            attivo: g.attivo,
             saldoAttuale: g.saldo ? Number(g.saldo.saldoAttuale) : 0
         }));
 
