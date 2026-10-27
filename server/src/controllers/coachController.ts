@@ -233,11 +233,152 @@ export const getDisponibilitaAtleti = async (req: Request, res: Response) => {
     }
 };
 
+/**
+ * Sincronizza automaticamente le formazioni dalla 1^ Fase per i tornei di 2^ Fase.
+ * Non richiede intervento del Coach: se il torneo è una 2^ fase collegata,
+ * le squadre e gli atleti vengono clonati e confermati in automatico.
+ */
+export const autoSincronizzaFaseSuccessiva = async (torneoId: string) => {
+    try {
+        const torneo = await prisma.torneo.findUnique({
+            where: { id: torneoId },
+            include: {
+                squadre: { include: { iscrizioni: true } },
+                torneoOrigine: {
+                    include: {
+                        squadre: {
+                            include: {
+                                iscrizioni: {
+                                    include: { giocatore: true }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!torneo || torneo.tipologia === 'SINGOLO') return;
+
+        // Se non è stato impostato torneoOrigineId, prova l'auto-rilevamento intelligente
+        let origine = torneo.torneoOrigine;
+        if (!origine) {
+            const nomeLower = torneo.nome.toLowerCase();
+            const isFase2 = nomeLower.includes('2° fase') || nomeLower.includes('2^ fase') || nomeLower.includes('fase 2') || nomeLower.includes('2a fase');
+            
+            if (isFase2) {
+                const candidato1Fase = await prisma.torneo.findFirst({
+                    where: {
+                        id: { not: torneoId },
+                        stagioneId: torneo.stagioneId,
+                        tipologia: torneo.tipologia,
+                        OR: [
+                            { nome: { contains: '1° fase', mode: 'insensitive' } },
+                            { nome: { contains: '1^ fase', mode: 'insensitive' } },
+                            { nome: { contains: 'fase 1', mode: 'insensitive' } },
+                            { nome: { contains: '1a fase', mode: 'insensitive' } }
+                        ]
+                    },
+                    include: {
+                        squadre: {
+                            include: {
+                                iscrizioni: {
+                                    include: { giocatore: true }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                if (candidato1Fase && candidato1Fase.squadre.length > 0) {
+                    origine = candidato1Fase;
+                    await prisma.torneo.update({
+                        where: { id: torneoId },
+                        data: { torneoOrigineId: candidato1Fase.id }
+                    });
+                }
+            }
+        }
+
+        if (!origine || !origine.squadre || origine.squadre.length === 0) {
+            return;
+        }
+
+        // Se la 2^ fase non ha ancora squadre (o se ne mancano alcune)
+        for (const sqOrigine of origine.squadre) {
+            const giaPresente = torneo.squadre.some(s => s.nomeSquadra.toLowerCase() === sqOrigine.nomeSquadra.toLowerCase());
+            if (!giaPresente && sqOrigine.iscrizioni.length > 0) {
+                // Clona la squadra nella 2^ fase
+                const nuovaSquadra = await prisma.squadraTorneo.create({
+                    data: {
+                        torneoId,
+                        nomeSquadra: sqOrigine.nomeSquadra,
+                        turnoId: null,
+                        secondoTurnoId: null,
+                        sedeId: null,
+                        confermataDaId: null,
+                        confermatoIl: null
+                    }
+                });
+
+                // Clona i componenti con stato CONFERMATA
+                for (const iscr of sqOrigine.iscrizioni) {
+                    await prisma.iscrizioneTorneo.upsert({
+                        where: {
+                            torneoId_giocatoreId: {
+                                torneoId,
+                                giocatoreId: iscr.giocatoreId
+                            }
+                        },
+                        create: {
+                            torneoId,
+                            giocatoreId: iscr.giocatoreId,
+                            squadraId: nuovaSquadra.id,
+                            nomeSquadra: sqOrigine.nomeSquadra,
+                            stato: 'CONFERMATA',
+                            turnoId: null,
+                            secondoTurnoId: null
+                        },
+                        update: {
+                            squadraId: nuovaSquadra.id,
+                            nomeSquadra: sqOrigine.nomeSquadra,
+                            stato: 'CONFERMATA'
+                        }
+                    });
+
+                    // Registra come disponibilità ASSEGNATO
+                    await prisma.disponibilitaTorneo.upsert({
+                        where: {
+                            torneoId_giocatoreId: {
+                                torneoId,
+                                giocatoreId: iscr.giocatoreId
+                            }
+                        },
+                        create: {
+                            torneoId,
+                            giocatoreId: iscr.giocatoreId,
+                            stato: 'ASSEGNATO',
+                            note: 'Formazione confermata automaticamente dalla 1^ Fase'
+                        },
+                        update: {
+                            stato: 'ASSEGNATO'
+                        }
+                    });
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Errore autoSincronizzaFaseSuccessiva:', err);
+    }
+};
+
 // GET /api/tornei/public/:id/squadre (Pubblico - Lista formazioni ufficiali create dal Coach)
 export const getSquadreTorneoPublic = async (req: Request, res: Response) => {
     const torneoId = req.params.id as string;
 
     try {
+        await autoSincronizzaFaseSuccessiva(torneoId);
+
         const squadre = await prisma.squadraTorneo.findMany({
             where: { torneoId },
             include: {
@@ -281,6 +422,8 @@ export const getFormazioniCoach = async (req: AuthRequest, res: Response) => {
     const torneoId = req.params.id as string;
 
     try {
+        await autoSincronizzaFaseSuccessiva(torneoId);
+
         const torneo = await prisma.torneo.findUnique({
             where: { id: torneoId },
             include: {
@@ -694,7 +837,34 @@ export const scegliTurnoSquadra = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'Il turno di riserva deve essere diverso dal turno principale.' });
         }
 
-        // Aggiornamento atomico di squadra e di tutte le iscrizioni dei singoli componenti
+        // Controllo Quote e Borsellino per tutti i componenti (OPZIONE A)
+        const costoQuota = Number(squadra.torneo.costoIscrizione || 0);
+
+        if (costoQuota > 0) {
+            for (const iscr of squadra.iscrizioni) {
+                // Controlla se la quota per questo torneo è già stata scalata
+                const alreadyPaid = await prisma.movimentoContabile.findFirst({
+                    where: {
+                        giocatoreId: iscr.giocatoreId,
+                        descrizione: { contains: squadra.torneo.nome }
+                    }
+                });
+
+                if (!alreadyPaid) {
+                    const saldoGiocatore = await prisma.saldoBorsellino.findUnique({
+                        where: { giocatoreId: iscr.giocatoreId }
+                    });
+                    const saldoAttuale = Number(saldoGiocatore?.saldoAttuale || 0);
+                    if (saldoAttuale < costoQuota) {
+                        return res.status(400).json({
+                            message: `Saldo insufficiente per ${iscr.giocatore.nome} ${iscr.giocatore.cognome} (saldo €${saldoAttuale.toFixed(2)}, quota richiesta €${costoQuota.toFixed(2)}). Ricarica il borsellino prima di confermare il turno.`
+                        });
+                    }
+                }
+            }
+        }
+
+        // Aggiornamento atomico di squadra, iscrizioni e addebito quote (se non già pagate)
         await prisma.$transaction(async (tx) => {
             // Aggiorna SquadraTorneo
             await tx.squadraTorneo.update({
@@ -718,6 +888,41 @@ export const scegliTurnoSquadra = async (req: AuthRequest, res: Response) => {
                     stato: 'CONFERMATA'
                 }
             });
+
+            // Addebito quote borsellino per chi non ha ancora pagato questo torneo (Opzione A)
+            if (costoQuota > 0) {
+                for (const iscr of squadra.iscrizioni) {
+                    const alreadyPaid = await tx.movimentoContabile.findFirst({
+                        where: {
+                            giocatoreId: iscr.giocatoreId,
+                            descrizione: { contains: squadra.torneo.nome }
+                        }
+                    });
+
+                    if (!alreadyPaid) {
+                        await tx.saldoBorsellino.upsert({
+                            where: { giocatoreId: iscr.giocatoreId },
+                            create: {
+                                giocatoreId: iscr.giocatoreId,
+                                saldoAttuale: new Prisma.Decimal(-costoQuota)
+                            },
+                            update: {
+                                saldoAttuale: { decrement: costoQuota }
+                            }
+                        });
+
+                        await tx.movimentoContabile.create({
+                            data: {
+                                giocatoreId: iscr.giocatoreId,
+                                importo: new Prisma.Decimal(-costoQuota),
+                                tipo: 'ISCRIZIONE_TORNEO',
+                                descrizione: `Iscrizione ${squadra.torneo.nome} - Squadra: ${squadra.nomeSquadra} (Turno confermato)`,
+                                adminId: null
+                            }
+                        });
+                    }
+                }
+            }
         });
 
         const updated = await prisma.squadraTorneo.findUnique({
@@ -749,6 +954,8 @@ export const getMieSquadreTorneo = async (req: AuthRequest, res: Response) => {
     const tesseraClean = tesseraQuery.trim();
 
     try {
+        await autoSincronizzaFaseSuccessiva(torneoId);
+
         let giocatore = null;
         if (tesseraClean) {
             giocatore = await prisma.giocatore.findFirst({

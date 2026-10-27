@@ -18,6 +18,7 @@ const FormTorneo: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [stagioni, setStagioni] = useState<any[]>([]);
+    const [listaTornei, setListaTornei] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         nome: '',
         tipologia: 'SINGOLO',
@@ -29,7 +30,8 @@ const FormTorneo: React.FC = () => {
         costoIscrizione: '0',
         completato: false,
         mostraBottoneIscrizione: true,
-        categorie: [] as string[]
+        categorie: [] as string[],
+        torneoOrigineId: ''
     });
 
     const [turni, setTurni] = useState<any[]>([]);
@@ -53,6 +55,14 @@ const FormTorneo: React.FC = () => {
                 const resStagioni = await axios.get(`${API_BASE_URL}/api/stagioni`);
                 setStagioni(resStagioni.data);
 
+                // Fetch lista tornei per eventuale collegamento fase precedente
+                try {
+                    const resTornei = await axios.get(`${API_BASE_URL}/api/tornei`);
+                    setListaTornei(resTornei.data);
+                } catch (e) {
+                    console.error('Errore fetch tornei:', e);
+                }
+
                 if (isEdit) {
                     const resTorneo = await axios.get(`${API_BASE_URL}/api/tornei/${id}`, {
                         headers: { Authorization: `Bearer ${token}` }
@@ -69,7 +79,8 @@ const FormTorneo: React.FC = () => {
                         costoIscrizione: t.costoIscrizione?.toString() || '0',
                         completato: t.completato,
                         mostraBottoneIscrizione: t.mostraBottoneIscrizione !== false,
-                        categorie: t.categorie || []
+                        categorie: t.categorie || [],
+                        torneoOrigineId: t.torneoOrigineId || ''
                     });
                     setTurni(t.turni || []);
                     setSedi(t.sedi?.map((s: any) => ({
@@ -303,6 +314,34 @@ const FormTorneo: React.FC = () => {
                                         {stagioni.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
                                     </select>
                                 </div>
+
+                                {formData.tipologia !== 'SINGOLO' && (
+                                    <div className="md:col-span-2 p-5 bg-blue-50/60 border border-blue-100 rounded-2xl space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <Info className="w-4 h-4 text-blue-600" />
+                                            <label className="block text-xs font-black text-blue-900 uppercase tracking-widest">
+                                                Fase Precedente / Eredità Formazioni (Opzionale)
+                                            </label>
+                                        </div>
+                                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-tight">
+                                            Se questo torneo è una 2^ fase, seleziona la 1^ fase: le formazioni confermate verranno automaticamente ereditate senza richiedere un nuovo inserimento o conferma da parte del Coach.
+                                        </p>
+                                        <select
+                                            className="w-full px-5 py-3.5 bg-white border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-500 transition-all outline-none font-bold text-sm"
+                                            value={formData.torneoOrigineId}
+                                            onChange={e => setFormData({ ...formData, torneoOrigineId: e.target.value })}
+                                        >
+                                            <option value="">Nessun torneo precedente collegato (Fase 1 / Gara Indipendente)</option>
+                                            {listaTornei
+                                                .filter((t: any) => t.id !== id && t.tipologia === formData.tipologia && (!formData.stagioneId || t.stagioneId === formData.stagioneId))
+                                                .map((t: any) => (
+                                                    <option key={t.id} value={t.id}>
+                                                        {t.nome} ({t.stagione?.nome || 'Stagione'})
+                                                    </option>
+                                                ))}
+                                        </select>
+                                    </div>
+                                )}
 
                                 <div className="md:col-span-2">
                                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Sede di Gara (Principale)</label>

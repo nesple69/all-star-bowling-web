@@ -28,6 +28,7 @@ interface Torneo {
     mostraBottoneIscrizione: boolean;
     costoIscrizione: number;
     sedi: { id: string; nome: string; categorie: string[]; locandina?: string | null }[];
+    torneoOrigine?: { id: string; nome: string } | null;
 }
 
 interface Disponibilita {
@@ -680,7 +681,7 @@ const DettaglioTorneo: React.FC = () => {
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                         <div>
                                             <span className="text-[10px] font-black uppercase text-emerald-400 tracking-widest block">
-                                                La tua Formazione Assegnata dal Coach
+                                                {torneo.torneoOrigine ? 'Formazione Confermata (Ereditata dalla 1^ Fase)' : 'La tua Formazione Assegnata dal Coach'}
                                             </span>
                                             <h3 className="font-black text-xl uppercase text-white tracking-tight">
                                                 {mieSquadre.squadra.nomeSquadra}
@@ -1094,6 +1095,11 @@ const DettaglioTorneo: React.FC = () => {
                             <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 text-amber-900 text-xs font-medium space-y-1">
                                 <p className="font-bold uppercase">⚠️ Attenzione:</p>
                                 <p>Una volta confermata la scelta del turno, questa sarà bloccata per tutta la tua squadra e nessun altro compagno potrà modificarla.</p>
+                                {torneo && Number(torneo.costoIscrizione || 0) > 0 && (
+                                    <p className="text-amber-800 font-bold mt-1">
+                                        💳 Confermando il turno per la squadra, verrà scalata la quota di partecipazione di €{Number(torneo.costoIscrizione).toFixed(2)} dal borsellino di ciascun componente della formazione.
+                                    </p>
+                                )}
                             </div>
 
                             <div className="flex gap-3 pt-2">

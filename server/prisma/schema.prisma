@@ -83,6 +83,9 @@ model Torneo {
   disponibilita  DisponibilitaTorneo[]
   squadre        SquadraTorneo[]
   stagione       Stagione            @relation(fields: [stagioneId], references: [id])
+  torneoOrigineId String?
+  torneoOrigine   Torneo?             @relation("FasiCollegate", fields: [torneoOrigineId], references: [id])
+  fasiSuccessive  Torneo[]            @relation("FasiCollegate")
 
   @@index([stagioneId, dataInizio])
 }

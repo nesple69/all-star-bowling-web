@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../config';
 import {
     Users, Trophy, CheckCircle2, AlertCircle, Plus, Trash2,
-    ShieldCheck, Clock, RefreshCw, Eye, Edit3
+    ShieldCheck, Clock, RefreshCw, Eye, Edit3, Award
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -70,6 +70,8 @@ interface TorneoCoach {
     dataInizio: string;
     completato: boolean;
     turni: any[];
+    torneoOrigineId?: string | null;
+    torneoOrigine?: { id: string; nome: string } | null;
 }
 
 interface BozzaSquadra {
@@ -131,11 +133,16 @@ const AreaCoach: React.FC = () => {
             const res = await axios.get(`${API_BASE_URL}/api/coach/tornei/${torneoId}/formazioni`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setTorneoCorrente(res.data.torneo);
+            const tData = res.data.torneo;
+            const sqPub = res.data.squadre || [];
+            setTorneoCorrente(tData);
             setDisponibili(res.data.disponibili || []);
-            setSquadrePubblicate(res.data.squadre || []);
+            setSquadrePubblicate(sqPub);
             setBozzaSquadre([]);
             setRiserveIds([]);
+            if (sqPub.length > 0) {
+                setVistaAttiva('confermate');
+            }
         } catch (err: any) {
             console.error('Errore getFormazioniCoach:', err);
             setMessaggioFeedback({
@@ -419,6 +426,23 @@ const AreaCoach: React.FC = () => {
                             <span className="text-[10px] text-gray-500 font-medium block">pubblicate online</span>
                         </div>
                     </div>
+
+                    {/* Avviso Torneo Collegato / Eredità Automatica */}
+                    {(torneoCorrente.torneoOrigine || torneoCorrente.nome.toLowerCase().includes('2° fase') || torneoCorrente.nome.toLowerCase().includes('2^ fase')) && (
+                        <div className="bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-emerald-500/10 border border-blue-200/80 p-5 rounded-2xl flex items-start gap-3">
+                            <div className="p-2.5 bg-blue-600 text-white rounded-xl shrink-0 mt-0.5">
+                                <Award className="w-5 h-5" />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="font-black text-xs uppercase tracking-wider text-blue-950">
+                                    Formazioni Ereditate Automaticamente dalla 1^ Fase
+                                </h3>
+                                <p className="text-[11px] font-medium text-blue-900 leading-relaxed">
+                                    Per questo torneo le formazioni sono sincronizzate e confermate in automatico dalla 1^ Fase (<strong>{torneoCorrente.torneoOrigine?.nome || 'Fase Precedente'}</strong>). Non è necessario comporre o confermare nuovamente le squadre: gli atleti possono accedere e confermare direttamente i turni di gioco desiderati.
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Barra di Navigazione Tab del Coach */}
                     <div className="flex bg-white p-2 rounded-2xl border border-gray-100 shadow-sm gap-2">

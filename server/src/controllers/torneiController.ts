@@ -105,6 +105,7 @@ export const getTorneiPublici = async (req: Request, res: Response) => {
             include: {
                 turni: true,
                 stagione: true,
+                torneoOrigine: { select: { id: true, nome: true } },
                 sedi: {
                     select: { id: true, nome: true, locandina: true }
                 },
@@ -130,6 +131,7 @@ export const getTorneoPublicById = async (req: Request, res: Response) => {
             where: { id },
             include: {
                 stagione: true,
+                torneoOrigine: { select: { id: true, nome: true } },
                 turni: {
                     orderBy: { orarioInizio: 'asc' }
                 },
@@ -190,7 +192,8 @@ export const getTorneiAdmin = async (req: Request, res: Response) => {
                 _count: {
                     select: { iscrizioni: true, risultati: true }
                 },
-                stagione: true
+                stagione: true,
+                torneoOrigine: { select: { id: true, nome: true } }
             },
             orderBy: { dataInizio: 'desc' }
         });
@@ -213,7 +216,8 @@ export const getTorneoById = async (req: Request, res: Response) => {
                     orderBy: { giorno: 'asc' }
                 },
                 sedi: true,
-                stagione: true
+                stagione: true,
+                torneoOrigine: { select: { id: true, nome: true } }
             }
         });
         if (!torneo) return res.status(404).json({ message: 'Torneo non trovato' });
@@ -226,7 +230,7 @@ export const getTorneoById = async (req: Request, res: Response) => {
 // POST /api/tornei (crea torneo)
 export const createTorneo = async (req: Request, res: Response) => {
     console.log('--- CREATE TORNEO START ---');
-    const { nome, tipologia, sede, stagioneId, dataInizio, dataFine, linkIscrizione, costoIscrizione, mostraBottoneIscrizione, locandinaUrl, sedi, categorie } = req.body;
+    const { nome, tipologia, sede, stagioneId, dataInizio, dataFine, linkIscrizione, costoIscrizione, mostraBottoneIscrizione, locandinaUrl, sedi, categorie, torneoOrigineId } = req.body;
     
     let locandina = locandinaUrl || null;
     let sediData = [];
@@ -283,6 +287,7 @@ export const createTorneo = async (req: Request, res: Response) => {
                 dataInizio: dataInizioParsed,
                 dataFine: dataFineParsed,
                 mostraBottoneIscrizione: (String(mostraBottoneIscrizione) === 'true' || mostraBottoneIscrizione === true),
+                torneoOrigineId: torneoOrigineId || null,
                 categorie: categorieData,
                 sedi: {
                     create: sediData.map((s: any) => ({
@@ -308,7 +313,7 @@ export const createTorneo = async (req: Request, res: Response) => {
 export const updateTorneo = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     console.log(`--- UPDATE TORNEO START (ID: ${id}) ---`);
-    const { nome, tipologia, sede, stagioneId, dataInizio, dataFine, linkIscrizione, completato, costoIscrizione, mostraBottoneIscrizione, locandinaUrl, sedi, categorie } = req.body;
+    const { nome, tipologia, sede, stagioneId, dataInizio, dataFine, linkIscrizione, completato, costoIscrizione, mostraBottoneIscrizione, locandinaUrl, sedi, categorie, torneoOrigineId } = req.body;
     
     let locandina = locandinaUrl || undefined;
     let sediData = [];
@@ -364,6 +369,7 @@ export const updateTorneo = async (req: Request, res: Response) => {
             costoIscrizione: costoIscrizione !== undefined ? (parseFloat(costoIscrizione) || 0) : undefined,
             completato: completato === 'true' || completato === true,
             mostraBottoneIscrizione: (String(mostraBottoneIscrizione) === 'true' || mostraBottoneIscrizione === true),
+            torneoOrigineId: torneoOrigineId !== undefined ? (torneoOrigineId || null) : undefined,
             categorie: categorieData
         };
 
@@ -541,7 +547,8 @@ export const getClassifiche = async (_req: Request, res: Response) => {
                         { posizione: 'asc' }
                     ]
                 },
-                stagione: true
+                stagione: true,
+                torneoOrigine: { select: { id: true, nome: true } }
             },
             orderBy: { dataFine: 'desc' },
             take: 10
