@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../config';
 import {
     Users, Trophy, CheckCircle2, AlertCircle, Plus, Trash2,
-    ShieldCheck, Clock, RefreshCw, Eye, Edit3, Award
+    ShieldCheck, Clock, RefreshCw, Eye, Edit3
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -103,17 +103,34 @@ const AreaCoach: React.FC = () => {
     const [salvataggioInCorso, setSalvataggioInCorso] = useState(false);
     const [messaggioFeedback, setMessaggioFeedback] = useState<{ tipo: 'success' | 'error'; testo: string } | null>(null);
 
-    // 1. Carica lista tornei a squadre
+    // 1. Carica lista tornei a squadre che richiedono la composizione del Coach (esclude le 2^ prove/fasi successive)
     useEffect(() => {
         const fetchTornei = async () => {
             try {
                 const res = await axios.get(`${API_BASE_URL}/api/tornei/public`);
-                const nonSingoli = (res.data || []).filter(
-                    (t: TorneoCoach) => t.tipologia !== 'SINGOLO' && !t.completato
+                const isSecondaFase = (t: TorneoCoach) => {
+                    if (t.torneoOrigineId || t.torneoOrigine) return true;
+                    const nome = (t.nome || '').toLowerCase();
+                    return (
+                        nome.includes('2° fase') ||
+                        nome.includes('2^ fase') ||
+                        nome.includes('2^fase') ||
+                        nome.includes('2a fase') ||
+                        nome.includes('fase 2') ||
+                        nome.includes('2° prova') ||
+                        nome.includes('2^ prova') ||
+                        nome.includes('2^prova') ||
+                        nome.includes('2a prova') ||
+                        nome.includes('prova 2')
+                    );
+                };
+
+                const torneiDaComporre = (res.data || []).filter(
+                    (t: TorneoCoach) => t.tipologia !== 'SINGOLO' && !t.completato && !isSecondaFase(t)
                 );
-                setTornei(nonSingoli);
-                if (nonSingoli.length > 0) {
-                    setSelectedTorneoId(nonSingoli[0].id);
+                setTornei(torneiDaComporre);
+                if (torneiDaComporre.length > 0) {
+                    setSelectedTorneoId(torneiDaComporre[0].id);
                 }
             } catch (err) {
                 console.error('Errore caricamento tornei:', err);
@@ -426,23 +443,6 @@ const AreaCoach: React.FC = () => {
                             <span className="text-[10px] text-gray-500 font-medium block">pubblicate online</span>
                         </div>
                     </div>
-
-                    {/* Avviso Torneo Collegato / Eredità Automatica */}
-                    {(torneoCorrente.torneoOrigine || torneoCorrente.nome.toLowerCase().includes('2° fase') || torneoCorrente.nome.toLowerCase().includes('2^ fase')) && (
-                        <div className="bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-emerald-500/10 border border-blue-200/80 p-5 rounded-2xl flex items-start gap-3">
-                            <div className="p-2.5 bg-blue-600 text-white rounded-xl shrink-0 mt-0.5">
-                                <Award className="w-5 h-5" />
-                            </div>
-                            <div className="space-y-1">
-                                <h3 className="font-black text-xs uppercase tracking-wider text-blue-950">
-                                    Formazioni Ereditate Automaticamente dalla 1^ Fase
-                                </h3>
-                                <p className="text-[11px] font-medium text-blue-900 leading-relaxed">
-                                    Per questo torneo le formazioni sono sincronizzate e confermate in automatico dalla 1^ Fase (<strong>{torneoCorrente.torneoOrigine?.nome || 'Fase Precedente'}</strong>). Non è necessario comporre o confermare nuovamente le squadre: gli atleti possono accedere e confermare direttamente i turni di gioco desiderati.
-                                </p>
-                            </div>
-                        </div>
-                    )}
 
                     {/* Barra di Navigazione Tab del Coach */}
                     <div className="flex bg-white p-2 rounded-2xl border border-gray-100 shadow-sm gap-2">
