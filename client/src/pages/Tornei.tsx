@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
-import { Trophy, Calendar, MapPin, Search, UserPlus, Users, Loader2, AlertTriangle } from 'lucide-react';
+import { Trophy, Calendar, MapPin, Search, UserPlus, Users, Loader2, AlertTriangle, Award } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -370,12 +370,12 @@ const Tornei: React.FC = () => {
                                                                 <button
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
-                                                                        navigate(`/tornei/${t.id}/iscrizione`);
+                                                                        navigate(t.tipologia !== 'SINGOLO' ? `/tornei/${t.id}` : `/tornei/${t.id}/iscrizione`);
                                                                     }}
                                                                     className="w-full py-3 bg-secondary text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-secondary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
                                                                 >
-                                                                    <UserPlus className="w-4 h-4" />
-                                                                    Iscriviti
+                                                                    {t.tipologia !== 'SINGOLO' ? <Award className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                                                                    {t.tipologia !== 'SINGOLO' ? 'Dai Disponibilità' : 'Iscriviti'}
                                                                 </button>
                                                             );
                                                         }

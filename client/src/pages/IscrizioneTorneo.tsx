@@ -121,6 +121,10 @@ const IscrizioneTorneo: React.FC = () => {
 
     useEffect(() => {
         if (torneo) {
+            if (torneo.tipologia !== 'SINGOLO') {
+                navigate(`/tornei/${torneo.id}`, { replace: true });
+                return;
+            }
             setSlots(getInitialSlots(torneo.tipologia));
         }
     }, [torneo?.id, torneo?.tipologia]);
@@ -340,26 +344,6 @@ const IscrizioneTorneo: React.FC = () => {
 
     return (
         <div className="max-w-4xl mx-auto space-y-6 animate-fade-in pb-16">
-            {!token && (
-                <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
-                    <div className="flex items-center gap-3">
-                        <AlertCircle className="w-6 h-6 text-amber-600 shrink-0" />
-                        <div>
-                            <h4 className="text-sm font-black text-amber-900 uppercase">Accesso Richiesto per l'Iscrizione</h4>
-                            <p className="text-xs text-amber-700 font-medium mt-0.5">
-                                Per registrarsi al torneo e verificare il borsellino è necessario effettuare l'accesso con il proprio account atleta.
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => navigate('/login')}
-                        className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm shrink-0"
-                    >
-                        Accedi Ora
-                    </button>
-                </div>
-            )}
-
             {/* Header Torneo */}
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
                 <Link to={`/tornei/${id}`} className="inline-flex items-center gap-2 text-xs font-black text-gray-400 hover:text-primary uppercase tracking-widest mb-4 transition-colors">
