@@ -146,30 +146,31 @@ const IscrizioneTorneo: React.FC = () => {
         setFormValidationWarning('');
 
         try {
-            const res = await axios.get(`${API_BASE_URL}/api/tornei/lookup-tessera/${tesseraClean}`, {
+            const costoParam = torneo?.costoIscrizione ? `?costo=${torneo.costoIscrizione}` : '';
+            const res = await axios.get(`${API_BASE_URL}/api/tornei/lookup-tessera/${tesseraClean}${costoParam}`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
             const player: GiocatoreLookup = res.data;
 
-            // Controlla se il giocatore è già inserito in un altro slot
+            // Controlla se il giocatore Ã¨ giÃ  inserito in un altro slot
             const alreadyInAnotherSlot = slots.some((s, idx) => idx !== index && s.giocatore?.id === player.id);
             if (alreadyInAnotherSlot) {
                 setSlots(prev => prev.map((s, idx) => idx === index ? {
                     ...s,
                     loading: false,
-                    error: 'Questo atleta è già stato inserito in questa formazione.',
+                    error: 'Questo atleta Ã¨ giÃ  stato inserito in questa formazione.',
                     giocatore: null
                 } : s));
                 return;
             }
 
-            // Controlla se è già iscritto a questo torneo
+            // Controlla se Ã¨ giÃ  iscritto a questo torneo
             const isAlreadyRegistered = player.iscrizioni?.some(i => i.torneoId === id && i.stato !== 'RIFIUTATA');
             if (isAlreadyRegistered) {
                 setSlots(prev => prev.map((s, idx) => idx === index ? {
                     ...s,
                     loading: false,
-                    error: `${player.cognome} ${player.nome} risulta già iscritto a questo torneo.`,
+                    error: `${player.cognome} ${player.nome} risulta giÃ  iscritto a questo torneo.`,
                     giocatore: null
                 } : s));
                 return;
@@ -250,10 +251,16 @@ const IscrizioneTorneo: React.FC = () => {
         (!torneo?.sedi || torneo.sedi.length === 0 || selectedSede) &&
         isSaldoOk &&
         isCertificatiOk &&
+        !!token &&
         !isSubmitting;
 
     // Submit iscrizione
     const handleSubmit = async () => {
+        if (!token) {
+            setFormValidationWarning("È necessario effettuare l'accesso per procedere con l'iscrizione.");
+            return;
+        }
+
         if (!allRequiredFilled) {
             setFormValidationWarning('inserisci tutti i dati necessari');
             return;
@@ -325,7 +332,7 @@ const IscrizioneTorneo: React.FC = () => {
                 <AlertCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h2 className="text-xl font-black uppercase text-gray-400">Torneo non trovato</h2>
                 <Link to="/tornei" className="mt-4 inline-block text-primary font-bold hover:underline">
-                    ← Torna ai Tornei
+                    â† Torna ai Tornei
                 </Link>
             </div>
         );
@@ -333,6 +340,26 @@ const IscrizioneTorneo: React.FC = () => {
 
     return (
         <div className="max-w-4xl mx-auto space-y-6 animate-fade-in pb-16">
+            {!token && (
+                <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
+                    <div className="flex items-center gap-3">
+                        <AlertCircle className="w-6 h-6 text-amber-600 shrink-0" />
+                        <div>
+                            <h4 className="text-sm font-black text-amber-900 uppercase">Accesso Richiesto per l'Iscrizione</h4>
+                            <p className="text-xs text-amber-700 font-medium mt-0.5">
+                                Per registrarsi al torneo e verificare il borsellino è necessario effettuare l'accesso con il proprio account atleta.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => navigate('/login')}
+                        className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm shrink-0"
+                    >
+                        Accedi Ora
+                    </button>
+                </div>
+            )}
+
             {/* Header Torneo */}
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
                 <Link to={`/tornei/${id}`} className="inline-flex items-center gap-2 text-xs font-black text-gray-400 hover:text-primary uppercase tracking-widest mb-4 transition-colors">
@@ -356,7 +383,7 @@ const IscrizioneTorneo: React.FC = () => {
                     {costo > 0 && (
                         <div className="bg-primary/5 border border-primary/20 rounded-2xl px-6 py-3 text-center">
                             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Quota Atleta</p>
-                            <p className="text-2xl font-black text-primary">€ {costo.toFixed(2)}</p>
+                            <p className="text-2xl font-black text-primary">â‚¬ {costo.toFixed(2)}</p>
                         </div>
                     )}
                 </div>
@@ -459,7 +486,7 @@ const IscrizioneTorneo: React.FC = () => {
                                                     <div>
                                                         <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Borsellino</p>
                                                         <p className={`text-sm font-black ${hasSaldoSufficiente ? 'text-green-600' : 'text-red-500'}`}>
-                                                            € {saldoVal.toFixed(2)}
+                                                            â‚¬ {saldoVal.toFixed(2)}
                                                         </p>
                                                     </div>
 
@@ -663,7 +690,7 @@ const IscrizioneTorneo: React.FC = () => {
                         <div className="flex justify-between items-center py-2 border-b border-gray-100">
                             <span className="text-xs text-gray-500 font-bold uppercase">Atleti Iscritti</span>
                             <span className="font-black uppercase text-right">
-                                {tuttiGiocatoriTrovati.map(g => `${g.cognome} ${g.nome}`).join(' • ')}
+                                {tuttiGiocatoriTrovati.map(g => `${g.cognome} ${g.nome}`).join(' â€¢ ')}
                             </span>
                         </div>
                         <div className="flex justify-between items-center py-2 border-b border-gray-100">
@@ -697,7 +724,7 @@ const IscrizioneTorneo: React.FC = () => {
                         {costo > 0 && (
                             <div className="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span className="text-xs text-gray-500 font-bold uppercase">Quota Totale ({titolariTrovati.length} Atleti)</span>
-                                <span className="font-black text-primary text-base">€ {(costo * titolariTrovati.length).toFixed(2)}</span>
+                                <span className="font-black text-primary text-base">â‚¬ {(costo * titolariTrovati.length).toFixed(2)}</span>
                             </div>
                         )}
                     </div>
@@ -714,7 +741,7 @@ const IscrizioneTorneo: React.FC = () => {
                         <div className="p-4 rounded-2xl flex items-center gap-3 text-xs font-bold bg-amber-50 border border-amber-200 text-amber-800">
                             <AlertCircle className="w-5 h-5 shrink-0" />
                             <div>
-                                <p className="font-black uppercase">Saldo insufficiente per: {saldiInsufficienti.map(g => `${g.cognome} ${g.nome} (€${Number(g.saldo?.saldoAttuale || 0).toFixed(2)})`).join(', ')}</p>
+                                <p className="font-black uppercase">Saldo insufficiente per: {saldiInsufficienti.map(g => `${g.cognome} ${g.nome} (â‚¬${Number(g.saldo?.saldoAttuale || 0).toFixed(2)})`).join(', ')}</p>
                                 <p className="mt-0.5">In quanto amministratore puoi forzare l'iscrizione portando il saldo in negativo.</p>
                             </div>
                         </div>

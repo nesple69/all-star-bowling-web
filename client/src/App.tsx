@@ -44,15 +44,15 @@ const Layout = () => {
 };
 
 function App() {
-  // Keep-alive ping ogni 4 minuti per evitare il cold start di Vercel
+  // Keep-alive warm-up ping per mantenere attivi Vercel e il database Supabase
   useEffect(() => {
-    const ping = () => fetch(`${API_BASE_URL}/api/health`).catch(() => { });
+    const ping = () => fetch(`${API_BASE_URL}/api/keep-alive`).catch(() => { });
     ping(); // Ping immediato all'avvio
     const interval = setInterval(ping, 4 * 60 * 1000); // Ogni 4 minuti
     return () => clearInterval(interval);
   }, []);
 
-  console.log('📦 Componente App montato');
+  console.log('ðŸ“¦ Componente App montato');
   return (
     <AuthProvider>
       <Router>

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Filter, Plus, User as UserIcon, Star, Loader2, Users, Calendar } from 'lucide-react';
+import { Search, Filter, Plus, User as UserIcon, Star, Loader2, Users, Calendar, X } from 'lucide-react';
 import SchedaGiocatore from '../components/SchedaGiocatore';
 import FormGiocatore from '../components/FormGiocatore';
 import { API_BASE_URL } from '../config';
@@ -39,6 +39,7 @@ interface Giocatore {
     telefono?: string;
     certificatoMedicoScadenza?: string;
     dataSollecitoCertificato?: string;
+    dataSollecitoBorsellino?: string;
     aziendaAffiliata?: string;
     isAziendale?: boolean;
     attivo?: boolean;
@@ -156,6 +157,20 @@ const Giocatori: React.FC = () => {
         } catch (error) {
             console.error('Errore durante l\'eliminazione del giocatore', error);
             alert('Errore durante l\'eliminazione del giocatore.');
+        }
+    };
+
+    
+    const handleResetSollecitoCertificato = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (!token) return;
+        try {
+            await axios.patch(`${API_BASE_URL}/api/giocatori/${id}/reset-sollecito-certificato`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            refetch();
+        } catch (err) {
+            console.error('Errore reset sollecito certificato:', err);
         }
     };
 
@@ -413,8 +428,16 @@ const Giocatori: React.FC = () => {
                                                             )}
                                                         </div>
                                                         {g.dataSollecitoCertificato && (
-                                                            <span className="text-[8px] font-bold text-green-700 mt-0.5 whitespace-nowrap bg-green-50 px-1 py-0.2 rounded border border-green-200">
-                                                                💬 Memo: {new Date(g.dataSollecitoCertificato).toLocaleDateString('it-IT')}
+                                                            <span className="text-[8px] font-bold text-green-700 mt-0.5 whitespace-nowrap bg-green-50 px-1.5 py-0.5 rounded border border-green-200 inline-flex items-center gap-1">
+                                                                <span>💬 Memo: {new Date(g.dataSollecitoCertificato).toLocaleDateString('it-IT')}</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => handleResetSollecitoCertificato(e, g.id)}
+                                                                    title="Rimuovi contrassegno sollecito"
+                                                                    className="hover:text-red-600 text-green-700 hover:bg-green-100 rounded transition-colors cursor-pointer"
+                                                                >
+                                                                    <X className="w-2.5 h-2.5" />
+                                                                </button>
                                                             </span>
                                                         )}
                                                     </div>

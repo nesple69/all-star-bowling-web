@@ -261,6 +261,17 @@ const DettaglioBorsellino: React.FC<DettaglioBorsellinoProps> = ({ giocatore, on
 
             const waUrl = `https://wa.me/${telefonoFormattato}?text=${encodeURIComponent(msg)}`;
             window.open(waUrl, '_blank');
+
+            if (token) {
+                try {
+                    await axios.patch(`${API_BASE_URL}/api/contabilita/${giocatore.id}/registra-sollecito-borsellino`, {}, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    onUpdate();
+                } catch (err) {
+                    console.error('Errore registrazione sollecito borsellino:', err);
+                }
+            }
         } catch (error) {
             console.error('Errore invio WhatsApp:', error);
             alert('Errore durante la generazione dell\'estratto conto.');

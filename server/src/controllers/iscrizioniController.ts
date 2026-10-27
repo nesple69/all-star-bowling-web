@@ -38,7 +38,11 @@ export const lookupTessera = async (req: Request, res: Response) => {
             ? new Date(giocatore.certificatoMedicoScadenza) >= new Date()
             : false;
 
-        // Ritorna i dati necessari per l'iscrizione al torneo e verifica borsellino
+        const costoRichiesto = req.query.costo ? Math.abs(Number(req.query.costo)) : 0;
+        const saldoEffettivo = giocatore.saldo ? Number(giocatore.saldo.saldoAttuale) : 0;
+        const hasSufficientBalance = costoRichiesto <= 0 || saldoEffettivo >= costoRichiesto;
+
+        // Ritorna i dati necessari per l'iscrizione al torneo e verifica borsellino (GDPR / BOLA safe)
         res.json({
             id: giocatore.id,
             nome: giocatore.nome,
@@ -48,8 +52,10 @@ export const lookupTessera = async (req: Request, res: Response) => {
             attivo: giocatore.attivo,
             certificatoValido: isCertificatoValido,
             telefono: isAuthorized ? giocatore.telefono : undefined,
-            certificatoMedicoScadenza: giocatore.certificatoMedicoScadenza,
-            saldo: giocatore.saldo ? { saldoAttuale: Number(giocatore.saldo.saldoAttuale) } : { saldoAttuale: 0 },
+            certificatoMedicoScadenza: isAuthorized ? giocatore.certificatoMedicoScadenza : undefined,
+            saldo: isAuthorized
+                ? { saldoAttuale: saldoEffettivo, isExact: true }
+                : { saldoAttuale: hasSufficientBalance ? costoRichiesto : 0, isExact: false, sufficiente: hasSufficientBalance },
             iscrizioni: isAuthorized ? giocatore.iscrizioni : []
         });
     } catch (err) {
@@ -233,7 +239,7 @@ export const getDisponibilitaTurni = async (req: Request, res: Response) => {
 
         res.json(disponibilita);
     } catch (err) {
-        res.status(500).json({ message: 'Errore nel recupero disponibilità.' });
+        res.status(500).json({ message: 'Errore nel recupero disponibilitÃ .' });
     }
 };
 
@@ -295,10 +301,10 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
             return res.status(400).json({ message: `Puoi inserire al massimo ${maxRiserve} riserva per questo torneo.` });
         }
 
-        // Verifica unicità atleti inseriti
+        // Verifica unicitÃ  atleti inseriti
         const allIds = atletiInput.map(a => a.giocatoreId);
         if (new Set(allIds).size !== allIds.length) {
-            return res.status(400).json({ message: 'Lo stesso atleta non può essere inserito più volte.' });
+            return res.status(400).json({ message: 'Lo stesso atleta non puÃ² essere inserito piÃ¹ volte.' });
         }
 
         // Recupera dati atleti dal database
@@ -309,6 +315,19 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
 
         if (giocatori.length !== allIds.length) {
             return res.status(404).json({ message: 'Uno o più atleti non sono stati trovati nel database.' });
+        }
+
+        // Controllo autorizzazione BOLA/IDOR: l'utente deve essere autenticato e deve essere ADMIN o parte della formazione
+        const currentUser = (req as AuthRequest).user;
+        if (!currentUser) {
+            return res.status(401).json({ message: 'Autenticazione richiesta per completare l\'iscrizione.' });
+        }
+
+        const isUserParticipant = giocatori.some(g => g.userId === currentUser.userId);
+        if (!isAdmin && !isUserParticipant) {
+            return res.status(403).json({
+                message: 'Non sei autorizzato a iscrivere questa formazione: devi far parte dei giocatori inseriti o essere un amministratore.'
+            });
         }
 
         // Validazione Certificato Medico per ciascun atleta
@@ -373,11 +392,11 @@ export const iscriviGiocatore = async (req: any, res: Response) => {
                     where: { torneoId, giocatoreId: g.id }
                 });
                 if (esistente) {
-                    throw new Error(`${g.nome} ${g.cognome} è già iscritto a questo torneo.`);
+                    throw new Error(`${g.nome} ${g.cognome} Ã¨ giÃ  iscritto a questo torneo.`);
                 }
             }
 
-            // Verifica disponibilità posti atomica
+            // Verifica disponibilitÃ  posti atomica
             const occupati = await tx.iscrizioneTorneo.count({
                 where: { turnoId }
             });
@@ -472,7 +491,7 @@ export const updateStatoIscrizione = async (req: Request, res: Response) => {
 
         if (!iscrizione) return res.status(404).json({ message: 'Iscrizione non trovata.' });
 
-        // Se RIFIUTATA → rimborso automatico
+        // Se RIFIUTATA â†’ rimborso automatico
         if (stato === 'RIFIUTATA' && iscrizione.stato !== 'RIFIUTATA') {
             const costo = Number((iscrizione.torneo as any).costoIscrizione || 0);
 
@@ -543,10 +562,10 @@ export const modificaIscrizione = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'Turno non valido per questo torneo.' });
         }
 
-        // Verifica disponibilità
+        // Verifica disponibilitÃ 
         const occupati = (nuovoTurno as any)._count?.iscrizioni || 0;
         if (occupati >= nuovoTurno.postiDisponibili) {
-            return res.status(400).json({ message: 'Il turno selezionato è esaurito.' });
+            return res.status(400).json({ message: 'Il turno selezionato Ã¨ esaurito.' });
         }
 
         await prisma.iscrizioneTorneo.update({
@@ -583,7 +602,7 @@ export const cancellaIscrizione = async (req: Request, res: Response) => {
         const costo = Number((iscrizione.torneo as any).costoIscrizione || 0);
 
         await prisma.$transaction(async (tx) => {
-            // Rimborsa solo se l'iscrizione non era già stata rifiutata (che ha già erogato il rimborso)
+            // Rimborsa solo se l'iscrizione non era giÃ  stata rifiutata (che ha giÃ  erogato il rimborso)
             if (costo > 0 && iscrizione.stato !== 'RIFIUTATA') {
                 await tx.saldoBorsellino.update({
                     where: { giocatoreId: iscrizione.giocatoreId },

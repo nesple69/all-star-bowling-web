@@ -24,7 +24,7 @@ export const getAllGiocatori = async (req: Request, res: Response) => {
             where.attivo = false;
         }
 
-        // Identifica stagione target: per utenti non-admin è sempre e solo la stagione attiva
+        // Identifica stagione target: per utenti non-admin Ã¨ sempre e solo la stagione attiva
         let targetStagioneId: string | null = null;
         const stagioneAttiva = await prisma.stagione.findFirst({
             where: { attiva: true }
@@ -40,7 +40,7 @@ export const getAllGiocatori = async (req: Request, res: Response) => {
 
         const isStagioneAttivaSelected = targetStagioneId && stagioneAttiva && targetStagioneId === stagioneAttiva.id;
 
-        // Se è la stagione attiva, prendi solo i giocatori attivi in rosa
+        // Se Ã¨ la stagione attiva, prendi solo i giocatori attivi in rosa
         if (isStagioneAttivaSelected) {
             where.attivo = true;
         }
@@ -59,39 +59,53 @@ export const getAllGiocatori = async (req: Request, res: Response) => {
             orderBy: { cognome: 'asc' }
         });
 
-        // Risultati filtrati per la stagione target (se definita)
-        const whereRisultati: Prisma.RisultatoTorneoWhereInput = targetStagioneId
-            ? { torneo: { stagioneId: targetStagioneId } }
-            : {};
+        // Statistiche aggregate ottimizzate a livello DB (prevenzione Out-Of-Memory su dataset ampi)
+        interface AggregatedPlayerStats {
+            giocatoreId: string;
+            tornei: number;
+            partite: number;
+            birilli: number;
+            migliorPartita: number;
+        }
 
-        const risultatiStagione = await prisma.risultatoTorneo.findMany({
-            where: whereRisultati,
-            include: {
-                partite: true
-            }
-        });
+        const rawStats = targetStagioneId
+            ? await prisma.$queryRaw<AggregatedPlayerStats[]>`
+                SELECT 
+                    r."giocatoreId",
+                    COUNT(DISTINCT r.id)::int AS tornei,
+                    COALESCE(SUM(r."partiteGiocate"), 0)::int AS partite,
+                    COALESCE(SUM(r."totaleBirilli"), 0)::int AS birilli,
+                    COALESCE(MAX(p.birilli), 0)::int AS "migliorPartita"
+                FROM "RisultatoTorneo" r
+                JOIN "Torneo" t ON r."torneoId" = t.id
+                LEFT JOIN "PartitaTorneo" p ON p."risultatoTorneoId" = r.id AND p."isRiporto" = false
+                WHERE t."stagioneId" = ${targetStagioneId}
+                GROUP BY r."giocatoreId"
+            `
+            : await prisma.$queryRaw<AggregatedPlayerStats[]>`
+                SELECT 
+                    r."giocatoreId",
+                    COUNT(DISTINCT r.id)::int AS tornei,
+                    COALESCE(SUM(r."partiteGiocate"), 0)::int AS partite,
+                    COALESCE(SUM(r."totaleBirilli"), 0)::int AS birilli,
+                    COALESCE(MAX(p.birilli), 0)::int AS "migliorPartita"
+                FROM "RisultatoTorneo" r
+                LEFT JOIN "PartitaTorneo" p ON p."risultatoTorneoId" = r.id AND p."isRiporto" = false
+                GROUP BY r."giocatoreId"
+            `;
 
         // Mappa delle statistiche per giocatore
-        const statsMap = new Map<string, { tornei: number, partite: number, birilli: number, migliorPartita: number }>();
+        const statsMap = new Map<string, { tornei: number; partite: number; birilli: number; migliorPartita: number }>();
+        for (const s of rawStats) {
+            statsMap.set(s.giocatoreId, {
+                tornei: Number(s.tornei || 0),
+                partite: Number(s.partite || 0),
+                birilli: Number(s.birilli || 0),
+                migliorPartita: Number(s.migliorPartita || 0)
+            });
+        }
 
-        risultatiStagione.forEach(r => {
-            const current = statsMap.get(r.giocatoreId) || { tornei: 0, partite: 0, birilli: 0, migliorPartita: 0 };
-            current.tornei += 1;
-            current.partite += r.partiteGiocate;
-            current.birilli += r.totaleBirilli;
-
-            const games = r.partite.filter(p => !p.isRiporto).map(p => p.birilli);
-            if (games.length > 0) {
-                const maxG = Math.max(...games);
-                if (maxG > current.migliorPartita) {
-                    current.migliorPartita = maxG;
-                }
-            }
-
-            statsMap.set(r.giocatoreId, current);
-        });
-
-        // Se è selezionata una stagione passata (non attiva), mostra solo chi ha preso parte a quella stagione
+        // Se Ã¨ selezionata una stagione passata (non attiva), mostra solo chi ha preso parte a quella stagione
         const giocatoriStagione = targetStagioneId && !isStagioneAttivaSelected
             ? giocatori.filter((g: any) => statsMap.has(g.id))
             : giocatori;
@@ -114,6 +128,7 @@ export const getAllGiocatori = async (req: Request, res: Response) => {
                 telefono: isOwnerOrAdmin ? g.telefono : undefined,
                 certificatoMedicoScadenza: isOwnerOrAdmin ? g.certificatoMedicoScadenza : undefined,
                 dataSollecitoCertificato: isOwnerOrAdmin ? g.dataSollecitoCertificato : undefined,
+                dataSollecitoBorsellino: isOwnerOrAdmin ? g.dataSollecitoBorsellino : undefined,
                 user: isOwnerOrAdmin ? g.user : undefined,
                 saldo: isOwnerOrAdmin ? g.saldo : undefined
             };
@@ -243,6 +258,8 @@ export const getGiocatoreById = async (req: Request, res: Response) => {
                 : undefined,
             telefono: isAuthorized ? (giocatore as any).telefono : undefined,
             certificatoMedicoScadenza: isAuthorized ? (giocatore as any).certificatoMedicoScadenza : undefined,
+            dataSollecitoCertificato: isAuthorized ? (giocatore as any).dataSollecitoCertificato : undefined,
+            dataSollecitoBorsellino: isAuthorized ? (giocatore as any).dataSollecitoBorsellino : undefined,
             user: isAuthorized ? (giocatore as any).user : { nome: giocatore.nome, cognome: giocatore.cognome },
             saldo: isAuthorized ? (giocatore as any).saldo : undefined
         };
@@ -281,7 +298,7 @@ export const createGiocatore = async (req: Request, res: Response) => {
     try {
         const userExists = await prisma.user.findUnique({ where: { email } });
         if (userExists) {
-            return res.status(400).json({ message: 'Email già in uso' });
+            return res.status(400).json({ message: 'Email giÃ  in uso' });
         }
 
         const hashedPassword = await bcrypt.hash(password || 'Bowling2026!', 10);
@@ -374,7 +391,7 @@ export const updateGiocatore = async (req: Request, res: Response) => {
             if (email && email !== existingGiocatore.user.email) {
                 const emailInUse = await prisma.user.findUnique({ where: { email } });
                 if (emailInUse && emailInUse.id !== existingGiocatore.userId) {
-                    return res.status(400).json({ message: 'Email già in uso da un altro utente' });
+                    return res.status(400).json({ message: 'Email giÃ  in uso da un altro utente' });
                 }
                 userDataToUpdate.email = email;
             }
@@ -416,6 +433,7 @@ export const updateGiocatore = async (req: Request, res: Response) => {
                 isSenior: isSenior !== undefined ? isSenior : undefined,
                 fasciaSenior: fasciaSenior as any,
                 certificatoMedicoScadenza: parsedCertificato,
+                ...(parsedCertificato !== undefined ? { dataSollecitoCertificato: null } : {}),
                 isAziendale: isAziendale !== undefined ? isAziendale : undefined,
                 aziendaAffiliata: aziendaAffiliata !== undefined ? (aziendaAffiliata || null) : undefined,
                 attivo: attivo !== undefined ? (attivo === true || attivo === 'true') : undefined,
@@ -485,6 +503,26 @@ export const registraSollecitoCertificato = async (req: Request, res: Response) 
 };
 
 // DELETE /api/giocatori/:id
+
+
+// PATCH /api/giocatori/:id/reset-sollecito-certificato (solo ADMIN)
+export const resetSollecitoCertificato = async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    try {
+        const updated = await prisma.giocatore.update({
+            where: { id },
+            data: { dataSollecitoCertificato: null }
+        });
+        res.json({
+            message: 'Sollecito certificato rimosso con successo',
+            dataSollecitoCertificato: updated.dataSollecitoCertificato
+        });
+    } catch (error) {
+        console.error('[RESET_SOLLECITO_CERTIFICATO_ERROR]', error);
+        res.status(500).json({ message: 'Errore durante la rimozione del sollecito' });
+    }
+};
+
 export const deleteGiocatore = async (req: Request, res: Response) => {
     const id = req.params.id as string;
 

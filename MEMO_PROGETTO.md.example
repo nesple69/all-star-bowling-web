@@ -1,0 +1,26 @@
+# 📌 MEMO PROGETTO: ALL STAR TEAM (Bowling Web App) - Esempio di Configurazione
+
+Questo documento riassume la configurazione di base per lo sviluppo dell'applicazione.
+**ATTENZIONE:** Non inserire MAI password o stringhe di connessione reali in questo file.
+
+---
+
+## 1. 🌐 Repository GitHub
+- **Repository Principale**: `https://github.com/<org>/all-star-bowling-web`
+- **Branch di produzione**: `main`
+
+---
+
+## 2. 🗄️ Database
+- **Provider**: **Supabase** (PostgreSQL)
+- **ORM / Gestione Schema**: **Prisma ORM** (`server/prisma/schema.prisma`)
+- **Configurazione `.env`**:
+  - `DATABASE_URL`: stringa di connessione Transaction Pooler (porta 6543)
+  - `DIRECT_URL`: stringa di connessione diretta (porta 5432)
+
+---
+
+## 3. 🚀 Comandi Utili per lo Sviluppo Locale
+- Avvio ambiente di sviluppo (Frontend + Backend): `npm run dev`
+- Compilazione build di produzione: `npm run build`
+- Aggiornamento Schema Prisma: `cd server && npx prisma db push`

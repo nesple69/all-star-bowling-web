@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import {
-    Trophy, AlertTriangle, Clock, CheckCircle2,
+    Trophy, AlertTriangle, Clock, CheckCircle2, X,
     Users, Calendar, MapPin, CreditCard
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
@@ -99,6 +99,20 @@ const Dashboard: React.FC = () => {
             } catch (err) {
                 console.error('Errore registrazione sollecito:', err);
             }
+        }
+    };
+
+    
+    const handleResetSollecitoCertificato = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (!token) return;
+        try {
+            await axios.patch(`${API_BASE_URL}/api/giocatori/${id}/reset-sollecito-certificato`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            refetch();
+        } catch (err) {
+            console.error('Errore reset sollecito certificato:', err);
         }
     };
 
@@ -452,7 +466,15 @@ const Dashboard: React.FC = () => {
                                             </span>
                                             {atleta.dataSollecitoCertificato && (
                                                 <span className="text-[9px] font-bold text-green-700 mt-1 flex items-center gap-1 bg-green-100 px-1.5 py-0.5 rounded border border-green-200 w-fit">
-                                                    💬 Memo inviato: {format(new Date(atleta.dataSollecitoCertificato), 'dd/MM/yy HH:mm')}
+                                                    <span>💬 Memo inviato: {format(new Date(atleta.dataSollecitoCertificato), 'dd/MM/yy HH:mm')}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => handleResetSollecitoCertificato(e, atleta.id)}
+                                                        title="Rimuovi contrassegno sollecito"
+                                                        className="hover:text-red-600 text-green-700 hover:bg-green-200 rounded p-0.5 transition-colors cursor-pointer ml-0.5"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                    </button>
                                                 </span>
                                             )}
                                         </div>

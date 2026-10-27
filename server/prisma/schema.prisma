@@ -36,6 +36,7 @@ model Giocatore {
   totaleBirilli             Int                  @default(0)
   certificatoMedicoScadenza DateTime?
   dataSollecitoCertificato   DateTime?
+  dataSollecitoBorsellino   DateTime?
   isAziendale               Boolean              @default(false)
   aziendaAffiliata          String?
   attivo                    Boolean              @default(true)

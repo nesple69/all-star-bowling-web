@@ -26,3 +26,4 @@ server/.env
 
 # Credentials
 SUPABASE_CREDENTIALS.txt
+MEMO_PROGETTO.md

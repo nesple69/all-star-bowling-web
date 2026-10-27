@@ -107,6 +107,11 @@ export const ricaricaBorsellino = async (req: Request, res: Response) => {
                 }
             });
 
+            await tx.giocatore.update({
+                where: { id: giocatoreId },
+                data: { dataSollecitoBorsellino: null }
+            });
+
             return { movimento, saldo };
         });
 
@@ -267,7 +272,7 @@ export const getAllSaldi = async (req: Request, res: Response) => {
                 };
             }
         }
-        // Se targetStagioneId è null (ALL), where rimane vuoto per includere tutti i giocatori conservati
+        // Se targetStagioneId Ã¨ null (ALL), where rimane vuoto per includere tutti i giocatori conservati
 
         const saldi = await prisma.giocatore.findMany({
             where,
@@ -278,6 +283,7 @@ export const getAllSaldi = async (req: Request, res: Response) => {
                 numeroTessera: true,
                 telefono: true,
                 attivo: true,
+                dataSollecitoBorsellino: true,
                 saldo: {
                     select: {
                         saldoAttuale: true
@@ -297,6 +303,7 @@ export const getAllSaldi = async (req: Request, res: Response) => {
             numeroTessera: g.numeroTessera,
             telefono: g.telefono,
             attivo: g.attivo,
+            dataSollecitoBorsellino: g.dataSollecitoBorsellino,
             saldoAttuale: g.saldo ? Number(g.saldo.saldoAttuale) : 0
         }));
 
@@ -307,12 +314,17 @@ export const getAllSaldi = async (req: Request, res: Response) => {
     }
 };
 
-// Helper per ricalcolare il saldo di un giocatore con precisione decimale esatta
-export const recalculateSaldo = async (giocatoreId: string, tx: Prisma.TransactionClient): Promise<number> => {
-    const movimenti = await tx.movimentoContabile.findMany({
-        where: { giocatoreId }
-    });
+// Interfaccia minima per il calcolo contabile
+export interface MovimentoInput {
+    importo: Prisma.Decimal | number | string;
+    tipo: TipoMovimento;
+}
 
+/**
+ * Calcola il saldo netto partendo dall'elenco dei movimenti.
+ * Funzione pura senza effetti collaterali, testabile in isolamento.
+ */
+export const computeSaldoFromMovimenti = (movimenti: MovimentoInput[]): Prisma.Decimal => {
     let nuovoSaldo = new Prisma.Decimal(0);
 
     for (const m of movimenti) {
@@ -327,10 +339,21 @@ export const recalculateSaldo = async (giocatoreId: string, tx: Prisma.Transacti
                 nuovoSaldo = nuovoSaldo.minus(imp);
                 break;
             case TipoMovimento.RIMBORSO:
-                // I rimborsi spese sono uscite di cassa, non modificano il credito personale gare
+                // I rimborsi spese sono uscite di cassa societaria, non riducono il credito personale gare
                 break;
         }
     }
+
+    return nuovoSaldo;
+};
+
+// Helper per ricalcolare il saldo di un giocatore con precisione decimale esatta
+export const recalculateSaldo = async (giocatoreId: string, tx: Prisma.TransactionClient): Promise<number> => {
+    const movimenti = await tx.movimentoContabile.findMany({
+        where: { giocatoreId }
+    });
+
+    const nuovoSaldo = computeSaldoFromMovimenti(movimenti);
 
     await tx.saldoBorsellino.upsert({
         where: { giocatoreId },
@@ -420,5 +443,43 @@ export const deleteMovimento = async (req: Request, res: Response) => {
             return res.status(404).json({ message: error.message });
         }
         res.status(500).json({ message: 'Errore durante l\'eliminazione del movimento' });
+    }
+};
+
+
+// PATCH /api/contabilita/:giocatoreId/registra-sollecito-borsellino (solo ADMIN)
+export const registraSollecitoBorsellino = async (req: Request, res: Response) => {
+    const { giocatoreId } = req.params;
+    try {
+        const now = new Date();
+        const updated = await prisma.giocatore.update({
+            where: { id: giocatoreId as string },
+            data: { dataSollecitoBorsellino: now }
+        });
+        res.json({
+            message: 'Sollecito borsellino registrato con successo',
+            dataSollecitoBorsellino: updated.dataSollecitoBorsellino
+        });
+    } catch (error) {
+        console.error('[REGISTRA_SOLLECITO_BORSELLINO_ERROR]', error);
+        res.status(500).json({ message: 'Errore durante la registrazione del sollecito' });
+    }
+};
+
+// PATCH /api/contabilita/:giocatoreId/reset-sollecito-borsellino (solo ADMIN)
+export const resetSollecitoBorsellino = async (req: Request, res: Response) => {
+    const { giocatoreId } = req.params;
+    try {
+        const updated = await prisma.giocatore.update({
+            where: { id: giocatoreId as string },
+            data: { dataSollecitoBorsellino: null }
+        });
+        res.json({
+            message: 'Sollecito borsellino rimosso con successo',
+            dataSollecitoBorsellino: updated.dataSollecitoBorsellino
+        });
+    } catch (error) {
+        console.error('[RESET_SOLLECITO_BORSELLINO_ERROR]', error);
+        res.status(500).json({ message: 'Errore durante la rimozione del sollecito' });
     }
 };

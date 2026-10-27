@@ -18,4 +18,8 @@ router.get('/contabilita/saldi', authenticateToken, isAdmin, contabilitaControll
 router.put('/contabilita/movimenti/:id', authenticateToken, isAdmin, contabilitaController.updateMovimento);
 router.delete('/contabilita/movimenti/:id', authenticateToken, isAdmin, contabilitaController.deleteMovimento);
 
+// Solleciti WhatsApp Borsellino
+router.patch('/contabilita/:giocatoreId/registra-sollecito-borsellino', authenticateToken, isAdmin, contabilitaController.registraSollecitoBorsellino);
+router.patch('/contabilita/:giocatoreId/reset-sollecito-borsellino', authenticateToken, isAdmin, contabilitaController.resetSollecitoBorsellino);
+
 export default router;

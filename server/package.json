@@ -9,7 +9,8 @@
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio",
-    "backup": "ts-node src/scripts/manualBackup.ts"
+    "backup": "ts-node src/scripts/manualBackup.ts",
+    "test": "ts-node --transpile-only test/contabilita.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -17,7 +18,6 @@
   "dependencies": {
     "@prisma/client": "^6.19.2",
     "@supabase/supabase-js": "^2.97.0",
-    "@types/bcrypt": "^5.0.2",
     "@types/cheerio": "^0.22.35",
     "@types/cors": "^2.8.17",
     "@types/dotenv": "^6.1.1",

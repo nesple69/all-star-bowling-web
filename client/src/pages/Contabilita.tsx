@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import {
-    Search, User, Loader2, ArrowLeftRight,
+    Search, User, Loader2, ArrowLeftRight, X,
     AlertTriangle, ChevronRight, Wallet, FileDown, Calendar
 } from 'lucide-react';
 import DettaglioBorsellino from '../components/DettaglioBorsellino';
@@ -27,6 +27,7 @@ interface SaldoGiocatore {
     telefono: string | null;
     saldoAttuale: number;
     attivo?: boolean;
+    dataSollecitoBorsellino?: string | null;
 }
 
 const Contabilita: React.FC = () => {
@@ -189,11 +190,36 @@ const Contabilita: React.FC = () => {
 
             const url = `https://wa.me/${telefonoFormattato}?text=${encodeURIComponent(msg)}`;
             window.open(url, '_blank');
+
+            if (token) {
+                try {
+                    await axios.patch(`${API_BASE_URL}/api/contabilita/${giocatore.id}/registra-sollecito-borsellino`, {}, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    fetchSaldi();
+                } catch (err) {
+                    console.error('Errore registrazione sollecito borsellino:', err);
+                }
+            }
         } catch (error) {
             console.error('Errore durante il recupero dell\'estratto conto:', error);
             alert('Errore durante il recupero dell\'estratto conto.');
         } finally {
             setLoadingWA(null);
+        }
+    };
+
+    
+    const handleResetSollecitoBorsellino = async (e: React.MouseEvent, giocatoreId: string) => {
+        e.stopPropagation();
+        if (!token) return;
+        try {
+            await axios.patch(`${API_BASE_URL}/api/contabilita/${giocatoreId}/reset-sollecito-borsellino`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            fetchSaldi();
+        } catch (err) {
+            console.error('Errore rimozione sollecito borsellino:', err);
         }
     };
 
@@ -325,12 +351,27 @@ const Contabilita: React.FC = () => {
                                                 <div className="w-10 h-10 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400 group-hover:bg-primary group-hover:text-white transition-colors">
                                                     <User className="w-5 h-5" />
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <p className="text-sm font-black text-dark uppercase">{s.cognome} {s.nome}</p>
-                                                    {s.attivo === false && (
-                                                        <span className="text-[9px] font-bold text-gray-400 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-md uppercase tracking-tight">
-                                                            Non rinnovato
-                                                        </span>
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-sm font-black text-dark uppercase">{s.cognome} {s.nome}</p>
+                                                        {s.attivo === false && (
+                                                            <span className="text-[9px] font-bold text-gray-400 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-md uppercase tracking-tight">
+                                                                Non rinnovato
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {s.dataSollecitoBorsellino && (
+                                                        <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 w-fit">
+                                                            <span>💬 Sollecito: {format(new Date(s.dataSollecitoBorsellino), 'dd/MM/yy HH:mm')}</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => handleResetSollecitoBorsellino(e, s.id)}
+                                                                title="Rimuovi contrassegno sollecito"
+                                                                className="hover:text-red-600 ml-0.5 p-0.5 rounded text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer"
+                                                            >
+                                                                <X className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -366,7 +407,7 @@ const Contabilita: React.FC = () => {
                                                         type="button"
                                                         onClick={(e) => handleWhatsApp(e, s)}
                                                         disabled={loadingWA === s.id}
-                                                        title="Invia resoconto WhatsApp"
+                                                        title={s.dataSollecitoBorsellino ? `Re-invia resoconto WhatsApp (Ultimo: ${format(new Date(s.dataSollecitoBorsellino), 'dd/MM/yy HH:mm')})` : 'Invia resoconto WhatsApp'}
                                                         className="p-2 bg-[#25D366] hover:bg-[#20ba59] text-white rounded-xl transition-all shadow-sm group/wa disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
                                                     >
                                                         {loadingWA === s.id ? (
