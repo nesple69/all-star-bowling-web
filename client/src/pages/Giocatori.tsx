@@ -371,7 +371,7 @@ const Giocatori: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="px-2 py-2">
-                                            <p className="text-sm font-bold text-dark group-hover:text-primary transition-colors whitespace-nowrap">{g.cognome} {g.nome}</p>
+                                            <p className="text-sm font-bold text-dark group-hover:text-primary transition-colors whitespace-nowrap uppercase">{g.cognome} {g.nome}</p>
                                         </td>
                                         <td className="px-1 py-2 text-center">
                                             <span className={`px-1 py-0.5 border rounded text-[9px] font-black uppercase tracking-tight ${CATEGORY_COLORS[g.categoria] || 'text-gray-500 border-gray-400'}`}>

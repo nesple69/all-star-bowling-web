@@ -101,7 +101,8 @@ const FormGiocatore: React.FC<Props> = ({ giocatore, onClose, onSave }) => {
         setIsLoading(true);
 
         try {
-            await onSave(formData);
+            const sanitized = { ...formData, nome: formData.nome.trim().toUpperCase(), cognome: formData.cognome.trim().toUpperCase(), numeroTessera: formData.numeroTessera.trim().toUpperCase() };
+            await onSave(sanitized);
             onClose();
         } catch (err: any) {
             setError(err.response?.data?.message || 'Errore durante il salvataggio. Riprova.');
