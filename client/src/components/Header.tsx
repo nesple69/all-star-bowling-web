@@ -36,25 +36,25 @@ const Header: React.FC = () => {
         <header className="bg-gradient-to-r from-primary to-light-blue shadow-lg">
             {/* Top Bar: Brand Logo & User Profile / Quick Actions */}
             <div className="w-full max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center min-h-[96px] sm:min-h-[120px] md:min-h-[140px] py-2 sm:py-3">
+                <div className="flex justify-between items-center min-h-[220px] sm:min-h-[260px] md:min-h-[320px] py-3 sm:py-4">
 
                     {/* Logo & Title */}
-                    <Link to="/" className="flex items-center gap-3 sm:gap-5 group shrink-0 py-1">
-                        <div className="group-hover:scale-105 transition-transform w-28 h-28 sm:w-32 sm:h-32 md:w-40 md:h-40 flex items-center justify-center shrink-0">
+                    <Link to="/" className="flex items-center gap-4 sm:gap-6 group shrink-0 py-2">
+                        <div className="group-hover:scale-105 transition-transform w-56 h-56 sm:w-64 sm:h-64 md:w-80 md:h-80 flex items-center justify-center shrink-0">
                             <img
                                 src="/logo All Star.png"
                                 alt="ALL STAR TEAM Logo"
-                                className="w-full h-full object-contain filter drop-shadow-lg"
+                                className="w-full h-full object-contain filter drop-shadow-xl"
                                 onError={(e) => {
                                     (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI0Y4QjUwMCIgZD0iTTEyIDFsMy4zOSA2LjY4IDcuNjEgMS4xLTUuNSA1LjM2IDEuMyA3LjYyLTkuOC0zLjY2LTYuOCA0Ljk2IDEuMy03LjYyLTUuNS01LjM2IDcuNjEtMS4xTDEyIDFsMy4zOSA2LjY4eiIvPjwvc3ZnPg==';
                                 }}
                             />
                         </div>
                         <div className="flex flex-col justify-center">
-                            <h1 className="text-white text-xl sm:text-3xl md:text-4xl font-black font-heading uppercase tracking-wide leading-none drop-shadow-sm">
+                            <h1 className="text-white text-2xl sm:text-4xl md:text-5xl font-black font-heading uppercase tracking-wide leading-none drop-shadow-md">
                                 ALL STAR <span className="text-amber-300">TEAM</span>
                             </h1>
-                            <p className="text-white/90 text-xs sm:text-sm font-bold tracking-widest italic uppercase leading-none mt-1.5">bowling asd</p>
+                            <p className="text-white/90 text-sm sm:text-base md:text-lg font-bold tracking-widest italic uppercase leading-none mt-2">bowling asd</p>
                         </div>
                     </Link>
 
