@@ -17,11 +17,11 @@ router.get('/classifiche', torneiController.getClassifiche);
 router.get('/lookup-tessera/:tessera', optionalAuthenticate, iscrizioniController.lookupTessera);
 router.post('/iscriviti', authenticateToken, iscrizioniController.iscriviGiocatore);
 
-// --- Flusso Disponibilità & Squadre (Utente Autenticato) ---
-router.post('/:id/disponibilita', authenticateToken, coachController.daiDisponibilita);
-router.delete('/:id/disponibilita', authenticateToken, coachController.ritiraDisponibilita);
-router.get('/:id/mie-squadre', authenticateToken, coachController.getMieSquadreTorneo);
-router.post('/squadre/:squadraId/scegli-turno', authenticateToken, coachController.scegliTurnoSquadra);
+// --- Flusso Disponibilità & Squadre (Accesso tramite Tessera o Utente Autenticato) ---
+router.post('/:id/disponibilita', optionalAuthenticate, coachController.daiDisponibilita);
+router.delete('/:id/disponibilita', optionalAuthenticate, coachController.ritiraDisponibilita);
+router.get('/:id/mie-squadre', optionalAuthenticate, coachController.getMieSquadreTorneo);
+router.post('/squadre/:squadraId/scegli-turno', optionalAuthenticate, coachController.scegliTurnoSquadra);
 
 // --- Endpoint Protetti (Solo ADMIN) ---
 router.get('/', authenticateToken, isAdmin, torneiController.getTorneiAdmin);

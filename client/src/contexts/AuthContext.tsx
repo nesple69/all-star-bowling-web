@@ -13,6 +13,7 @@ interface User {
         id: string;
         nome: string;
         cognome: string;
+        numeroTessera?: string;
         saldo?: {
             saldoAttuale: number;
         };

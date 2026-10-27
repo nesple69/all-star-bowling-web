@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
     Trophy, Calendar, MapPin, Download,
     ChevronLeft, Users, FileText, UserPlus, CheckCircle2,
-    AlertCircle, Clock, Check, X, Award
+    AlertCircle, Clock, Check, X, Award, Search, Loader2
 } from 'lucide-react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { format, differenceInDays } from 'date-fns';
@@ -75,6 +75,7 @@ interface MieSquadreData {
         id: string;
         nome: string;
         cognome: string;
+        numeroTessera?: string;
         categoria: string;
         certificatoMedicoScadenza: string | null;
         saldoAttuale: number;
@@ -112,6 +113,16 @@ const DettaglioTorneo: React.FC = () => {
     const [candidatiDisponibili, setCandidatiDisponibili] = useState<AtletaDisponibile[]>([]);
     const [squadreConfermate, setSquadreConfermate] = useState<SquadraPubblica[]>([]);
     const [mieSquadre, setMieSquadre] = useState<MieSquadreData | null>(null);
+
+    // Gestione Accesso Atleta tramite Numero Tessera
+    const [tesseraInput, setTesseraInput] = useState(() => {
+        return localStorage.getItem('allstar_tessera') || user?.giocatore?.numeroTessera || '';
+    });
+    const [tesseraAttiva, setTesseraAttiva] = useState(() => {
+        return localStorage.getItem('allstar_tessera') || user?.giocatore?.numeroTessera || '';
+    });
+    const [cercandoTessera, setCercandoTessera] = useState(false);
+    const [erroreTessera, setErroreTessera] = useState('');
 
     const [activeTab, setActiveTab] = useState<'squadre' | 'turni' | 'iscritti' | 'disponibili'>('squadre');
     const [isLoading, setIsLoading] = useState(true);
@@ -167,24 +178,40 @@ const DettaglioTorneo: React.FC = () => {
 
     const torneo = data?.torneo;
 
-    // Carica stato atleta per tornei a squadre
-    const ricaricaMieSquadre = async () => {
-        if (!id || !token) return;
+    // Carica stato atleta per tornei a squadre (tramite tessera o login)
+    const ricaricaMieSquadre = async (tesseraParam?: string) => {
+        const tesseraDaUsare = (tesseraParam !== undefined ? tesseraParam : tesseraAttiva).trim();
+        if (!id) return;
+        if (!tesseraDaUsare && !token) {
+            setMieSquadre(null);
+            return;
+        }
+
         try {
-            const res = await axios.get(`${API_BASE_URL}/api/tornei/${id}/mie-squadre`, {
-                headers: { Authorization: `Bearer ${token}` }
+            const query = tesseraDaUsare ? `?tessera=${encodeURIComponent(tesseraDaUsare)}` : '';
+            const res = await axios.get(`${API_BASE_URL}/api/tornei/${id}/mie-squadre${query}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
             setMieSquadre(res.data);
+            if (res.data?.giocatore) {
+                setErroreTessera('');
+            }
         } catch (err) {
             console.error('Errore getMieSquadreTorneo:', err);
         }
     };
 
+    // Auto-carica tessera se presente all'avvio
     useEffect(() => {
-        if (token && id) {
+        const salvata = localStorage.getItem('allstar_tessera') || user?.giocatore?.numeroTessera;
+        if (salvata && id) {
+            setTesseraAttiva(salvata);
+            setTesseraInput(salvata);
+            ricaricaMieSquadre(salvata);
+        } else if (token && id) {
             ricaricaMieSquadre();
         }
-    }, [token, id]);
+    }, [token, id, user?.giocatore?.numeroTessera]);
 
     // Imposta tab iniziale
     useEffect(() => {
@@ -199,10 +226,49 @@ const DettaglioTorneo: React.FC = () => {
         navigate(`/tornei/${id}/iscrizione${turnoId ? `?turnoId=${turnoId}` : ''}`);
     };
 
+    // Ricerca / Accesso con Numero Tessera
+    const handleCercaTessera = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        const t = tesseraInput.trim().toUpperCase();
+        if (!t) {
+            setErroreTessera('Inserisci il tuo numero di tessera.');
+            return;
+        }
+
+        setCercandoTessera(true);
+        setErroreTessera('');
+        try {
+            const res = await axios.get(`${API_BASE_URL}/api/tornei/${id}/mie-squadre?tessera=${encodeURIComponent(t)}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            if (!res.data?.giocatore) {
+                setErroreTessera(`Nessun atleta trovato con numero di tessera "${t}". Verifica e riprova.`);
+                setMieSquadre(null);
+            } else {
+                setMieSquadre(res.data);
+                setTesseraAttiva(t);
+                localStorage.setItem('allstar_tessera', t);
+            }
+        } catch (err: any) {
+            setErroreTessera(err.response?.data?.message || 'Errore nella verifica del numero di tessera.');
+        } finally {
+            setCercandoTessera(false);
+        }
+    };
+
+    const handleCambiaTessera = () => {
+        localStorage.removeItem('allstar_tessera');
+        setTesseraAttiva('');
+        setTesseraInput('');
+        setMieSquadre(null);
+        setErroreTessera('');
+    };
+
     // Azione Atleta: Dai Disponibilità
     const handleDaiDisponibilita = async () => {
-        if (!token) {
-            navigate('/login');
+        const tesseraDaUsare = (tesseraAttiva || localStorage.getItem('allstar_tessera') || '').trim();
+        if (!tesseraDaUsare && !token) {
+            setFeedback({ tipo: 'error', testo: 'Inserisci il tuo numero di tessera prima di dare la disponibilità.' });
             return;
         }
 
@@ -211,11 +277,11 @@ const DettaglioTorneo: React.FC = () => {
         try {
             const res = await axios.post(
                 `${API_BASE_URL}/api/tornei/${id}/disponibilita`,
-                {},
-                { headers: { Authorization: `Bearer ${token}` } }
+                { numeroTessera: tesseraDaUsare },
+                { headers: token ? { Authorization: `Bearer ${token}` } : {} }
             );
             setFeedback({ tipo: 'success', testo: res.data.message || 'Disponibilità registrata!' });
-            await Promise.all([ricaricaMieSquadre(), refetchTorneo()]);
+            await Promise.all([ricaricaMieSquadre(tesseraDaUsare), refetchTorneo()]);
         } catch (err: any) {
             setFeedback({
                 tipo: 'error',
@@ -228,6 +294,7 @@ const DettaglioTorneo: React.FC = () => {
 
     // Azione Atleta: Ritira Disponibilità
     const handleRitiraDisponibilita = async () => {
+        const tesseraDaUsare = (tesseraAttiva || localStorage.getItem('allstar_tessera') || '').trim();
         if (!window.confirm('Sei sicuro di voler ritirare la tua disponibilità per questo torneo?')) {
             return;
         }
@@ -236,10 +303,11 @@ const DettaglioTorneo: React.FC = () => {
         setFeedback(null);
         try {
             const res = await axios.delete(`${API_BASE_URL}/api/tornei/${id}/disponibilita`, {
-                headers: { Authorization: `Bearer ${token}` }
+                data: { numeroTessera: tesseraDaUsare },
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
             setFeedback({ tipo: 'success', testo: res.data.message || 'Disponibilità ritirata.' });
-            await Promise.all([ricaricaMieSquadre(), refetchTorneo()]);
+            await Promise.all([ricaricaMieSquadre(tesseraDaUsare), refetchTorneo()]);
         } catch (err: any) {
             setFeedback({
                 tipo: 'error',
@@ -254,6 +322,7 @@ const DettaglioTorneo: React.FC = () => {
     const handleConfermaTurnoSquadra = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!mieSquadre?.squadra?.id || !selectedTurnoId) return;
+        const tesseraDaUsare = (tesseraAttiva || localStorage.getItem('allstar_tessera') || '').trim();
 
         setSalvataggioTurno(true);
         setFeedback(null);
@@ -262,13 +331,14 @@ const DettaglioTorneo: React.FC = () => {
                 `${API_BASE_URL}/api/tornei/squadre/${mieSquadre.squadra.id}/scegli-turno`,
                 {
                     turnoId: selectedTurnoId,
-                    secondoTurnoId: selectedSecondoTurnoId || null
+                    secondoTurnoId: selectedSecondoTurnoId || null,
+                    numeroTessera: tesseraDaUsare
                 },
-                { headers: { Authorization: `Bearer ${token}` } }
+                { headers: token ? { Authorization: `Bearer ${token}` } : {} }
             );
             setFeedback({ tipo: 'success', testo: res.data.message || 'Turno assegnato con successo alla squadra!' });
             setModalTurnoOpen(false);
-            await Promise.all([ricaricaMieSquadre(), refetchTorneo()]);
+            await Promise.all([ricaricaMieSquadre(tesseraDaUsare), refetchTorneo()]);
         } catch (err: any) {
             setFeedback({
                 tipo: 'error',
@@ -433,58 +503,147 @@ const DettaglioTorneo: React.FC = () => {
                         </div>
                     </div>
 
-                    {!user ? (
-                        <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 text-center space-y-3">
-                            <Users className="w-8 h-8 text-amber-300 mx-auto" />
-                            <p className="text-xs font-bold uppercase tracking-wider">
-                                Accedi con le tue credenziali atleta per dare la disponibilità a giocare questo torneo.
-                            </p>
-                            <button
-                                onClick={() => navigate('/login')}
-                                className="px-6 py-2.5 bg-amber-400 text-slate-950 font-black uppercase text-xs rounded-xl hover:bg-amber-300 transition-all shadow-md"
-                            >
-                                Accedi per Partecipare
-                            </button>
+                    {!mieSquadre?.giocatore ? (
+                        <div className="bg-white/10 backdrop-blur-md p-6 sm:p-8 rounded-2xl border border-white/15 space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-3 bg-amber-400 text-slate-950 rounded-xl shrink-0">
+                                    <Search className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-sm sm:text-base uppercase text-white">
+                                        Accedi con il tuo Numero di Tessera FISB
+                                    </h3>
+                                    <p className="text-xs text-slate-300 font-medium">
+                                        Inserisci la tua tessera per dare la disponibilità o per gestire la tua formazione.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <form onSubmit={handleCercaTessera} className="flex flex-col sm:flex-row gap-3 pt-2">
+                                <div className="relative flex-1">
+                                    <input
+                                        type="text"
+                                        value={tesseraInput}
+                                        onChange={(e) => setTesseraInput(e.target.value.toUpperCase())}
+                                        placeholder="ES. AA9689, AC3818..."
+                                        className="w-full bg-slate-950/70 border-2 border-white/20 focus:border-amber-400 rounded-xl px-4 py-3 text-white placeholder-slate-500 font-mono font-bold uppercase tracking-wider text-sm outline-none transition-all"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={cercandoTessera || !tesseraInput.trim()}
+                                    className="px-6 py-3 bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-yellow-200 text-slate-950 font-black uppercase text-xs tracking-wider rounded-xl shadow-lg transition-all transform hover:scale-[1.02] disabled:opacity-50 shrink-0 flex items-center justify-center gap-2"
+                                >
+                                    {cercandoTessera ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                                    <span>Verifica Tessera</span>
+                                </button>
+                            </form>
+
+                            {erroreTessera && (
+                                <div className="p-3.5 bg-red-500/20 border border-red-500/40 rounded-xl text-red-200 text-xs font-bold flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                                    <span>{erroreTessera}</span>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {/* STATO 1: L'atleta non ha ancora dato disponibilità e non è in squadra */}
-                            {!mieSquadre?.disponibilita && !mieSquadre?.squadra && (
-                                <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 space-y-4">
-                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                                        <div>
-                                            <p className="font-black text-sm uppercase text-white">
-                                                Vuoi partecipare a questa gara di {torneo.tipologia.replace('_', ' ')}?
-                                            </p>
-                                            <p className="text-xs text-slate-300 font-medium mt-1">
-                                                Dai la tua disponibilità: verrai inserito nell'elenco per il Coach, che comporrà le formazioni ufficiali.
-                                            </p>
-                                        </div>
-
-                                        <button
-                                            onClick={handleDaiDisponibilita}
-                                            disabled={azioneInCorso}
-                                            className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-yellow-200 text-slate-950 font-black uppercase text-xs tracking-wider rounded-xl shadow-lg transition-all transform hover:scale-105 shrink-0 disabled:opacity-50"
-                                        >
-                                            {azioneInCorso ? 'Registrazione...' : 'Do la mia disponibilità'}
-                                        </button>
+                            {/* Barra Identificazione Atleta */}
+                            <div className="bg-white/10 backdrop-blur-md px-4 sm:px-6 py-3 rounded-2xl border border-white/15 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 font-black flex items-center justify-center text-xs shadow-md">
+                                        {mieSquadre.giocatore.categoria || 'A'}
                                     </div>
-
-                                    {/* Promemoria per il giocatore sul borsellino e certificato */}
-                                    <div className="pt-3 border-t border-white/10 flex flex-wrap gap-4 text-[10px] text-slate-300">
-                                        <span className="flex items-center gap-1.5">
-                                            <CheckCircle2 className="w-3.5 h-3.5 text-amber-300" />
-                                            Quota Torneo: <strong>€{Number(torneo.costoIscrizione || 0).toFixed(2)}</strong> (verrà scalata dal borsellino solo quando il Coach confermerà la squadra)
-                                        </span>
-                                        {mieSquadre?.giocatore && (
-                                            <span className="flex items-center gap-1.5">
-                                                <CheckCircle2 className="w-3.5 h-3.5 text-amber-300" />
-                                                Il tuo Saldo Borsellino Attuale: <strong>€{Number(mieSquadre.giocatore.saldoAttuale || 0).toFixed(2)}</strong>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-black text-white uppercase text-sm sm:text-base">
+                                                {mieSquadre.giocatore.nome} {mieSquadre.giocatore.cognome}
                                             </span>
-                                        )}
+                                            <span className="text-amber-300 font-mono text-xs font-black bg-amber-400/10 px-2 py-0.5 rounded border border-amber-300/30">
+                                                {mieSquadre.giocatore.numeroTessera}
+                                            </span>
+                                        </div>
+                                        <span className="text-[10px] text-slate-400 font-medium">
+                                            Saldo Borsellino: <strong className="text-white">€{Number(mieSquadre.giocatore.saldoAttuale || 0).toFixed(2)}</strong>
+                                        </span>
                                     </div>
                                 </div>
-                            )}
+
+                                <button
+                                    onClick={handleCambiaTessera}
+                                    className="text-[11px] text-slate-300 hover:text-amber-300 font-bold uppercase tracking-wider underline hover:no-underline transition-colors"
+                                >
+                                    Non sei tu? Cambia tessera
+                                </button>
+                            </div>
+
+                            {/* STATO 1: L'atleta non ha ancora dato disponibilità e non è in squadra */}
+                            {!mieSquadre?.disponibilita && !mieSquadre?.squadra && (() => {
+                                const costoQuota = Number(torneo.costoIscrizione || 0);
+                                const saldo = Number(mieSquadre.giocatore.saldoAttuale || 0);
+                                const isSaldoSufficiente = costoQuota <= 0 || saldo >= costoQuota;
+
+                                const dataInizioTorneo = torneo.dataInizio ? new Date(torneo.dataInizio) : new Date();
+                                const isCertificatoValido = mieSquadre.giocatore.certificatoMedicoScadenza
+                                    ? new Date(mieSquadre.giocatore.certificatoMedicoScadenza) >= dataInizioTorneo
+                                    : false;
+
+                                const canPartecipare = isCertificatoValido && isSaldoSufficiente;
+
+                                return (
+                                    <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 space-y-4">
+                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                            <div>
+                                                <p className="font-black text-sm uppercase text-white">
+                                                    Vuoi partecipare a questa gara di {torneo.tipologia.replace('_', ' ')}?
+                                                </p>
+                                                <p className="text-xs text-slate-300 font-medium mt-1">
+                                                    Dai la tua disponibilità: verrai inserito nell'elenco per il Coach, che comporrà le formazioni ufficiali.
+                                                </p>
+                                            </div>
+
+                                            <button
+                                                onClick={handleDaiDisponibilita}
+                                                disabled={azioneInCorso || !canPartecipare}
+                                                className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-yellow-200 text-slate-950 font-black uppercase text-xs tracking-wider rounded-xl shadow-lg transition-all transform hover:scale-105 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                            >
+                                                {azioneInCorso ? 'Registrazione...' : 'Do la mia disponibilità'}
+                                            </button>
+                                        </div>
+
+                                        {/* Avvisi Certificato o Saldo */}
+                                        {!isCertificatoValido && (
+                                            <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-200 text-xs font-bold flex items-center gap-2">
+                                                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                                                <span>
+                                                    Certificato medico scaduto o non registrato ({mieSquadre.giocatore.certificatoMedicoScadenza ? format(new Date(mieSquadre.giocatore.certificatoMedicoScadenza), 'dd/MM/yyyy') : 'assente'}). È necessario rinnovarlo prima di partecipare.
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {!isSaldoSufficiente && (
+                                            <div className="p-3 bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-200 text-xs font-bold flex items-center gap-2">
+                                                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                                                <span>
+                                                    Saldo borsellino insufficiente: hai €{saldo.toFixed(2)}, la quota del torneo è €{costoQuota.toFixed(2)}. Ricarica il borsellino per dare disponibilità.
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Promemoria per il giocatore sul borsellino e certificato */}
+                                        <div className="pt-3 border-t border-white/10 flex flex-wrap gap-4 text-[10px] text-slate-300">
+                                            <span className="flex items-center gap-1.5">
+                                                <CheckCircle2 className="w-3.5 h-3.5 text-amber-300" />
+                                                Quota Torneo: <strong>€{costoQuota.toFixed(2)}</strong> (verrà scalata dal borsellino solo quando il Coach confermerà la squadra)
+                                            </span>
+                                            <span className="flex items-center gap-1.5">
+                                                <CheckCircle2 className={`w-3.5 h-3.5 ${isCertificatoValido ? 'text-emerald-400' : 'text-red-400'}`} />
+                                                Certificato Medico: <strong>{isCertificatoValido ? 'In regola' : 'Da rinnovare'}</strong>
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             {/* STATO 2: Disponibilità data, in attesa del Coach */}
                             {mieSquadre?.disponibilita?.stato === 'IN_ATTESA' && !mieSquadre?.squadra && (

@@ -7,33 +7,40 @@ import { Prisma } from '@prisma/client';
 // FASE 1: GESTIONE DISPONIBILITÀ ATLETI (Tutti i giocatori loggati)
 // -------------------------------------------------------------
 
-// POST /api/tornei/:id/disponibilita (Atleta dà la propria disponibilità)
+// POST /api/tornei/:id/disponibilita (Atleta dà la propria disponibilità con Tessera o Login)
 export const daiDisponibilita = async (req: AuthRequest, res: Response) => {
     const torneoId = req.params.id as string;
     const userId = req.user?.userId;
-    const { note, giocatoreId: requestedGiocatoreId } = req.body;
+    const { note, giocatoreId: requestedGiocatoreId, numeroTessera, tessera } = req.body;
+    const tesseraClean = (numeroTessera || tessera || '').trim();
 
     try {
-        if (!userId) {
-            return res.status(401).json({ message: 'Utente non autenticato' });
-        }
-
-        // Se l'utente è ADMIN o COACH può specificare giocatoreId, altrimenti usa il proprio
         let giocatore;
-        if ((req.user?.role === 'ADMIN' || req.user?.role === 'COACH') && requestedGiocatoreId) {
+        if (tesseraClean) {
+            giocatore = await prisma.giocatore.findFirst({
+                where: { numeroTessera: { equals: tesseraClean, mode: 'insensitive' } },
+                include: { saldo: true }
+            });
+        } else if ((req.user?.role === 'ADMIN' || req.user?.role === 'COACH') && requestedGiocatoreId) {
             giocatore = await prisma.giocatore.findUnique({
                 where: { id: requestedGiocatoreId },
                 include: { saldo: true }
             });
-        } else {
+        } else if (userId) {
             giocatore = await prisma.giocatore.findUnique({
                 where: { userId },
                 include: { saldo: true }
             });
+        } else {
+            return res.status(400).json({ message: 'Inserisci il tuo numero di tessera per dare la disponibilità.' });
         }
 
         if (!giocatore) {
-            return res.status(404).json({ message: 'Profilo atleta non trovato per questo account.' });
+            return res.status(404).json({
+                message: tesseraClean
+                    ? `Nessun atleta trovato con numero di tessera "${tesseraClean}". Verifica e riprova.`
+                    : 'Profilo atleta non trovato.'
+            });
         }
 
         if (!giocatore.attivo) {
@@ -136,24 +143,30 @@ export const daiDisponibilita = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// DELETE /api/tornei/:id/disponibilita (Atleta ritira la disponibilità)
+// DELETE /api/tornei/:id/disponibilita (Atleta ritira la disponibilità con Tessera o Login)
 export const ritiraDisponibilita = async (req: AuthRequest, res: Response) => {
     const torneoId = req.params.id as string;
     const userId = req.user?.userId;
-    const { giocatoreId: requestedGiocatoreId } = req.body || {};
+    const { giocatoreId: requestedGiocatoreId, numeroTessera, tessera } = req.body || {};
+    const tesseraQuery = (req.query?.tessera as string) || (req.query?.numeroTessera as string);
+    const tesseraClean = (numeroTessera || tessera || tesseraQuery || '').trim();
 
     try {
-        if (!userId) {
-            return res.status(401).json({ message: 'Utente non autenticato' });
-        }
-
         let giocatoreId: string;
-        if ((req.user?.role === 'ADMIN' || req.user?.role === 'COACH') && requestedGiocatoreId) {
+        if (tesseraClean) {
+            const g = await prisma.giocatore.findFirst({
+                where: { numeroTessera: { equals: tesseraClean, mode: 'insensitive' } }
+            });
+            if (!g) return res.status(404).json({ message: `Atleta con tessera ${tesseraClean} non trovato.` });
+            giocatoreId = g.id;
+        } else if ((req.user?.role === 'ADMIN' || req.user?.role === 'COACH') && requestedGiocatoreId) {
             giocatoreId = requestedGiocatoreId;
-        } else {
+        } else if (userId) {
             const g = await prisma.giocatore.findUnique({ where: { userId } });
             if (!g) return res.status(404).json({ message: 'Atleta non trovato.' });
             giocatoreId = g.id;
+        } else {
+            return res.status(400).json({ message: 'Inserisci il numero di tessera per ritirare la disponibilità.' });
         }
 
         const disp = await prisma.disponibilitaTorneo.findUnique({
@@ -592,21 +605,18 @@ export const annullaSquadraCoach = async (req: AuthRequest, res: Response) => {
 // FASE 3: SCELTA TURNI DA PARTE DI UN MEMBRO DELLA SQUADRA
 // -------------------------------------------------------------
 
-// POST /api/tornei/squadre/:squadraId/scegli-turno
+// POST /api/tornei/squadre/:squadraId/scegli-turno (Conferma turni con Tessera o Login)
 export const scegliTurnoSquadra = async (req: AuthRequest, res: Response) => {
     const squadraId = req.params.squadraId as string;
     const userId = req.user?.userId;
-    const { turnoId, secondoTurnoId, sedeId } = req.body;
+    const { turnoId, secondoTurnoId, sedeId, numeroTessera, tessera } = req.body;
+    const tesseraClean = (numeroTessera || tessera || '').trim();
 
     if (!turnoId) {
         return res.status(400).json({ message: 'Seleziona un turno di gioco.' });
     }
 
     try {
-        if (!userId) {
-            return res.status(401).json({ message: 'Utente non autenticato' });
-        }
-
         const squadra = await prisma.squadraTorneo.findUnique({
             where: { id: squadraId },
             include: {
@@ -620,17 +630,26 @@ export const scegliTurnoSquadra = async (req: AuthRequest, res: Response) => {
             return res.status(404).json({ message: 'Squadra non trovata.' });
         }
 
-        // Trova il giocatore associato all'utente loggato
-        const giocatore = await prisma.giocatore.findUnique({
-            where: { userId }
-        });
+        // Trova il giocatore associato alla tessera o all'utente loggato
+        let giocatore = null;
+        if (tesseraClean) {
+            giocatore = await prisma.giocatore.findFirst({
+                where: { numeroTessera: { equals: tesseraClean, mode: 'insensitive' } }
+            });
+        } else if (userId) {
+            giocatore = await prisma.giocatore.findUnique({
+                where: { userId }
+            });
+        }
 
         const isPrivileged = req.user?.role === 'ADMIN' || req.user?.role === 'COACH';
         const isTeamMember = giocatore && squadra.iscrizioni.some(i => i.giocatoreId === giocatore.id);
 
         if (!isPrivileged && !isTeamMember) {
             return res.status(403).json({
-                message: 'Non fai parte di questa squadra e non hai i permessi per sceglierne i turni.'
+                message: tesseraClean
+                    ? `Il giocatore con tessera ${tesseraClean} non fa parte di questa squadra.`
+                    : 'Non fai parte di questa squadra e non hai i permessi per sceglierne i turni.'
             });
         }
 
@@ -722,20 +741,26 @@ export const scegliTurnoSquadra = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// GET /api/tornei/:id/mie-squadre (Verifica se l'utente loggato ha squadre o disponibilità in questo torneo)
+// GET /api/tornei/:id/mie-squadre (Verifica stato atleta, disponibilità o squadra con Tessera o Login)
 export const getMieSquadreTorneo = async (req: AuthRequest, res: Response) => {
     const torneoId = req.params.id as string;
     const userId = req.user?.userId;
+    const tesseraQuery = (req.query?.tessera as string) || (req.query?.numeroTessera as string) || '';
+    const tesseraClean = tesseraQuery.trim();
 
     try {
-        if (!userId) {
-            return res.status(401).json({ message: 'Non autenticato' });
+        let giocatore = null;
+        if (tesseraClean) {
+            giocatore = await prisma.giocatore.findFirst({
+                where: { numeroTessera: { equals: tesseraClean, mode: 'insensitive' } },
+                include: { saldo: true }
+            });
+        } else if (userId) {
+            giocatore = await prisma.giocatore.findUnique({
+                where: { userId },
+                include: { saldo: true }
+            });
         }
-
-        const giocatore = await prisma.giocatore.findUnique({
-            where: { userId },
-            include: { saldo: true }
-        });
 
         if (!giocatore) {
             return res.json({ giocatore: null, disponibilita: null, squadra: null });
@@ -792,6 +817,7 @@ export const getMieSquadreTorneo = async (req: AuthRequest, res: Response) => {
                 id: giocatore.id,
                 nome: giocatore.nome,
                 cognome: giocatore.cognome,
+                numeroTessera: giocatore.numeroTessera,
                 categoria: giocatore.categoria,
                 certificatoMedicoScadenza: giocatore.certificatoMedicoScadenza,
                 saldoAttuale: Number(giocatore.saldo?.saldoAttuale || 0)
