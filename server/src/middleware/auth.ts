@@ -61,3 +61,10 @@ export const isAdmin = (req: AuthRequest, res: Response, next: NextFunction) => 
     }
     next();
 };
+
+export const isCoachOrAdmin = (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (req.user?.role !== 'ADMIN' && req.user?.role !== 'COACH') {
+        return res.status(403).json({ message: 'Accesso negato: riservato a Coach e Amministratori' });
+    }
+    next();
+};

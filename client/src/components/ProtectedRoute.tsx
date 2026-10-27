@@ -28,15 +28,32 @@ export const ProtectedAdminRoute: React.FC = () => {
     }
 
     if (!token) {
-        console.log('ProtectedAdminRoute - No token, redirecting to /login');
         return <Navigate to="/login" replace />;
     }
 
-    const isUserAdmin = isAdmin();
-    console.log('ProtectedAdminRoute - Token present, isAdmin:', isUserAdmin);
+    if (!isAdmin()) {
+        return <Navigate to="/" replace />;
+    }
 
-    if (!isUserAdmin) {
-        console.log('ProtectedAdminRoute - Not admin, redirecting to /');
+    return <Outlet />;
+};
+
+export const ProtectedCoachRoute: React.FC = () => {
+    const { token, isCoachOrAdmin, isLoading } = useAuth();
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+        );
+    }
+
+    if (!token) {
+        return <Navigate to="/login" replace />;
+    }
+
+    if (!isCoachOrAdmin()) {
         return <Navigate to="/" replace />;
     }
 

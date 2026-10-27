@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import {
     Trophy, AlertTriangle, Clock, CheckCircle2, X,
-    Users, Calendar, MapPin, CreditCard
+    Users, Calendar, MapPin
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -70,7 +70,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
-    const { user, isAdmin, token } = useAuth();
+    const { isAdmin, token } = useAuth();
 
     const fetchStats = async (): Promise<DashboardData> => {
         const response = await axios.get(`${API_BASE_URL}/api/dashboard/stats`, {
@@ -166,31 +166,92 @@ const Dashboard: React.FC = () => {
 
     if (!data) return null;
 
-    const saldoAttuale = user?.giocatore?.saldo?.saldoAttuale || 0;
-
     return (
         <div className="space-y-10 animate-fade-in pb-12">
-            {/* Sezione Saldo Personale (se presente) */}
-            {user?.giocatore && (
-                <div className="bg-white rounded-2xl p-6 border-2 border-primary/20 shadow-lg flex flex-col md:flex-row justify-between items-center gap-6 overflow-hidden relative group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110"></div>
-                    <div className="flex items-center gap-4 relative">
-                        <div className="p-4 bg-primary rounded-2xl text-white shadow-xl shadow-primary/30">
-                            <CreditCard className="w-8 h-8" />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Il Tuo Borsellino</p>
-                            <h2 className="text-2xl font-black text-dark uppercase tracking-tight">{user.giocatore.nome} {user.giocatore.cognome}</h2>
+            {/* SEZIONE SPOTLIGHT: VITTORIE & CAMPIONI */}
+            <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white rounded-[2.5rem] p-6 sm:p-8 md:p-10 shadow-2xl border-2 border-amber-400/40 relative overflow-hidden group">
+                {/* Effetti di luce decorativi */}
+                <div className="absolute -right-20 -top-20 w-96 h-96 bg-amber-400/15 rounded-full blur-3xl pointer-events-none group-hover:bg-amber-400/25 transition-all duration-700"></div>
+                <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-primary/20 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                    {/* Colonna Sinistra: FOTO DEI CAMPIONI */}
+                    <div className="lg:col-span-5 flex justify-center">
+                        <div className="relative group/photo w-full max-w-sm">
+                            <div className="absolute -inset-1.5 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 rounded-3xl blur-xs opacity-75 group-hover/photo:opacity-100 transition duration-500"></div>
+                            <div className="relative rounded-2xl overflow-hidden shadow-2xl border-2 border-amber-300/80 bg-slate-900">
+                                <img
+                                    src="/notizie/campioni-doppio-misto-2026.jpg"
+                                    alt="Eva Lemstra ed Emanuele Camponesco - Campioni Italiani Doppio Misto 2026/27"
+                                    className="w-full max-h-[460px] object-cover object-top hover:scale-105 transition-transform duration-700"
+                                />
+                                {/* Badge sovraimpresso foto */}
+                                <div className="absolute bottom-3 left-3 right-3 bg-slate-950/85 backdrop-blur-md px-3.5 py-2 rounded-xl border border-amber-400/30 flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5 text-amber-300 text-[10px] font-black uppercase tracking-wider">
+                                        <Trophy className="w-3.5 h-3.5" />
+                                        <span>Titolo Italiano FISB</span>
+                                    </div>
+                                    <span className="text-[10px] text-white/80 font-bold uppercase">24-25 Ottobre 2026</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div className="text-center md:text-right relative">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Saldo Attuale</p>
-                        <p className={`text-4xl font-black ${Number(saldoAttuale) < 0 ? 'text-red-500' : 'text-green-600'}`}>
-                            {new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(saldoAttuale))}
-                        </p>
+
+                    {/* Colonna Destra: TESTO CELEBRATIVO ED ELOGIO */}
+                    <div className="lg:col-span-7 space-y-5">
+                        <div className="space-y-2">
+                            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-300 text-slate-950 font-black text-xs uppercase tracking-widest shadow-md">
+                                <Trophy className="w-4 h-4" />
+                                <span>Campionato Italiano Doppio Misto 2026/27</span>
+                            </div>
+
+                            <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-tight text-white leading-none">
+                                GRAZIE <span className="text-amber-300">CAMPIONI!</span> 🏆
+                            </h1>
+                        </div>
+
+                        <div className="space-y-3 text-slate-200 text-sm sm:text-base leading-relaxed font-medium">
+                            <p>
+                                Nel fine settimana del <strong className="text-white font-bold">24 e 25 ottobre</strong> i nostri straordinari campioni{' '}
+                                <strong className="text-amber-300 font-bold">Eva Lemstra</strong> ed{' '}
+                                <strong className="text-amber-300 font-bold">Emanuele Camponesco</strong> ci hanno reso immensamente orgogliosi di averli nella famiglia dell'All Star Team.
+                            </p>
+                            <p>
+                                Con una prestazione di altissimo livello, grinta, determinazione e grandissimo merito portano a casa il prestigioso{' '}
+                                <strong className="text-white font-bold">Titolo Italiano di Doppio Misto 2026/27</strong>, salendo sul gradino più alto d'Italia! 🇮🇹
+                            </p>
+                            <p className="text-amber-200 font-bold italic text-base sm:text-lg pt-1">
+                                «Grazie ragazzi, il vostro successo è l'orgoglio e l'ispirazione di tutta la nostra squadra!» ⭐🎳
+                            </p>
+                        </div>
+
+                        {/* Schede Atleti Vincitori con Medie */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                            <div className="bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/15 flex items-center justify-between">
+                                <div>
+                                    <span className="text-[10px] font-bold text-amber-300 uppercase tracking-widest block">Campionessa Italiana</span>
+                                    <h4 className="font-black text-white text-sm uppercase">Eva Lemstra</h4>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-[10px] font-black bg-amber-400 text-slate-950 px-2 py-0.5 rounded uppercase">Cat. A</span>
+                                    <span className="text-[10px] text-slate-300 block mt-0.5 font-bold">Media: 188.5</span>
+                                </div>
+                            </div>
+
+                            <div className="bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/15 flex items-center justify-between">
+                                <div>
+                                    <span className="text-[10px] font-bold text-amber-300 uppercase tracking-widest block">Campione Italiano</span>
+                                    <h4 className="font-black text-white text-sm uppercase">Emanuele Camponesco</h4>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-[10px] font-black bg-amber-400 text-slate-950 px-2 py-0.5 rounded uppercase">Cat. A</span>
+                                    <span className="text-[10px] text-slate-300 block mt-0.5 font-bold">Media: 207.5</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            )}
+            </div>
 
             {/* 1. Header con cards statistiche */}
             <div className="space-y-4">

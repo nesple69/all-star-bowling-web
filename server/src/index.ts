@@ -15,6 +15,7 @@ import importRoutes from './routes/import';
 import partiteRoutes from './routes/partite';
 import backupRoutes from './routes/backup';
 import usersRoutes from './routes/users';
+import coachRoutes from './routes/coach';
 import keepAliveRoutes from './routes/keepAlive';
 import { prisma } from './lib/prisma';
 
@@ -70,6 +71,7 @@ app.use((req, res, next) => {
 });
 
 apiRouter.use('/tornei', torneiRoutes);
+apiRouter.use('/coach', coachRoutes);
 apiRouter.use('/dashboard', dashboardRoutes);
 apiRouter.use('/stagioni', stagioniRoutes);
 apiRouter.use('/import', importRoutes);
@@ -82,10 +84,6 @@ apiRouter.use('/', contabilitaRoutes);
 // Applichiamo il router sia a /api che alla radice per massima compatibilità
 app.use('/api', apiRouter);
 app.use('/', apiRouter);
-
-
-
-
 
 app.get('/api/health', (req, res) => {
     res.json({

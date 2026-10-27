@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as torneiController from '../controllers/torneiController';
 import * as iscrizioniController from '../controllers/iscrizioniController';
+import * as coachController from '../controllers/coachController';
 import { authenticateToken, isAdmin, optionalAuthenticate } from '../middleware/auth';
 
 const router = Router();
@@ -10,9 +11,17 @@ router.get('/public', torneiController.getTorneiPublici);
 router.get('/public/:id', torneiController.getTorneoPublicById);
 router.get('/public/:id/disponibilita', iscrizioniController.getDisponibilitaTurni);
 router.get('/public/:id/iscritti', iscrizioniController.getIscrizioniPublic);
+router.get('/public/:id/disponibilita-atleti', coachController.getDisponibilitaAtleti);
+router.get('/public/:id/squadre', coachController.getSquadreTorneoPublic);
 router.get('/classifiche', torneiController.getClassifiche);
 router.get('/lookup-tessera/:tessera', optionalAuthenticate, iscrizioniController.lookupTessera);
 router.post('/iscriviti', authenticateToken, iscrizioniController.iscriviGiocatore);
+
+// --- Flusso Disponibilità & Squadre (Utente Autenticato) ---
+router.post('/:id/disponibilita', authenticateToken, coachController.daiDisponibilita);
+router.delete('/:id/disponibilita', authenticateToken, coachController.ritiraDisponibilita);
+router.get('/:id/mie-squadre', authenticateToken, coachController.getMieSquadreTorneo);
+router.post('/squadre/:squadraId/scegli-turno', authenticateToken, coachController.scegliTurnoSquadra);
 
 // --- Endpoint Protetti (Solo ADMIN) ---
 router.get('/', authenticateToken, isAdmin, torneiController.getTorneiAdmin);

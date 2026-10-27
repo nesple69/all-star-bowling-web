@@ -46,6 +46,8 @@ model Giocatore {
   movimenti                 MovimentoContabile[]
   risultati                 RisultatoTorneo[]
   saldo                     SaldoBorsellino?
+  disponibilita             DisponibilitaTorneo[]
+  squadreConfermate         SquadraTorneo[]      @relation("SquadraConfermataDa")
 
   @@index([attivo])
 }
@@ -78,6 +80,8 @@ model Torneo {
   iscrizioni     IscrizioneTorneo[]
   risultati      RisultatoTorneo[]
   sedi           SedeTorneo[]
+  disponibilita  DisponibilitaTorneo[]
+  squadre        SquadraTorneo[]
   stagione       Stagione            @relation(fields: [stagioneId], references: [id])
 
   @@index([stagioneId, dataInizio])
@@ -94,33 +98,38 @@ model GiorniOrariTorneo {
   sede                 SedeTorneo?        @relation(fields: [sedeId], references: [id])
   iscrizioni           IscrizioneTorneo[] @relation("TurnoPrincipale")
   iscrizioniSecondarie IscrizioneTorneo[] @relation("TurnoRiserva")
+  squadre              SquadraTorneo[]    @relation("SquadraTurnoPrincipale")
+  squadreRiserva       SquadraTorneo[]    @relation("SquadraTurnoRiserva")
 
   @@index([torneoId, orarioInizio])
 }
 
 model IscrizioneTorneo {
-  id             String            @id @default(uuid())
+  id             String             @id @default(uuid())
   torneoId       String
   giocatoreId    String
-  turnoId        String
+  turnoId        String?
   secondoTurnoId String?
   sedeId         String?
   gruppoId       String?
   nomeSquadra    String?
-  isRiserva      Boolean           @default(false)
-  stato          StatoIscrizione   @default(PENDENTE)
+  squadraId      String?
+  isRiserva      Boolean            @default(false)
+  stato          StatoIscrizione    @default(PENDENTE)
   note           String?
-  createdAt      DateTime          @default(now())
-  giocatore      Giocatore         @relation(fields: [giocatoreId], references: [id])
-  torneo         Torneo            @relation(fields: [torneoId], references: [id], onDelete: Cascade)
-  turno          GiorniOrariTorneo @relation("TurnoPrincipale", fields: [turnoId], references: [id])
+  createdAt      DateTime           @default(now())
+  giocatore      Giocatore          @relation(fields: [giocatoreId], references: [id])
+  torneo         Torneo             @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  turno          GiorniOrariTorneo? @relation("TurnoPrincipale", fields: [turnoId], references: [id])
   secondoTurno   GiorniOrariTorneo? @relation("TurnoRiserva", fields: [secondoTurnoId], references: [id])
-  sede           SedeTorneo?       @relation(fields: [sedeId], references: [id])
+  sede           SedeTorneo?        @relation(fields: [sedeId], references: [id])
+  squadra        SquadraTorneo?     @relation(fields: [squadraId], references: [id], onDelete: SetNull)
 
   @@unique([torneoId, giocatoreId])
   @@index([torneoId, turnoId])
   @@index([giocatoreId])
   @@index([gruppoId])
+  @@index([squadraId])
 }
 
 model RisultatoTorneo {
@@ -168,6 +177,42 @@ model SedeTorneo {
   torneo     Torneo             @relation(fields: [torneoId], references: [id], onDelete: Cascade)
   iscrizioni IscrizioneTorneo[]
   turni      GiorniOrariTorneo[]
+  squadre    SquadraTorneo[]
+}
+
+model DisponibilitaTorneo {
+  id          String             @id @default(uuid())
+  torneoId    String
+  giocatoreId String
+  stato       StatoDisponibilita @default(IN_ATTESA)
+  note        String?
+  createdAt   DateTime           @default(now())
+  giocatore   Giocatore          @relation(fields: [giocatoreId], references: [id], onDelete: Cascade)
+  torneo      Torneo             @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+
+  @@unique([torneoId, giocatoreId])
+  @@index([torneoId, stato])
+  @@index([giocatoreId])
+}
+
+model SquadraTorneo {
+  id             String              @id @default(uuid())
+  torneoId       String
+  nomeSquadra    String
+  turnoId        String?
+  secondoTurnoId String?
+  sedeId         String?
+  confermataDaId String?
+  confermatoIl   DateTime?
+  createdAt      DateTime            @default(now())
+  torneo         Torneo              @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  turno          GiorniOrariTorneo?  @relation("SquadraTurnoPrincipale", fields: [turnoId], references: [id])
+  secondoTurno   GiorniOrariTorneo?  @relation("SquadraTurnoRiserva", fields: [secondoTurnoId], references: [id])
+  sede           SedeTorneo?         @relation(fields: [sedeId], references: [id])
+  confermataDa   Giocatore?          @relation("SquadraConfermataDa", fields: [confermataDaId], references: [id])
+  iscrizioni     IscrizioneTorneo[]
+
+  @@index([torneoId])
 }
 
 model MovimentoContabile {
@@ -193,6 +238,14 @@ model SaldoBorsellino {
 enum Ruolo {
   USER
   ADMIN
+  COACH
+}
+
+enum StatoDisponibilita {
+  IN_ATTESA
+  ASSEGNATO
+  RISERVA
+  RITIRATO
 }
 
 enum Sesso {

@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, User as UserIcon, Trophy, Users, Home, Settings, CreditCard, Calendar } from 'lucide-react';
+import { LogOut, User as UserIcon, Trophy, Users, Home, Settings, CreditCard, Calendar, Award } from 'lucide-react';
 
 const Header: React.FC = () => {
-    const { user, logout, isAdmin } = useAuth();
+    const { user, logout, isAdmin, isCoachOrAdmin } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -20,6 +20,10 @@ const Header: React.FC = () => {
         { path: '/tornei', label: 'TORNEI', icon: <Trophy className="w-4 h-4" /> },
         { path: '/giocatori', label: 'GIOCATORI', icon: <Users className="w-4 h-4" /> },
     ];
+
+    if (isCoachOrAdmin()) {
+        navItems.push({ path: '/coach', label: 'AREA COACH', icon: <Award className="w-4 h-4 text-amber-300" /> });
+    }
 
     if (isAdmin()) {
         navItems.push({ path: '/admin/tornei', label: 'GESTIONE', icon: <Settings className="w-4 h-4" /> });
@@ -74,7 +78,9 @@ const Header: React.FC = () => {
                             <div className="flex items-center gap-2 sm:gap-3 bg-white/10 backdrop-blur-xs p-1.5 sm:px-3 sm:py-1.5 rounded-2xl border border-white/15">
                                 <div className="hidden md:flex flex-col items-end">
                                     <span className="text-white font-bold text-xs uppercase leading-tight">{user.nome} {user.cognome}</span>
-                                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-black uppercase tracking-tight mt-0.5 ${isAdmin() ? 'bg-secondary text-white' : 'bg-white/20 text-white'}`}>
+                                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-black uppercase tracking-tight mt-0.5 ${
+                                        user.ruolo === 'ADMIN' ? 'bg-secondary text-white' : user.ruolo === 'COACH' ? 'bg-amber-400 text-slate-950' : 'bg-white/20 text-white'
+                                    }`}>
                                         {user.ruolo}
                                     </span>
                                 </div>

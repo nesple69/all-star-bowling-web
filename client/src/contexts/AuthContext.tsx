@@ -27,6 +27,8 @@ interface AuthContextType {
     login: (username: string, password: string) => Promise<void>;
     logout: () => void;
     isAdmin: () => boolean;
+    isCoach: () => boolean;
+    isCoachOrAdmin: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -79,9 +81,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const isAdmin = () => user?.ruolo === 'ADMIN';
+    const isCoach = () => user?.ruolo === 'COACH';
+    const isCoachOrAdmin = () => user?.ruolo === 'ADMIN' || user?.ruolo === 'COACH';
 
     return (
-        <AuthContext.Provider value={{ user, setUser, token, isLoading, login, logout, isAdmin }}>
+        <AuthContext.Provider value={{ user, setUser, token, isLoading, login, logout, isAdmin, isCoach, isCoachOrAdmin }}>
             {children}
         </AuthContext.Provider>
     );

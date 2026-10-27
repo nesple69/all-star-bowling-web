@@ -1,42 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import { API_BASE_URL } from '../config';
+import { useAuth } from '../contexts/AuthContext';
 import {
     Trophy, Calendar, MapPin, Download,
-    ChevronLeft, Users, FileText, UserPlus, CheckCircle2
+    ChevronLeft, Users, FileText, UserPlus, CheckCircle2,
+    AlertCircle, Clock, Check, X, Award
 } from 'lucide-react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 
-interface Risultato {
-    id: string;
-    posizione: number;
-    partiteGiocate: number;
-    totaleBirilli: number;
-    totaleBirilliSquadra?: number | null;
-    divisione?: string | null;
-    isRiserva: boolean;
-    riporto?: number;
-    giocatore: {
-        nome: string;
-        cognome: string;
-        sesso: string;
-        categoria: string;
-    };
-    partite: {
-        id?: string;
-        numeroPartita: number;
-        birilli: number;
-        isRiporto?: boolean;
-    }[];
-}
-
 interface Torneo {
     id: string;
     nome: string;
-    tipologia: string;
+    tipologia: 'SINGOLO' | 'DOPPIO' | 'TRIS' | 'SQUADRA_4';
     sede: string;
     dataInizio: string;
     dataFine: string;
@@ -44,7 +23,7 @@ interface Torneo {
     locandina?: string;
     linkIscrizione?: string;
     stagione: { nome: string };
-    risultati: Risultato[];
+    risultati: any[];
     turni: any[];
     mostraBottoneIscrizione: boolean;
     costoIscrizione: number;
@@ -61,24 +40,118 @@ interface Disponibilita {
     sede?: { id: string; nome: string } | null;
 }
 
+interface SquadraPubblica {
+    id: string;
+    nomeSquadra: string;
+    turnoId?: string | null;
+    secondoTurnoId?: string | null;
+    confermatoIl?: string | null;
+    confermataDa?: { id: string; nome: string; cognome: string } | null;
+    turno?: {
+        giorno: string;
+        orarioInizio: string;
+        sede?: { nome: string } | null;
+    } | null;
+    secondoTurno?: {
+        giorno: string;
+        orarioInizio: string;
+        sede?: { nome: string } | null;
+    } | null;
+    iscrizioni: {
+        id: string;
+        giocatore: {
+            id: string;
+            nome: string;
+            cognome: string;
+            categoria: string;
+            mediaAttuale: number;
+            sesso: string;
+        };
+    }[];
+}
+
+interface MieSquadreData {
+    giocatore: {
+        id: string;
+        nome: string;
+        cognome: string;
+        categoria: string;
+        certificatoMedicoScadenza: string | null;
+        saldoAttuale: number;
+    } | null;
+    disponibilita: {
+        id: string;
+        stato: 'IN_ATTESA' | 'ASSEGNATO' | 'RISERVA' | 'RITIRATO';
+        note?: string | null;
+    } | null;
+    squadra: SquadraPubblica | null;
+}
+
+interface AtletaDisponibile {
+    id: string;
+    giocatoreId: string;
+    stato: string;
+    createdAt: string;
+    giocatore: {
+        id: string;
+        nome: string;
+        cognome: string;
+        categoria: string;
+        mediaAttuale: number;
+        sesso: string;
+    };
+}
+
 const DettaglioTorneo: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [disponibilita, setDisponibilita] = useState<any[]>([]);
+    const { user, token } = useAuth();
+
+    const [disponibilita, setDisponibilita] = useState<Disponibilita[]>([]);
     const [iscritti, setIscritti] = useState<any[]>([]);
-    const [showIscritti, setShowIscritti] = useState(false);
+    const [candidatiDisponibili, setCandidatiDisponibili] = useState<AtletaDisponibile[]>([]);
+    const [squadreConfermate, setSquadreConfermate] = useState<SquadraPubblica[]>([]);
+    const [mieSquadre, setMieSquadre] = useState<MieSquadreData | null>(null);
+
+    const [activeTab, setActiveTab] = useState<'squadre' | 'turni' | 'iscritti' | 'disponibili'>('squadre');
     const [isLoading, setIsLoading] = useState(true);
+
+    // Modale Scelta Turno Squadra
+    const [modalTurnoOpen, setModalTurnoOpen] = useState(false);
+    const [selectedTurnoId, setSelectedTurnoId] = useState('');
+    const [selectedSecondoTurnoId, setSelectedSecondoTurnoId] = useState('');
+    const [salvataggioTurno, setSalvataggioTurno] = useState(false);
+
+    // Feedback
+    const [feedback, setFeedback] = useState<{ tipo: 'success' | 'error'; testo: string } | null>(null);
+    const [azioneInCorso, setAzioneInCorso] = useState(false);
 
     const fetchTorneoData = async () => {
         const resTorneo = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}`);
         const resDisp = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/disponibilita`);
         setDisponibilita(resDisp.data);
+
         try {
             const resIscr = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/iscritti`);
             setIscritti(resIscr.data);
         } catch (err) {
-            console.error('Errore caricamento iscritti:', err);
+            console.error('Errore iscritti:', err);
         }
+
+        try {
+            const resCand = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/disponibilita-atleti`);
+            setCandidatiDisponibili(resCand.data);
+        } catch (err) {
+            console.error('Errore candidati:', err);
+        }
+
+        try {
+            const resSquadre = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/squadre`);
+            setSquadreConfermate(resSquadre.data);
+        } catch (err) {
+            console.error('Errore formazioni:', err);
+        }
+
         setIsLoading(false);
         return {
             torneo: resTorneo.data as Torneo,
@@ -86,7 +159,7 @@ const DettaglioTorneo: React.FC = () => {
         };
     };
 
-    const { data } = useQuery({
+    const { data, refetch: refetchTorneo } = useQuery({
         queryKey: ['torneoDetail', id],
         queryFn: fetchTorneoData,
         enabled: !!id
@@ -94,14 +167,123 @@ const DettaglioTorneo: React.FC = () => {
 
     const torneo = data?.torneo;
 
+    // Carica stato atleta per tornei a squadre
+    const ricaricaMieSquadre = async () => {
+        if (!id || !token) return;
+        try {
+            const res = await axios.get(`${API_BASE_URL}/api/tornei/${id}/mie-squadre`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setMieSquadre(res.data);
+        } catch (err) {
+            console.error('Errore getMieSquadreTorneo:', err);
+        }
+    };
+
+    useEffect(() => {
+        if (token && id) {
+            ricaricaMieSquadre();
+        }
+    }, [token, id]);
+
+    // Imposta tab iniziale
+    useEffect(() => {
+        if (torneo?.tipologia === 'SINGOLO') {
+            setActiveTab('turni');
+        } else {
+            setActiveTab('squadre');
+        }
+    }, [torneo?.tipologia]);
+
     const handleOpenIscrizione = (turnoId?: string) => {
         navigate(`/tornei/${id}/iscrizione${turnoId ? `?turnoId=${turnoId}` : ''}`);
+    };
+
+    // Azione Atleta: Dai Disponibilità
+    const handleDaiDisponibilita = async () => {
+        if (!token) {
+            navigate('/login');
+            return;
+        }
+
+        setAzioneInCorso(true);
+        setFeedback(null);
+        try {
+            const res = await axios.post(
+                `${API_BASE_URL}/api/tornei/${id}/disponibilita`,
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setFeedback({ tipo: 'success', testo: res.data.message || 'Disponibilità registrata!' });
+            await Promise.all([ricaricaMieSquadre(), refetchTorneo()]);
+        } catch (err: any) {
+            setFeedback({
+                tipo: 'error',
+                testo: err.response?.data?.message || 'Errore nella registrazione della disponibilità.'
+            });
+        } finally {
+            setAzioneInCorso(false);
+        }
+    };
+
+    // Azione Atleta: Ritira Disponibilità
+    const handleRitiraDisponibilita = async () => {
+        if (!window.confirm('Sei sicuro di voler ritirare la tua disponibilità per questo torneo?')) {
+            return;
+        }
+
+        setAzioneInCorso(true);
+        setFeedback(null);
+        try {
+            const res = await axios.delete(`${API_BASE_URL}/api/tornei/${id}/disponibilita`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setFeedback({ tipo: 'success', testo: res.data.message || 'Disponibilità ritirata.' });
+            await Promise.all([ricaricaMieSquadre(), refetchTorneo()]);
+        } catch (err: any) {
+            setFeedback({
+                tipo: 'error',
+                testo: err.response?.data?.message || 'Errore nel ritiro della disponibilità.'
+            });
+        } finally {
+            setAzioneInCorso(false);
+        }
+    };
+
+    // Azione Atleta: Conferma Turno per la Squadra
+    const handleConfermaTurnoSquadra = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!mieSquadre?.squadra?.id || !selectedTurnoId) return;
+
+        setSalvataggioTurno(true);
+        setFeedback(null);
+        try {
+            const res = await axios.post(
+                `${API_BASE_URL}/api/tornei/squadre/${mieSquadre.squadra.id}/scegli-turno`,
+                {
+                    turnoId: selectedTurnoId,
+                    secondoTurnoId: selectedSecondoTurnoId || null
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setFeedback({ tipo: 'success', testo: res.data.message || 'Turno assegnato con successo alla squadra!' });
+            setModalTurnoOpen(false);
+            await Promise.all([ricaricaMieSquadre(), refetchTorneo()]);
+        } catch (err: any) {
+            setFeedback({
+                tipo: 'error',
+                testo: err.response?.data?.message || 'Errore nella scelta del turno.'
+            });
+        } finally {
+            setSalvataggioTurno(false);
+        }
     };
 
     if (isLoading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
     if (!torneo) return <div className="text-center py-20 font-black uppercase text-gray-300">Torneo non trovato</div>;
 
     const isScaduto2Giorni = differenceInDays(new Date(torneo.dataInizio), new Date()) <= -2;
+    const isTorneoASquadre = torneo.tipologia !== 'SINGOLO';
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 animate-fade-in pb-20 text-dark">
@@ -124,7 +306,9 @@ const DettaglioTorneo: React.FC = () => {
                             Scarica Locandina
                         </a>
                     )}
-                    {torneo.mostraBottoneIscrizione && !torneo.completato && !isScaduto2Giorni && (
+
+                    {/* Per il SINGOLO: pulsante classico d'iscrizione */}
+                    {!isTorneoASquadre && torneo.mostraBottoneIscrizione && !torneo.completato && !isScaduto2Giorni && (
                         <button
                             onClick={() => handleOpenIscrizione(torneo.turni[0]?.id || '')}
                             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-secondary text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-secondary/20 hover:scale-105 transition-all"
@@ -135,6 +319,19 @@ const DettaglioTorneo: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            {/* Feedback Alert */}
+            {feedback && (
+                <div className={`p-4 rounded-2xl flex items-center justify-between text-xs font-bold uppercase tracking-wide border shadow-sm ${
+                    feedback.tipo === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200'
+                }`}>
+                    <div className="flex items-center gap-2">
+                        {feedback.tipo === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />}
+                        <span>{feedback.testo}</span>
+                    </div>
+                    <button onClick={() => setFeedback(null)} className="text-[10px] underline font-black ml-4">Chiudi</button>
+                </div>
+            )}
 
             {/* Hero Section */}
             <div className="bg-white rounded-[3rem] p-8 md:p-12 shadow-sm border border-gray-100 overflow-hidden relative">
@@ -148,6 +345,11 @@ const DettaglioTorneo: React.FC = () => {
                         <span className="px-3 py-1 bg-gray-100 text-gray-500 text-[10px] font-black uppercase tracking-widest rounded-full">
                             {torneo.tipologia.replace('_', ' ')}
                         </span>
+                        {isTorneoASquadre && (
+                            <span className="px-3 py-1 bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-widest rounded-full border border-amber-200">
+                                Gara a Squadre con Coach
+                            </span>
+                        )}
                     </div>
 
                     <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter leading-none">{torneo.nome}</h1>
@@ -212,388 +414,551 @@ const DettaglioTorneo: React.FC = () => {
                 </div>
             </div>
 
-            {/* Risultati o Turni */}
-            {torneo.completato ? (
-                <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
-                    <div className="p-6 md:p-8 bg-gray-50/50 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            {/* SEZIONE SPECIALE: WORKFLOW DISPONIBILITÀ E SQUADRA DELL'ATLETA LOGGATO */}
+            {isTorneoASquadre && !torneo.completato && (
+                <div className="bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-[2.5rem] p-6 sm:p-10 shadow-xl space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-white/10">
                         <div>
-                            <h2 className="text-xl font-black uppercase tracking-tight text-dark flex items-center gap-2">
-                                <Trophy className="w-5 h-5 text-secondary" />
-                                Classifica Ufficiale
+                            <div className="flex items-center gap-2 text-amber-300 text-xs font-black uppercase tracking-widest">
+                                <Award className="w-4 h-4" />
+                                <span>Iscrizione per Gare a Squadre</span>
+                            </div>
+                            <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight mt-1">
+                                La tua Partecipazione ({torneo.tipologia.replace('_', ' ')})
                             </h2>
-                            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">
-                                {torneo.tipologia.replace('_', ' ')} • {torneo.risultati.length} Atleti
-                            </p>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Quota Torneo Atleta</span>
+                            <span className="text-xl sm:text-2xl font-black text-amber-300">€{Number(torneo.costoIscrizione || 0).toFixed(2)}</span>
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-gray-50/80 border-b border-gray-100">
-                                    <th className="px-4 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center w-14">Pos</th>
-                                    <th className="px-5 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Atleta</th>
-                                    <th className="px-4 py-4 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">Partite</th>
-                                    <th className="px-4 py-4 text-center text-[10px] font-black text-primary uppercase tracking-widest">Media</th>
-                                    <th className="px-4 py-4 text-center text-[10px] font-black text-dark uppercase tracking-widest">Totale</th>
-                                    {torneo.tipologia !== 'SINGOLO' && (
-                                        <th className="px-5 py-4 text-center text-[10px] font-black text-secondary uppercase tracking-widest bg-secondary/5">
-                                            {torneo.tipologia === 'DOPPIO' ? 'Tot. Doppio' : 'Tot. Squadra'}
-                                        </th>
-                                    )}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {(() => {
-                                    const isTeam = torneo.tipologia !== 'SINGOLO';
-                                    const risultatiList = torneo.risultati || [];
-                                    
-                                    // Raggruppamento squadre per divisione + posizione (o id per singoli)
-                                    const groupedTeams = risultatiList.reduce((acc: any, ris: any) => {
-                                        const teamId = isTeam 
-                                            ? `${ris.divisione || 'default'}_${ris.posizione}` 
-                                            : ris.id;
-                                        if (!acc[teamId]) acc[teamId] = [];
-                                        acc[teamId].push(ris);
-                                        return acc;
-                                    }, {});
+                    {!user ? (
+                        <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 text-center space-y-3">
+                            <Users className="w-8 h-8 text-amber-300 mx-auto" />
+                            <p className="text-xs font-bold uppercase tracking-wider">
+                                Accedi con le tue credenziali atleta per dare la disponibilità a giocare questo torneo.
+                            </p>
+                            <button
+                                onClick={() => navigate('/login')}
+                                className="px-6 py-2.5 bg-amber-400 text-slate-950 font-black uppercase text-xs rounded-xl hover:bg-amber-300 transition-all shadow-md"
+                            >
+                                Accedi per Partecipare
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {/* STATO 1: L'atleta non ha ancora dato disponibilità e non è in squadra */}
+                            {!mieSquadre?.disponibilita && !mieSquadre?.squadra && (
+                                <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 space-y-4">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                        <div>
+                                            <p className="font-black text-sm uppercase text-white">
+                                                Vuoi partecipare a questa gara di {torneo.tipologia.replace('_', ' ')}?
+                                            </p>
+                                            <p className="text-xs text-slate-300 font-medium mt-1">
+                                                Dai la tua disponibilità: verrai inserito nell'elenco per il Coach, che comporrà le formazioni ufficiali.
+                                            </p>
+                                        </div>
 
-                                    const divisions: Record<string, any[]> = {};
+                                        <button
+                                            onClick={handleDaiDisponibilita}
+                                            disabled={azioneInCorso}
+                                            className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-yellow-200 text-slate-950 font-black uppercase text-xs tracking-wider rounded-xl shadow-lg transition-all transform hover:scale-105 shrink-0 disabled:opacity-50"
+                                        >
+                                            {azioneInCorso ? 'Registrazione...' : 'Do la mia disponibilità'}
+                                        </button>
+                                    </div>
 
-                                    Object.values(groupedTeams).forEach((team: any) => {
-                                        const p1 = team[0];
-                                        let divName = p1.divisione || '';
-
-                                        if (!divName) {
-                                            if (torneo.tipologia === 'SINGOLO' && p1.giocatore?.sesso && p1.giocatore?.categoria) {
-                                                divName = `${p1.giocatore.sesso}/${p1.giocatore.categoria}`;
-                                            } else if (torneo.tipologia === 'DOPPIO' || torneo.tipologia === 'TRIS') {
-                                                const hasEccellenza = team.some((m: any) => ['A', 'B'].includes(m.giocatore?.categoria));
-                                                const allFemale = team.every((m: any) => m.giocatore?.sesso === 'F');
-                                                const genere = allFemale ? 'Femminile' : 'Maschile';
-                                                const livello = hasEccellenza ? 'Eccellenza' : 'Cadetti';
-                                                divName = `${livello} ${genere}`;
-                                            } else if (torneo.tipologia === 'SQUADRA_4' || torneo.tipologia === 'SQUADRA') {
-                                                const hasEccellenza = team.some((m: any) => ['A', 'B'].includes(m.giocatore?.categoria));
-                                                divName = hasEccellenza ? 'Eccellenza' : 'Cadetti';
-                                            } else {
-                                                divName = 'Classifica';
-                                            }
-                                        }
-
-                                        if (!divisions[divName]) divisions[divName] = [];
-                                        divisions[divName].push(team);
-                                    });
-
-                                    const sortedDivisionNames = Object.keys(divisions).sort((a, b) => a.localeCompare(b));
-
-                                    return sortedDivisionNames.map((divName) => {
-                                        const teamsInDiv = divisions[divName];
-                                        const sortedTeams = teamsInDiv.sort((a, b) => a[0].posizione - b[0].posizione);
-
-                                        return (
-                                            <React.Fragment key={divName}>
-                                                {divName && divName !== 'Classifica' && (
-                                                    <tr className="bg-primary/5">
-                                                        <td colSpan={isTeam ? 6 : 5} className="px-5 py-2.5 border-y border-primary/10">
-                                                            <span className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                                                                <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>
-                                                                Categoria {divName}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                )}
-
-                                                {sortedTeams.map((members: any, teamIdx: number) => {
-                                                    const teamTotal = members[0].totaleBirilliSquadra || members.reduce((sum: number, m: any) => sum + m.totaleBirilli, 0);
-                                                    const isEvenTeam = teamIdx % 2 === 0;
-
-                                                    return members.map((r: any, memberIdx: number) => {
-                                                        const isFirstInGroup = memberIdx === 0;
-                                                        const isLastInGroup = memberIdx === members.length - 1;
-
-                                                        return (
-                                                            <tr 
-                                                                key={r.id} 
-                                                                className={`transition-colors ${
-                                                                    isTeam && isEvenTeam ? 'bg-gray-50/30' : 'bg-white'
-                                                                } ${
-                                                                    isLastInGroup ? 'border-b-2 border-gray-100' : 'border-b border-gray-50'
-                                                                } ${r.isRiserva ? 'opacity-60' : ''} hover:bg-primary/5`}
-                                                            >
-                                                                {/* Posizione */}
-                                                                <td className="px-4 py-3 text-center align-middle">
-                                                                    {isFirstInGroup && (
-                                                                        r.isRiserva ? (
-                                                                            <span className="text-[10px] font-black text-gray-300 uppercase leading-none">RIS</span>
-                                                                        ) : (
-                                                                            <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black shadow-sm ${
-                                                                                r.posizione === 1 
-                                                                                    ? 'bg-amber-400 text-white shadow-amber-200' 
-                                                                                    : r.posizione === 2 
-                                                                                        ? 'bg-slate-300 text-white' 
-                                                                                        : r.posizione === 3 
-                                                                                            ? 'bg-amber-600/30 text-amber-800' 
-                                                                                            : 'bg-gray-100 text-gray-600'
-                                                                            }`}>
-                                                                                {r.posizione}
-                                                                            </span>
-                                                                        )
-                                                                    )}
-                                                                </td>
-
-                                                                {/* Atleta */}
-                                                                <td className="px-5 py-3">
-                                                                    <div className="flex flex-col">
-                                                                        <span className="font-black text-dark text-sm uppercase leading-tight">
-                                                                            {r.giocatore?.cognome || ''} {r.giocatore?.nome || ''}
-                                                                        </span>
-                                                                        <span className="text-[10px] font-black text-primary uppercase">
-                                                                            {r.giocatore?.sesso || ''}/{r.giocatore?.categoria || ''}
-                                                                        </span>
-                                                                    </div>
-                                                                </td>
-
-                                                                {/* Partite */}
-                                                                <td className="px-4 py-3 text-center">
-                                                                    <div className="flex flex-wrap items-center justify-center gap-1">
-                                                                        {r.partite && r.partite.length > 0 ? (
-                                                                            r.partite.map((p: any, idx: number) => (
-                                                                                <span 
-                                                                                    key={idx} 
-                                                                                    className={`text-xs font-bold px-2 py-0.5 rounded-lg border min-w-[32px] text-center shadow-2xs ${
-                                                                                        p.isRiporto 
-                                                                                            ? 'bg-red-50 text-red-600 border-red-200 font-black' 
-                                                                                            : 'bg-gray-50 text-dark/80 border-gray-200'
-                                                                                    }`}
-                                                                                    title={p.isRiporto ? `Riporto: ${p.birilli}` : `Partita ${p.numeroPartita || idx + 1}: ${p.birilli}`}
-                                                                                >
-                                                                                    {p.birilli}
-                                                                                </span>
-                                                                            ))
-                                                                        ) : (
-                                                                            <span className="text-xs text-gray-400 font-bold italic">{r.partiteGiocate} partite</span>
-                                                                        )}
-                                                                        {r.riporto > 0 && !r.partite?.some((p: any) => p.isRiporto) && (
-                                                                            <span className="text-[10px] font-black text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
-                                                                                +{r.riporto} RIP
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                </td>
-
-                                                                {/* Media */}
-                                                                <td className="px-4 py-3 text-center">
-                                                                    <span className="text-sm font-black text-primary">
-                                                                        {r.partiteGiocate > 0 ? (r.totaleBirilli / r.partiteGiocate).toFixed(2) : '0.00'}
-                                                                    </span>
-                                                                </td>
-
-                                                                {/* Totale Individuale */}
-                                                                <td className="px-4 py-3 text-center">
-                                                                    <span className="text-sm font-black text-dark">
-                                                                        {r.totaleBirilli}
-                                                                    </span>
-                                                                </td>
-
-                                                                {/* Totale Squadra (se torneo a squadre/coppie) */}
-                                                                {isTeam && (
-                                                                    isFirstInGroup ? (
-                                                                        <td 
-                                                                            className="px-5 py-3 text-center align-middle bg-secondary/5 border-l border-secondary/10"
-                                                                            rowSpan={members.length}
-                                                                        >
-                                                                            <div className="flex flex-col items-center justify-center">
-                                                                                <span className="text-lg font-black text-secondary leading-none">
-                                                                                    {teamTotal}
-                                                                                </span>
-                                                                                <span className="text-[8px] font-black uppercase tracking-tighter text-gray-400 mt-1">
-                                                                                    {torneo.tipologia === 'DOPPIO' ? 'Doppio' : 'Squadra'}
-                                                                                </span>
-                                                                            </div>
-                                                                        </td>
-                                                                    ) : null
-                                                                )}
-                                                            </tr>
-                                                        );
-                                                    });
-                                                })}
-                                            </React.Fragment>
-                                        );
-                                    });
-                                })()}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            ) : (
-                <div className="space-y-8">
-                    {/* Pulsanti Toggle Vista */}
-                    <div className="flex bg-white/50 backdrop-blur-sm p-1.5 rounded-2xl border border-gray-100 self-start w-fit shadow-sm">
-                        <button
-                            onClick={() => setShowIscritti(false)}
-                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!showIscritti ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                        >
-                            Turni e Disponibilità
-                        </button>
-                        <button
-                            onClick={() => setShowIscritti(true)}
-                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${showIscritti ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                        >
-                            Iscritti ({iscritti.length})
-                        </button>
-                    </div>
-
-                    {showIscritti ? (
-                        <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm animate-fade-in">
-                             <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-3 mb-6">
-                                <Users className="text-primary w-6 h-6" />
-                                Atleti Iscritti
-                            </h2>
-                            {iscritti.length > 0 ? (
-                                <div className="space-y-8">
-                                    {(() => {
-                                        const grouped = iscritti.reduce((acc: Record<string, any[]>, isc) => {
-                                            const venueName = (isc.sede?.nome || 'Da assegnare').trim().toUpperCase();
-                                            if (!acc[venueName]) acc[venueName] = [];
-                                            acc[venueName].push(isc);
-                                            return acc;
-                                        }, {});
-
-                                        return Object.entries(grouped).map(([venue, members], vIdx) => {
-                                            const teamGroups: { key: string; nomeSquadra?: string | null; turno: any; iscritti: any[] }[] = [];
-                                            const map = new Map<string, typeof teamGroups[0]>();
-
-                                            for (const isc of members) {
-                                                const groupKey = isc.gruppoId || `single_${isc.id || isc.giocatore?.id || Math.random()}`;
-                                                if (!map.has(groupKey)) {
-                                                    const grp = {
-                                                        key: groupKey,
-                                                        nomeSquadra: isc.nomeSquadra,
-                                                        turno: isc.turno,
-                                                        iscritti: []
-                                                    };
-                                                    map.set(groupKey, grp);
-                                                    teamGroups.push(grp);
-                                                }
-                                                map.get(groupKey)!.iscritti.push(isc);
-                                            }
-
-                                            return (
-                                                <div key={vIdx} className="space-y-4">
-                                                    <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
-                                                        <MapPin className="w-4 h-4 text-primary/50" />
-                                                        <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">
-                                                            {venue} ({members.length} {members.length === 1 ? 'Atleta' : 'Atleti'})
-                                                        </h3>
-                                                    </div>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                        {teamGroups.map((grp) => (
-                                                            <div key={grp.key} className="bg-gray-50/60 p-4 rounded-2xl border border-gray-100 space-y-2">
-                                                                {grp.nomeSquadra && (
-                                                                    <div className="flex items-center justify-between border-b border-gray-100 pb-1.5">
-                                                                        <span className="text-xs font-black uppercase text-primary tracking-wider">{grp.nomeSquadra}</span>
-                                                                        <span className="text-[9px] font-bold text-gray-400 uppercase">{grp.iscritti.length} Atleti</span>
-                                                                    </div>
-                                                                )}
-                                                                <div className="space-y-1.5">
-                                                                    {grp.iscritti.map((isc, idx) => (
-                                                                        <div key={idx} className="flex justify-between items-center text-xs">
-                                                                            <span className="font-black uppercase text-dark">
-                                                                                {isc.giocatore.cognome} {isc.giocatore.nome}
-                                                                                {isc.isRiserva && <span className="ml-1.5 text-[8px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-black">RISERVA</span>}
-                                                                            </span>
-                                                                            <span className="text-[10px] font-bold text-gray-400 uppercase">
-                                                                                {isc.giocatore.sesso}/{isc.giocatore.categoria}
-                                                                            </span>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                                <div className="text-right pt-2 border-t border-gray-100/60">
-                                                                    <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10 uppercase">
-                                                                        {format(new Date(grp.turno?.orarioInizio || 0), 'dd/MM HH:mm')}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            );
-                                        });
-                                    })()}
+                                    {/* Promemoria per il giocatore sul borsellino e certificato */}
+                                    <div className="pt-3 border-t border-white/10 flex flex-wrap gap-4 text-[10px] text-slate-300">
+                                        <span className="flex items-center gap-1.5">
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-amber-300" />
+                                            Quota Torneo: <strong>€{Number(torneo.costoIscrizione || 0).toFixed(2)}</strong> (verrà scalata dal borsellino solo quando il Coach confermerà la squadra)
+                                        </span>
+                                        {mieSquadre?.giocatore && (
+                                            <span className="flex items-center gap-1.5">
+                                                <CheckCircle2 className="w-3.5 h-3.5 text-amber-300" />
+                                                Il tuo Saldo Borsellino Attuale: <strong>€{Number(mieSquadre.giocatore.saldoAttuale || 0).toFixed(2)}</strong>
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                            ) : (
-                                <div className="text-center py-12 text-gray-400 italic uppercase text-xs font-bold tracking-widest">
-                                    Ancora nessun iscritto per questo torneo
+                            )}
+
+                            {/* STATO 2: Disponibilità data, in attesa del Coach */}
+                            {mieSquadre?.disponibilita?.stato === 'IN_ATTESA' && !mieSquadre?.squadra && (
+                                <div className="bg-amber-400/15 border border-amber-300/40 p-6 rounded-2xl space-y-3">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-3 bg-amber-400 text-slate-950 rounded-xl">
+                                                <Clock className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-black text-sm uppercase text-amber-300">
+                                                    Disponibilità Registrata con Successo!
+                                                </h3>
+                                                <p className="text-xs text-slate-300 font-medium">
+                                                    Sei nella lista atleti disponibili. Il Coach sta componendo le squadre.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={handleRitiraDisponibilita}
+                                            disabled={azioneInCorso}
+                                            className="px-4 py-2 bg-white/10 hover:bg-red-500/20 text-red-300 border border-red-400/30 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+                                        >
+                                            Ritira Disponibilità
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* STATO 3: Assegnato a una Squadra Confermata dal Coach */}
+                            {mieSquadre?.squadra && (
+                                <div className="bg-emerald-950/60 border border-emerald-400/40 p-6 rounded-2xl space-y-4">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                        <div>
+                                            <span className="text-[10px] font-black uppercase text-emerald-400 tracking-widest block">
+                                                La tua Formazione Assegnata dal Coach
+                                            </span>
+                                            <h3 className="font-black text-xl uppercase text-white tracking-tight">
+                                                {mieSquadre.squadra.nomeSquadra}
+                                            </h3>
+                                        </div>
+
+                                        {/* Stato scelta turni */}
+                                        {!mieSquadre.squadra.turnoId ? (
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedTurnoId(disponibilita[0]?.id || '');
+                                                    setSelectedSecondoTurnoId('');
+                                                    setModalTurnoOpen(true);
+                                                }}
+                                                className="px-6 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-300 text-slate-950 font-black uppercase text-xs tracking-wider rounded-xl shadow-lg transition-all hover:scale-105"
+                                            >
+                                                Scegli Turni di Gioco per la Squadra
+                                            </button>
+                                        ) : (
+                                            <div className="text-right">
+                                                <span className="px-3 py-1 bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 rounded-lg text-xs font-black uppercase flex items-center gap-1.5">
+                                                    <Check className="w-3.5 h-3.5" />
+                                                    Turni Confermati
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Componenti della Formazione */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 pt-2">
+                                        {mieSquadre.squadra.iscrizioni.map((isc, idx) => (
+                                            <div key={idx} className="bg-white/10 p-3 rounded-xl border border-white/10 flex items-center justify-between">
+                                                <span className="font-black uppercase text-xs text-white">
+                                                    {isc.giocatore.cognome} {isc.giocatore.nome}
+                                                </span>
+                                                <span className="text-[9px] font-bold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded">
+                                                    Cat. {isc.giocatore.categoria}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Riepilogo Turni Scelti */}
+                                    {mieSquadre.squadra.turnoId ? (
+                                        <div className="pt-3 border-t border-white/10 flex flex-wrap gap-x-6 gap-y-2 text-xs text-slate-200 font-medium">
+                                            <span>
+                                                Turno Principale: <strong className="text-amber-300">{format(new Date(mieSquadre.squadra.turno?.orarioInizio || 0), 'EEEE dd MMMM HH:mm', { locale: it })}</strong>
+                                            </span>
+                                            {mieSquadre.squadra.secondoTurno && (
+                                                <span>
+                                                    Turno Riserva: <strong>{format(new Date(mieSquadre.squadra.secondoTurno.orarioInizio), 'dd/MM HH:mm')}</strong>
+                                                </span>
+                                            )}
+                                            {mieSquadre.squadra.confermataDa && (
+                                                <span className="text-slate-400">
+                                                    (Confermato da: {mieSquadre.squadra.confermataDa.nome} {mieSquadre.squadra.confermataDa.cognome})
+                                                </span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-[11px] text-amber-200/80 italic font-medium">
+                                            ⚠️ Nota: Uno qualsiasi dei compagni di squadra può selezionare il turno preferito e il turno di riserva. Una volta confermata, la scelta è definitiva e bloccata per tutta la formazione.
+                                        </p>
+                                    )}
                                 </div>
                             )}
                         </div>
-                    ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
-                    <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm">
-                            <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-3 mb-6">
+                    )}
+                </div>
+            )}
+
+            {/* SEZIONE CONTENUTI TAB (FORMAZIONI / TURNI / CANDIDATI) */}
+            {torneo.completato ? (
+                <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden p-8 text-center text-gray-400 uppercase font-black">
+                    Torneo Completato
+                </div>
+            ) : (
+                <div className="space-y-6">
+                    {/* Barra Pulsanti Tab */}
+                    <div className="flex bg-white/50 backdrop-blur-sm p-1.5 rounded-2xl border border-gray-100 self-start w-fit shadow-sm gap-1">
+                        {isTorneoASquadre && (
+                            <button
+                                onClick={() => setActiveTab('squadre')}
+                                className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                                    activeTab === 'squadre' ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:text-gray-900'
+                                }`}
+                            >
+                                Formazioni Ufficiali ({squadreConfermate.length})
+                            </button>
+                        )}
+
+                        <button
+                            onClick={() => setActiveTab('turni')}
+                            className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                                activeTab === 'turni' ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                        >
+                            Turni e Disponibilità Posti
+                        </button>
+
+                        {isTorneoASquadre && (
+                            <button
+                                onClick={() => setActiveTab('disponibili')}
+                                className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                                    activeTab === 'disponibili' ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:text-gray-900'
+                                }`}
+                            >
+                                Atleti Disponibili ({candidatiDisponibili.length})
+                            </button>
+                        )}
+
+                        {!isTorneoASquadre && (
+                            <button
+                                onClick={() => setActiveTab('iscritti')}
+                                className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                                    activeTab === 'iscritti' ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:text-gray-900'
+                                }`}
+                            >
+                                Iscritti ({iscritti.length})
+                            </button>
+                        )}
+                    </div>
+
+                    {/* VISTA 1: FORMAZIONI CONFERMATE DAL COACH (DOPPIO, TRIS, SQUADRA) */}
+                    {activeTab === 'squadre' && isTorneoASquadre && (
+                        <div className="bg-white rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm animate-fade-in space-y-6">
+                            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-4 border-b border-gray-100">
+                                <div>
+                                    <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2.5 text-dark">
+                                        <Trophy className="text-amber-500 w-6 h-6" />
+                                        <span>Formazioni Ufficiali Confermate ({squadreConfermate.length})</span>
+                                    </h2>
+                                    <p className="text-xs text-gray-400 font-bold uppercase mt-1">
+                                        Squadre ufficiali formate dal Coach per questo torneo
+                                    </p>
+                                </div>
+                            </div>
+
+                            {squadreConfermate.length === 0 ? (
+                                <div className="text-center py-16 text-gray-400 space-y-2">
+                                    <Users className="w-10 h-10 text-gray-300 mx-auto" />
+                                    <p className="text-xs font-bold uppercase tracking-wider">
+                                        Il Coach non ha ancora confermato le formazioni per questo torneo.
+                                    </p>
+                                    <p className="text-[11px] text-gray-400">
+                                        Non appena il Coach pubblicherà le squadre, saranno visibili qui con i relativi atleti e turni di gioco.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {squadreConfermate.map((sq) => {
+                                        const haSceltoTurno = !!sq.turnoId;
+                                        return (
+                                            <div
+                                                key={sq.id}
+                                                className="bg-gray-50/80 p-5 rounded-2xl border border-gray-200/90 space-y-4 hover:shadow-md transition-shadow"
+                                            >
+                                                <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+                                                    <h3 className="font-black text-base uppercase text-primary tracking-tight">
+                                                        {sq.nomeSquadra}
+                                                    </h3>
+                                                    <span className="text-[10px] font-black uppercase bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">
+                                                        {sq.iscrizioni.length} Atleti
+                                                    </span>
+                                                </div>
+
+                                                {/* Atleti della squadra */}
+                                                <div className="space-y-1.5">
+                                                    {sq.iscrizioni.map((isc, iIdx) => (
+                                                        <div
+                                                            key={iIdx}
+                                                            className="flex items-center justify-between bg-white px-3.5 py-2 rounded-xl text-xs border border-gray-100"
+                                                        >
+                                                            <span className="font-black uppercase text-dark">
+                                                                {isc.giocatore.cognome} {isc.giocatore.nome}
+                                                            </span>
+                                                            <span className="text-[10px] font-bold text-gray-500 uppercase">
+                                                                Cat. {isc.giocatore.categoria} ({isc.giocatore.sesso})
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* Stato Turno di Gioco */}
+                                                <div className="pt-2 border-t border-gray-200">
+                                                    {haSceltoTurno ? (
+                                                        <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl space-y-1 text-xs">
+                                                            <div className="flex items-center gap-1.5 text-emerald-800 font-black uppercase text-[10px]">
+                                                                <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                                                                <span>Turno Confermato</span>
+                                                            </div>
+                                                            <p className="font-black text-slate-800">
+                                                                {format(new Date(sq.turno?.orarioInizio || 0), 'EEEE dd MMMM HH:mm', { locale: it })}
+                                                                {sq.turno?.sede ? ` (${sq.turno.sede.nome})` : ''}
+                                                            </p>
+                                                            {sq.secondoTurno && (
+                                                                <p className="text-[10px] text-gray-500 font-medium">
+                                                                    Riserva: {format(new Date(sq.secondoTurno.orarioInizio), 'dd/MM HH:mm')}
+                                                                </p>
+                                                            )}
+                                                            {sq.confermataDa && (
+                                                                <p className="text-[10px] text-gray-400">
+                                                                    Scelto da: {sq.confermataDa.nome} {sq.confermataDa.cognome}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-xl flex items-center gap-2 text-amber-800 text-xs font-bold uppercase">
+                                                            <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                                                            <span>In attesa che un componente scelga i turni</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* VISTA 2: TURNI E DISPONIBILITA' POSTI */}
+                    {activeTab === 'turni' && (
+                        <div className="bg-white rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm animate-fade-in space-y-6">
+                            <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-3 text-dark">
                                 <Users className="text-secondary w-6 h-6" />
-                                Turni e Disponibilità
+                                Turni di Gioco Ufficiali
                             </h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                                 {disponibilita.map((t) => {
                                     const isEsaurito = t.postiRimanenti <= 0;
                                     return (
-                                        <div key={t.id} className="p-6 rounded-3xl border border-gray-100 space-y-4">
+                                        <div key={t.id} className="p-5 rounded-2xl border border-gray-100 bg-gray-50/60 space-y-3">
                                             <div className="flex justify-between items-start">
                                                 <div>
-                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{format(new Date(t.giorno.replace('Z', '')), 'EEEE dd MMMM', { locale: it })}</p>
-                                                    <p className="font-black text-lg">{format(new Date(t.orarioInizio.replace('Z', '')), 'HH:mm')}</p>
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                                        {format(new Date(t.giorno.replace('Z', '')), 'EEEE dd MMMM', { locale: it })}
+                                                    </p>
+                                                    <p className="font-black text-lg text-dark">
+                                                        {format(new Date(t.orarioInizio.replace('Z', '')), 'HH:mm')}
+                                                    </p>
+                                                    {t.sede && (
+                                                        <p className="text-[10px] font-bold text-gray-500 uppercase mt-0.5">
+                                                            {t.sede.nome}
+                                                        </p>
+                                                    )}
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Disponibili</p>
-                                                    <p className={`font-black ${isEsaurito ? 'text-red-500' : 'text-secondary'}`}>{t.postiRimanenti} / {t.postiTotali}</p>
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Posti Liberi</p>
+                                                    <p className={`font-black ${isEsaurito ? 'text-red-500' : 'text-secondary'}`}>
+                                                        {t.postiRimanenti} / {t.postiTotali}
+                                                    </p>
                                                 </div>
                                             </div>
-                                            <button
-                                                disabled={isEsaurito}
-                                                onClick={() => handleOpenIscrizione(t.id)}
-                                                className={`w-full py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${isEsaurito ? 'bg-gray-100 text-gray-400' : 'bg-primary text-white shadow-lg shadow-primary/20 hover:scale-105'}`}
-                                            >
-                                                {isEsaurito ? 'Esaurito' : 'Iscriviti a questo turno'}
-                                            </button>
+
+                                            {!isTorneoASquadre && (
+                                                <button
+                                                    disabled={isEsaurito}
+                                                    onClick={() => handleOpenIscrizione(t.id)}
+                                                    className={`w-full py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${
+                                                        isEsaurito ? 'bg-gray-100 text-gray-400' : 'bg-primary text-white shadow-md hover:scale-105'
+                                                    }`}
+                                                >
+                                                    {isEsaurito ? 'Esaurito' : 'Iscriviti a questo turno'}
+                                                </button>
+                                            )}
                                         </div>
                                     );
                                 })}
                             </div>
                         </div>
-                    </div>
+                    )}
 
-                    <div className="lg:col-span-1 space-y-6">
-                        <div className="bg-primary/5 p-8 rounded-[2.5rem] border border-primary/10 space-y-6">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-primary text-white rounded-2xl">
-                                    <Trophy className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Quota Gara</p>
-                                    <p className="text-2xl font-black text-primary">€ {Number(torneo.costoIscrizione || 0).toFixed(2)}</p>
-                                </div>
+                    {/* VISTA 3: LISTA ATLETI DISPONIBILI */}
+                    {activeTab === 'disponibili' && isTorneoASquadre && (
+                        <div className="bg-white rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm animate-fade-in space-y-6">
+                            <div>
+                                <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-3 text-dark">
+                                    <Award className="text-amber-500 w-6 h-6" />
+                                    Lista Disponibilità Atleti ({candidatiDisponibili.length})
+                                </h2>
+                                <p className="text-xs text-gray-400 font-bold uppercase mt-1">
+                                    Atleti che hanno espresso disponibilità a giocare questo torneo
+                                </p>
                             </div>
-                            <div className="space-y-4 border-t border-primary/10 pt-6">
-                                <div className="flex gap-3">
-                                    <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
-                                    <p className="text-[10px] font-bold text-gray-500 leading-relaxed uppercase">Iscrizione istantanea con numero di tessera FISB.</p>
+
+                            {candidatiDisponibili.length === 0 ? (
+                                <div className="text-center py-12 text-gray-400 italic uppercase text-xs font-bold tracking-widest">
+                                    Nessun atleta ha ancora dato disponibilità per questo torneo.
                                 </div>
-                                <div className="flex gap-3">
-                                    <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
-                                    <p className="text-[10px] font-bold text-gray-500 leading-relaxed uppercase">Addebito automatico sul borsellino elettronico.</p>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    {candidatiDisponibili.map((c) => (
+                                        <div key={c.id} className="bg-gray-50/70 p-3.5 rounded-2xl border border-gray-100 flex items-center justify-between">
+                                            <div className="space-y-0.5">
+                                                <p className="font-black text-xs uppercase text-dark">
+                                                    {c.giocatore.cognome} {c.giocatore.nome}
+                                                </p>
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase">
+                                                    Cat. {c.giocatore.categoria} • {c.giocatore.sesso}
+                                                </p>
+                                            </div>
+                                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                                                c.stato === 'ASSEGNATO'
+                                                    ? 'bg-emerald-100 text-emerald-800'
+                                                    : c.stato === 'RISERVA'
+                                                    ? 'bg-amber-100 text-amber-800'
+                                                    : 'bg-blue-100 text-blue-800'
+                                            }`}>
+                                                {c.stato === 'ASSEGNATO' ? 'In Squadra' : c.stato === 'RISERVA' ? 'Riserva' : 'In Attesa'}
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* VISTA 4: ISCRITTI INDIVIDUALI (SOLO SINGOLO) */}
+                    {activeTab === 'iscritti' && !isTorneoASquadre && (
+                        <div className="bg-white rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm animate-fade-in space-y-6">
+                            <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-3 text-dark">
+                                <Users className="text-primary w-6 h-6" />
+                                Atleti Iscritti ({iscritti.length})
+                            </h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                {iscritti.map((isc: any, idx: number) => (
+                                    <div key={idx} className="bg-gray-50/70 p-3.5 rounded-xl border border-gray-100 flex items-center justify-between">
+                                        <p className="font-black text-xs uppercase text-dark">
+                                            {isc.giocatore.cognome} {isc.giocatore.nome}
+                                        </p>
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase">
+                                            Cat. {isc.giocatore.categoria}
+                                        </span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
+                    )}
+                </div>
+            )}
+
+            {/* MODALE: SCELTA TURNI DI GIOCO PER LA SQUADRA */}
+            {modalTurnoOpen && mieSquadre?.squadra && (
+                <div className="fixed inset-0 bg-dark/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+                    <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden p-6 sm:p-8 space-y-6">
+                        <div className="flex justify-between items-center pb-4 border-b border-gray-100">
+                            <div>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-primary block">
+                                    {mieSquadre.squadra.nomeSquadra}
+                                </span>
+                                <h3 className="text-xl font-black uppercase tracking-tight text-dark">
+                                    Scegli i Turni di Gioco
+                                </h3>
+                            </div>
+                            <button
+                                onClick={() => setModalTurnoOpen(false)}
+                                className="p-2 text-gray-400 hover:text-gray-600 rounded-xl"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleConfermaTurnoSquadra} className="space-y-5">
+                            {/* Turno Principale */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-black uppercase tracking-wider text-gray-500">
+                                    Turno Principale (Scelta Preferita) *
+                                </label>
+                                <select
+                                    value={selectedTurnoId}
+                                    onChange={(e) => setSelectedTurnoId(e.target.value)}
+                                    required
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-xs font-bold text-dark focus:outline-none focus:ring-2 focus:ring-primary uppercase"
+                                >
+                                    <option value="" disabled>Seleziona Turno...</option>
+                                    {disponibilita.map((t) => {
+                                        const postiLiberi = t.postiRimanenti;
+                                        const isEsaurito = postiLiberi < (mieSquadre.squadra?.iscrizioni?.length || 2);
+                                        return (
+                                            <option key={t.id} value={t.id} disabled={isEsaurito}>
+                                                {format(new Date(t.giorno.replace('Z', '')), 'EEE dd/MM', { locale: it })} ore {format(new Date(t.orarioInizio.replace('Z', '')), 'HH:mm')}
+                                                {t.sede ? ` - ${t.sede.nome}` : ''} ({postiLiberi} posti liberi) {isEsaurito ? '- ESAURITO' : ''}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+
+                            {/* Turno di Riserva */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-black uppercase tracking-wider text-gray-500">
+                                    Turno di Riserva (Opzionale / Consigliato)
+                                </label>
+                                <select
+                                    value={selectedSecondoTurnoId}
+                                    onChange={(e) => setSelectedSecondoTurnoId(e.target.value)}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-xs font-bold text-dark focus:outline-none focus:ring-2 focus:ring-primary uppercase"
+                                >
+                                    <option value="">Nessun turno di riserva</option>
+                                    {disponibilita.filter(t => t.id !== selectedTurnoId).map((t) => (
+                                        <option key={t.id} value={t.id}>
+                                            {format(new Date(t.giorno.replace('Z', '')), 'EEE dd/MM', { locale: it })} ore {format(new Date(t.orarioInizio.replace('Z', '')), 'HH:mm')}
+                                            {t.sede ? ` - ${t.sede.nome}` : ''} ({t.postiRimanenti} posti)
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 text-amber-900 text-xs font-medium space-y-1">
+                                <p className="font-bold uppercase">⚠️ Attenzione:</p>
+                                <p>Una volta confermata la scelta del turno, questa sarà bloccata per tutta la tua squadra e nessun altro compagno potrà modificarla.</p>
+                            </div>
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setModalTurnoOpen(false)}
+                                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold uppercase text-xs rounded-xl transition-all"
+                                >
+                                    Annulla
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={salvataggioTurno || !selectedTurnoId}
+                                    className="flex-2 py-3 bg-primary hover:bg-primary/90 text-white font-black uppercase text-xs rounded-xl shadow-lg transition-all disabled:opacity-50"
+                                >
+                                    {salvataggioTurno ? 'Salvataggio...' : 'Conferma Turni per la Squadra'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
         </div>
-    )}
-</div>
-);
+    );
 };
 
 export default DettaglioTorneo;

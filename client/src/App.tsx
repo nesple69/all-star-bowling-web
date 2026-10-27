@@ -1,7 +1,7 @@
 import { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
-import { ProtectedRoute, ProtectedAdminRoute } from './components/ProtectedRoute';
+import { ProtectedRoute, ProtectedAdminRoute, ProtectedCoachRoute } from './components/ProtectedRoute';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import { API_BASE_URL } from './config';
@@ -22,6 +22,7 @@ const ImportDati = lazy(() => import('./pages/ImportDati'));
 const GestioneUtenti = lazy(() => import('./pages/GestioneUtenti'));
 const GestioneStagioni = lazy(() => import('./pages/GestioneStagioni'));
 const Profilo = lazy(() => import('./pages/Profilo'));
+const AreaCoach = lazy(() => import('./pages/AreaCoach'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
@@ -52,7 +53,7 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  console.log('ðŸ“¦ Componente App montato');
+  console.log('📦 Componente App montato');
   return (
     <AuthProvider>
       <Router>
@@ -60,9 +61,14 @@ function App() {
           <Route path="/login" element={<Login />} />
 
           <Route element={<Layout />}>
-            {/* Rotte autenticate per tutti gli utenti (USER e ADMIN) */}
+            {/* Rotte autenticate per tutti gli utenti (USER, COACH e ADMIN) */}
             <Route element={<ProtectedRoute />}>
               <Route path="/profilo" element={<Profilo />} />
+            </Route>
+
+            {/* Rotte riservate a Coach e Amministratori */}
+            <Route element={<ProtectedCoachRoute />}>
+              <Route path="/coach" element={<AreaCoach />} />
             </Route>
 
             {/* Rotte riservate esclusivamente agli amministratori */}

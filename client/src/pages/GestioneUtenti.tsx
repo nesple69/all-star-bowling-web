@@ -13,7 +13,8 @@ import {
     CheckCircle2,
     ArrowRightLeft,
     Mail,
-    Key
+    Key,
+    Award
 } from 'lucide-react';
 import ModalNuovoAdmin from '../components/ModalNuovoAdmin';
 import { useAuth } from '../contexts/AuthContext';
@@ -24,7 +25,7 @@ interface UserData {
     email: string | null;
     nome: string;
     cognome: string;
-    ruolo: 'USER' | 'ADMIN';
+    ruolo: 'USER' | 'ADMIN' | 'COACH';
     createdAt: string;
 }
 
@@ -56,10 +57,10 @@ const GestioneUtenti: React.FC = () => {
         }
     }, [fetchError]);
 
-    const handleToggleRole = async (userId: string, currentRole: string) => {
-        const newRole = currentRole === 'ADMIN' ? 'USER' : 'ADMIN';
+    const handleSetRole = async (userId: string, currentRole: string, newRole: string) => {
+        if (currentRole === newRole) return;
 
-        if (currentRole === 'ADMIN' && users.filter(u => u.ruolo === 'ADMIN').length <= 1) {
+        if (currentRole === 'ADMIN' && users.filter(u => u.ruolo === 'ADMIN').length <= 1 && newRole !== 'ADMIN') {
             setError('Impossibile rimuovere l\'ultimo amministratore');
             return;
         }
@@ -127,6 +128,8 @@ const GestioneUtenti: React.FC = () => {
     const sortedUsers = [...users].sort((a, b) => {
         if (a.ruolo === 'ADMIN' && b.ruolo !== 'ADMIN') return -1;
         if (a.ruolo !== 'ADMIN' && b.ruolo === 'ADMIN') return 1;
+        if (a.ruolo === 'COACH' && b.ruolo === 'USER') return -1;
+        if (a.ruolo === 'USER' && b.ruolo === 'COACH') return 1;
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
@@ -152,7 +155,7 @@ const GestioneUtenti: React.FC = () => {
                         <h1 className="text-2xl font-black text-dark uppercase tracking-tight">Gestione Utenti</h1>
                         <p className="text-gray-500 text-sm font-medium uppercase tracking-widest flex items-center gap-1.5">
                             <Shield className="w-3.5 h-3.5" />
-                            Amministrazione Accessi
+                            Amministrazione Accessi e Ruoli (Admin, Coach, Atleti)
                         </p>
                     </div>
                 </div>
@@ -193,9 +196,9 @@ const GestioneUtenti: React.FC = () => {
                         <thead>
                             <tr className="bg-gray-50/50 border-b border-gray-100">
                                 <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Utente</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Ruolo</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Ruolo Attuale</th>
                                 <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Data Creazione</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Azioni</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Azioni & Cambio Ruolo</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -218,8 +221,20 @@ const GestioneUtenti: React.FC = () => {
                                     <tr key={u.id} className="hover:bg-gray-50/50 transition-colors group">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className={`p-2 rounded-xl border-2 ${u.ruolo === 'ADMIN' ? 'bg-secondary/10 border-secondary/20' : 'bg-gray-100 border-gray-200'}`}>
-                                                    <UserIcon className={`w-5 h-5 ${u.ruolo === 'ADMIN' ? 'text-secondary' : 'text-gray-400'}`} />
+                                                <div className={`p-2 rounded-xl border-2 ${
+                                                    u.ruolo === 'ADMIN'
+                                                        ? 'bg-secondary/10 border-secondary/20'
+                                                        : u.ruolo === 'COACH'
+                                                        ? 'bg-amber-400/20 border-amber-300'
+                                                        : 'bg-gray-100 border-gray-200'
+                                                }`}>
+                                                    {u.ruolo === 'ADMIN' ? (
+                                                        <Shield className="w-5 h-5 text-secondary" />
+                                                    ) : u.ruolo === 'COACH' ? (
+                                                        <Award className="w-5 h-5 text-amber-600" />
+                                                    ) : (
+                                                        <UserIcon className="w-5 h-5 text-gray-400" />
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <div className="flex items-center gap-2">
@@ -244,11 +259,20 @@ const GestioneUtenti: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${u.ruolo === 'ADMIN'
-                                                ? 'bg-secondary text-white border border-secondary shadow-sm'
-                                                : 'bg-gray-100 text-gray-500 border border-transparent'
-                                                }`}>
-                                                {u.ruolo === 'ADMIN' ? <Shield className="w-3 h-3" /> : <UserIcon className="w-3 h-3" />}
+                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                                                u.ruolo === 'ADMIN'
+                                                    ? 'bg-secondary text-white border border-secondary shadow-sm'
+                                                    : u.ruolo === 'COACH'
+                                                    ? 'bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-sm'
+                                                    : 'bg-gray-100 text-gray-500 border border-transparent'
+                                            }`}>
+                                                {u.ruolo === 'ADMIN' ? (
+                                                    <Shield className="w-3 h-3" />
+                                                ) : u.ruolo === 'COACH' ? (
+                                                    <Award className="w-3 h-3" />
+                                                ) : (
+                                                    <UserIcon className="w-3 h-3" />
+                                                )}
                                                 {u.ruolo}
                                             </span>
                                         </td>
@@ -260,27 +284,28 @@ const GestioneUtenti: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
+                                                {/* Selettore Ruolo */}
+                                                <select
+                                                    value={u.ruolo}
+                                                    onChange={(e) => handleSetRole(u.id, u.ruolo, e.target.value)}
+                                                    className="bg-gray-50 border border-gray-200 text-gray-700 text-[10px] font-black uppercase rounded-xl px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer hover:bg-gray-100"
+                                                    title="Modifica Ruolo"
+                                                >
+                                                    <option value="USER">USER (Atleta)</option>
+                                                    <option value="COACH">COACH (Formazioni)</option>
+                                                    <option value="ADMIN">ADMIN (Totale)</option>
+                                                </select>
+
                                                 <button
                                                     onClick={() => {
                                                         setUserToReset(u);
                                                         setNewPassword('');
                                                         setResetPasswordModalOpen(true);
                                                     }}
-                                                    className={`p-2 rounded-xl border-2 transition-all shadow-sm
-                                                        bg-white border-gray-100 text-gray-500 hover:bg-primary/10 hover:border-primary/20 hover:text-primary hover:-translate-y-0.5`}
+                                                    className="p-2 rounded-xl border-2 transition-all shadow-sm bg-white border-gray-100 text-gray-500 hover:bg-primary/10 hover:border-primary/20 hover:text-primary hover:-translate-y-0.5"
                                                     title="Resetta Password"
                                                 >
                                                     <Key className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleToggleRole(u.id, u.ruolo)}
-                                                    className={`p-2 rounded-xl border-2 transition-all shadow-sm hover:-translate-y-0.5 ${u.ruolo === 'ADMIN'
-                                                        ? 'bg-red-50 border-red-100 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500'
-                                                        : 'bg-green-50 border-green-100 text-green-600 hover:bg-green-500 hover:text-white hover:border-green-500'
-                                                        }`}
-                                                    title={u.ruolo === 'ADMIN' ? 'Rimuovi privilegi Admin' : 'Rendi Admin'}
-                                                >
-                                                    <ArrowRightLeft className="w-4 h-4" />
                                                 </button>
                                                 <button
                                                     disabled={u.id === currentUser?.id}
