@@ -36,11 +36,11 @@ const Header: React.FC = () => {
         <header className="bg-gradient-to-r from-primary to-light-blue shadow-lg">
             {/* Top Bar: Brand Logo & User Profile / Quick Actions */}
             <div className="w-full max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center min-h-[220px] sm:min-h-[260px] md:min-h-[320px] py-3 sm:py-4">
+                <div className="flex justify-between items-center min-h-[110px] sm:min-h-[130px] md:min-h-[160px] py-1.5 sm:py-2">
 
                     {/* Logo & Title */}
-                    <Link to="/" className="flex items-center gap-4 sm:gap-6 group shrink-0 py-2">
-                        <div className="group-hover:scale-105 transition-transform w-56 h-56 sm:w-64 sm:h-64 md:w-80 md:h-80 flex items-center justify-center shrink-0">
+                    <Link to="/" className="flex items-center gap-4 sm:gap-6 group shrink-0 py-1">
+                        <div className="group-hover:scale-105 transition-transform w-28 h-28 sm:w-32 sm:h-32 md:w-40 md:h-40 flex items-center justify-center shrink-0">
                             <img
                                 src="/logo All Star.png"
                                 alt="ALL STAR TEAM Logo"
