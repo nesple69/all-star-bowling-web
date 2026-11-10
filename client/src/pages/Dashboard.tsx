@@ -169,48 +169,48 @@ const Dashboard: React.FC = () => {
     return (
         <div className="space-y-10 animate-fade-in pb-12">
             {/* SEZIONE SPOTLIGHT: VITTORIE & CAMPIONI */}
-            <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white rounded-[2.5rem] p-6 sm:p-8 md:p-10 shadow-2xl border-2 border-amber-400/40 relative overflow-hidden group">
+            <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white rounded-[1.5rem] p-4 sm:p-5 md:p-6 shadow-2xl border-2 border-amber-400/40 relative overflow-hidden group">
                 {/* Effetti di luce decorativi */}
                 <div className="absolute -right-20 -top-20 w-96 h-96 bg-amber-400/15 rounded-full blur-3xl pointer-events-none group-hover:bg-amber-400/25 transition-all duration-700"></div>
                 <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-primary/20 rounded-full blur-3xl pointer-events-none"></div>
 
-                <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
                     {/* Colonna Sinistra: FOTO DEI CAMPIONI */}
                     <div className="lg:col-span-5 flex justify-center">
-                        <div className="relative group/photo w-full max-w-sm">
+                        <div className="relative group/photo w-full max-w-[230px]">
                             <div className="absolute -inset-1.5 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 rounded-3xl blur-xs opacity-75 group-hover/photo:opacity-100 transition duration-500"></div>
                             <div className="relative rounded-2xl overflow-hidden shadow-2xl border-2 border-amber-300/80 bg-slate-900">
                                 <img
                                     src="/notizie/campioni-doppio-misto-2026.jpg"
                                     alt="Eva Lemstra ed Emanuele Camponesco - Campioni Italiani Doppio Misto 2026/27"
-                                    className="w-full max-h-[460px] object-cover object-top hover:scale-105 transition-transform duration-700"
+                                    className="w-full max-h-[276px] object-cover object-top hover:scale-105 transition-transform duration-700"
                                 />
                                 {/* Badge sovraimpresso foto */}
-                                <div className="absolute bottom-3 left-3 right-3 bg-slate-950/85 backdrop-blur-md px-3.5 py-2 rounded-xl border border-amber-400/30 flex items-center justify-between">
-                                    <div className="flex items-center gap-1.5 text-amber-300 text-[10px] font-black uppercase tracking-wider">
-                                        <Trophy className="w-3.5 h-3.5" />
+                                <div className="absolute bottom-2 left-2 right-2 bg-slate-950/85 backdrop-blur-md px-2 py-1 rounded-lg border border-amber-400/30 flex items-center justify-between gap-1">
+                                    <div className="flex items-center gap-1 text-amber-300 text-[8px] font-black uppercase tracking-wider">
+                                        <Trophy className="w-2.5 h-2.5" />
                                         <span>Titolo Italiano FISB</span>
                                     </div>
-                                    <span className="text-[10px] text-white/80 font-bold uppercase">24-25 Ottobre 2026</span>
+                                    <span className="text-[8px] text-white/80 font-bold uppercase">24-25 Ottobre 2026</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Colonna Destra: TESTO CELEBRATIVO ED ELOGIO */}
-                    <div className="lg:col-span-7 space-y-5">
-                        <div className="space-y-2">
-                            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-300 text-slate-950 font-black text-xs uppercase tracking-widest shadow-md">
-                                <Trophy className="w-4 h-4" />
+                    <div className="lg:col-span-7 space-y-3">
+                        <div className="space-y-1.5">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-400 to-amber-300 text-slate-950 font-black text-[10px] uppercase tracking-widest shadow-md">
+                                <Trophy className="w-3 h-3" />
                                 <span>Campionato Italiano Doppio Misto 2026/27</span>
                             </div>
 
-                            <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-tight text-white leading-none">
+                            <h1 className="text-xl sm:text-3xl font-black uppercase tracking-tight text-white leading-none">
                                 GRAZIE <span className="text-amber-300">CAMPIONI!</span> 🏆
                             </h1>
                         </div>
 
-                        <div className="space-y-3 text-slate-200 text-sm sm:text-base leading-relaxed font-medium">
+                        <div className="space-y-2 text-slate-200 text-xs sm:text-sm leading-relaxed font-medium">
                             <p>
                                 Nel fine settimana del <strong className="text-white font-bold">24 e 25 ottobre</strong> i nostri straordinari campioni{' '}
                                 <strong className="text-amber-300 font-bold">Eva Lemstra</strong> ed{' '}
@@ -220,14 +220,14 @@ const Dashboard: React.FC = () => {
                                 Con una prestazione di altissimo livello, grinta, determinazione e grandissimo merito portano a casa il prestigioso{' '}
                                 <strong className="text-white font-bold">Titolo Italiano di Doppio Misto 2026/27</strong>, salendo sul gradino più alto d'Italia! 🇮🇹
                             </p>
-                            <p className="text-amber-200 font-bold italic text-base sm:text-lg pt-1">
+                            <p className="text-amber-200 font-bold italic text-sm sm:text-base pt-0.5">
                                 «Grazie ragazzi, il vostro successo è l'orgoglio e l'ispirazione di tutta la nostra squadra!» ⭐🎳
                             </p>
                         </div>
 
                         {/* Schede Atleti Vincitori con Medie */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                            <div className="bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/15 flex items-center justify-between">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                            <div className="bg-white/10 backdrop-blur-md px-2.5 py-2 rounded-xl border border-white/15 flex items-center justify-between">
                                 <div>
                                     <span className="text-[10px] font-bold text-amber-300 uppercase tracking-widest block">Campionessa Italiana</span>
                                     <h4 className="font-black text-white text-sm uppercase">Eva Lemstra</h4>
@@ -238,7 +238,7 @@ const Dashboard: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/15 flex items-center justify-between">
+                            <div className="bg-white/10 backdrop-blur-md px-2.5 py-2 rounded-xl border border-white/15 flex items-center justify-between">
                                 <div>
                                     <span className="text-[10px] font-bold text-amber-300 uppercase tracking-widest block">Campione Italiano</span>
                                     <h4 className="font-black text-white text-sm uppercase">Emanuele Camponesco</h4>
