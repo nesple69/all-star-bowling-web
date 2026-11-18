@@ -103,6 +103,8 @@ model GiorniOrariTorneo {
   iscrizioniSecondarie IscrizioneTorneo[] @relation("TurnoRiserva")
   squadre              SquadraTorneo[]    @relation("SquadraTurnoPrincipale")
   squadreRiserva       SquadraTorneo[]    @relation("SquadraTurnoRiserva")
+  disponibilitaPrincipali DisponibilitaTorneo[] @relation("DisponibilitaTurnoPrincipale")
+  disponibilitaRiserva    DisponibilitaTorneo[] @relation("DisponibilitaTurnoRiserva")
 
   @@index([torneoId, orarioInizio])
 }
@@ -184,14 +186,18 @@ model SedeTorneo {
 }
 
 model DisponibilitaTorneo {
-  id          String             @id @default(uuid())
-  torneoId    String
-  giocatoreId String
-  stato       StatoDisponibilita @default(IN_ATTESA)
-  note        String?
-  createdAt   DateTime           @default(now())
-  giocatore   Giocatore          @relation(fields: [giocatoreId], references: [id], onDelete: Cascade)
-  torneo      Torneo             @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  id             String             @id @default(uuid())
+  torneoId       String
+  giocatoreId    String
+  turnoId        String?
+  secondoTurnoId String?
+  stato          StatoDisponibilita @default(IN_ATTESA)
+  note           String?
+  createdAt      DateTime           @default(now())
+  giocatore      Giocatore          @relation(fields: [giocatoreId], references: [id], onDelete: Cascade)
+  torneo         Torneo             @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  turno          GiorniOrariTorneo? @relation("DisponibilitaTurnoPrincipale", fields: [turnoId], references: [id])
+  secondoTurno   GiorniOrariTorneo? @relation("DisponibilitaTurnoRiserva", fields: [secondoTurnoId], references: [id])
 
   @@unique([torneoId, giocatoreId])
   @@index([torneoId, stato])

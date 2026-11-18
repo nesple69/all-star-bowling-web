@@ -7,11 +7,11 @@ import { Prisma } from '@prisma/client';
 // FASE 1: GESTIONE DISPONIBILITÀ ATLETI (Tutti i giocatori loggati)
 // -------------------------------------------------------------
 
-// POST /api/tornei/:id/disponibilita (Atleta dà la propria disponibilità con Tessera o Login)
+// POST /api/tornei/:id/disponibilita (Atleta dà la propria disponibilità con Tessera o Login e preferenze turno)
 export const daiDisponibilita = async (req: AuthRequest, res: Response) => {
     const torneoId = req.params.id as string;
     const userId = req.user?.userId;
-    const { note, giocatoreId: requestedGiocatoreId, numeroTessera, tessera } = req.body;
+    const { note, giocatoreId: requestedGiocatoreId, numeroTessera, tessera, turnoId, secondoTurnoId } = req.body;
     const tesseraClean = (numeroTessera || tessera || '').trim();
 
     try {
@@ -48,7 +48,8 @@ export const daiDisponibilita = async (req: AuthRequest, res: Response) => {
         }
 
         const torneo = await prisma.torneo.findUnique({
-            where: { id: torneoId }
+            where: { id: torneoId },
+            include: { turni: true }
         });
 
         if (!torneo) {
@@ -57,6 +58,31 @@ export const daiDisponibilita = async (req: AuthRequest, res: Response) => {
 
         if (torneo.completato) {
             return res.status(400).json({ message: 'Questo torneo è già terminato.' });
+        }
+
+        // Validazione Preferenze Turno
+        let validTurnoId: string | null = null;
+        let validSecondoTurnoId: string | null = null;
+
+        if (turnoId) {
+            const turnoTrovato = torneo.turni.find(t => t.id === turnoId);
+            if (!turnoTrovato) {
+                return res.status(400).json({ message: 'Il turno preferito selezionato non appartiene a questo torneo.' });
+            }
+            validTurnoId = turnoTrovato.id;
+        } else if (torneo.turni && torneo.turni.length > 0) {
+            return res.status(400).json({ message: 'Seleziona il tuo turno di gioco preferito.' });
+        }
+
+        if (secondoTurnoId) {
+            if (secondoTurnoId === turnoId) {
+                return res.status(400).json({ message: 'Il turno di riserva deve essere diverso dal turno preferito.' });
+            }
+            const secondoTurnoTrovato = torneo.turni.find(t => t.id === secondoTurnoId);
+            if (!secondoTurnoTrovato) {
+                return res.status(400).json({ message: 'Il turno di riserva selezionato non appartiene a questo torneo.' });
+            }
+            validSecondoTurnoId = secondoTurnoTrovato.id;
         }
 
         // 1. Controllo Certificato Medico
@@ -112,10 +138,14 @@ export const daiDisponibilita = async (req: AuthRequest, res: Response) => {
             create: {
                 torneoId,
                 giocatoreId: giocatore.id,
+                turnoId: validTurnoId,
+                secondoTurnoId: validSecondoTurnoId,
                 stato: 'IN_ATTESA',
                 note: note || null
             },
             update: {
+                turnoId: validTurnoId,
+                secondoTurnoId: validSecondoTurnoId,
                 stato: 'IN_ATTESA',
                 note: note || null
             },
@@ -129,12 +159,18 @@ export const daiDisponibilita = async (req: AuthRequest, res: Response) => {
                         mediaAttuale: true,
                         sesso: true
                     }
+                },
+                turno: {
+                    include: { sede: true }
+                },
+                secondoTurno: {
+                    include: { sede: true }
                 }
             }
         });
 
         res.json({
-            message: 'Disponibilità registrata con successo!',
+            message: 'Disponibilità e preferenze turno registrate con successo!',
             disponibilita
         });
     } catch (err) {
@@ -218,6 +254,12 @@ export const getDisponibilitaAtleti = async (req: Request, res: Response) => {
                         isSenior: true,
                         fasciaSenior: true
                     }
+                },
+                turno: {
+                    include: { sede: true }
+                },
+                secondoTurno: {
+                    include: { sede: true }
                 }
             },
             orderBy: [
@@ -458,6 +500,12 @@ export const getFormazioniCoach = async (req: AuthRequest, res: Response) => {
                         fasciaSenior: true,
                         saldo: { select: { saldoAttuale: true } }
                     }
+                },
+                turno: {
+                    include: { sede: true }
+                },
+                secondoTurno: {
+                    include: { sede: true }
                 }
             },
             orderBy: [
@@ -980,6 +1028,10 @@ export const getMieSquadreTorneo = async (req: AuthRequest, res: Response) => {
                     torneoId,
                     giocatoreId: giocatore.id
                 }
+            },
+            include: {
+                turno: { include: { sede: true } },
+                secondoTurno: { include: { sede: true } }
             }
         });
 

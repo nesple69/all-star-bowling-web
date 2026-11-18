@@ -7,6 +7,7 @@ import {
     ShieldCheck, Clock, RefreshCw, Eye, Edit3
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { it } from 'date-fns/locale';
 
 interface GiocatoreDisponibile {
     id: string;
@@ -26,10 +27,24 @@ interface DisponibilitaItem {
     id: string;
     torneoId: string;
     giocatoreId: string;
+    turnoId?: string | null;
+    secondoTurnoId?: string | null;
     stato: 'IN_ATTESA' | 'ASSEGNATO' | 'RISERVA' | 'RITIRATO';
     note?: string | null;
     createdAt: string;
     giocatore: GiocatoreDisponibile;
+    turno?: {
+        id: string;
+        giorno: string;
+        orarioInizio: string;
+        sede?: { nome: string } | null;
+    } | null;
+    secondoTurno?: {
+        id: string;
+        giorno: string;
+        orarioInizio: string;
+        sede?: { nome: string } | null;
+    } | null;
 }
 
 interface SquadraFormata {
@@ -98,6 +113,7 @@ const AreaCoach: React.FC = () => {
     const [bozzaSquadre, setBozzaSquadre] = useState<BozzaSquadra[]>([]);
     const [riserveIds, setRiserveIds] = useState<string[]>([]);
     const [filtroCategoria, setFiltroCategoria] = useState<string>('TUTTE');
+    const [filtroTurno, setFiltroTurno] = useState<string>('TUTTI');
     const [cercaAtleta, setCercaAtleta] = useState<string>('');
 
     const [salvataggioInCorso, setSalvataggioInCorso] = useState(false);
@@ -204,7 +220,8 @@ const AreaCoach: React.FC = () => {
         const matchSearch =
             d.giocatore.nome.toLowerCase().includes(cercaAtleta.toLowerCase()) ||
             d.giocatore.cognome.toLowerCase().includes(cercaAtleta.toLowerCase());
-        return matchCat && matchSearch;
+        const matchTurno = filtroTurno === 'TUTTI' || d.turnoId === filtroTurno || d.secondoTurnoId === filtroTurno;
+        return matchCat && matchSearch && matchTurno;
     });
 
     // Funzione: Crea nuova bozza squadra
@@ -515,6 +532,24 @@ const AreaCoach: React.FC = () => {
                                             </button>
                                         ))}
                                     </div>
+
+                                    {torneoCorrente?.turni && torneoCorrente.turni.length > 0 && (
+                                        <div className="flex items-center gap-2 pt-1">
+                                            <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                            <select
+                                                value={filtroTurno}
+                                                onChange={(e) => setFiltroTurno(e.target.value)}
+                                                className="w-full bg-amber-50/60 border border-amber-200/80 rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-gray-700 outline-none uppercase cursor-pointer"
+                                            >
+                                                <option value="TUTTI">Tutti i turni preferiti</option>
+                                                {torneoCorrente.turni.map((t: any) => (
+                                                    <option key={t.id} value={t.id}>
+                                                        {format(new Date(t.giorno.replace('Z', '')), 'EEE dd/MM', { locale: it })} ore {format(new Date(t.orarioInizio.replace('Z', '')), 'HH:mm')}{t.sede ? ` - ${t.sede.nome}` : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Lista Card Atleti */}
@@ -546,6 +581,19 @@ const AreaCoach: React.FC = () => {
                                                         <div className="flex items-center gap-3 text-[10px] text-gray-500 font-medium">
                                                             <span>Media: <strong>{g.mediaAttuale ? g.mediaAttuale.toFixed(1) : '-'}</strong></span>
                                                         </div>
+                                                        {d.turno && (
+                                                            <div className="flex items-center gap-1.5 text-[9px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/70 mt-1">
+                                                                <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                                                                <span className="font-bold">
+                                                                    Pref: {format(new Date(d.turno.orarioInizio.replace('Z', '')), 'EEE dd/MM HH:mm', { locale: it })}
+                                                                </span>
+                                                                {d.secondoTurno && (
+                                                                    <span className="text-gray-500 font-normal">
+                                                                        (Ris: {format(new Date(d.secondoTurno.orarioInizio.replace('Z', '')), 'HH:mm')})
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     {/* Assegna a squadra */}

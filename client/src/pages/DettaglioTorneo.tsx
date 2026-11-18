@@ -85,6 +85,20 @@ interface MieSquadreData {
         id: string;
         stato: 'IN_ATTESA' | 'ASSEGNATO' | 'RISERVA' | 'RITIRATO';
         note?: string | null;
+        turnoId?: string | null;
+        secondoTurnoId?: string | null;
+        turno?: {
+            id: string;
+            giorno: string;
+            orarioInizio: string;
+            sede?: { nome: string } | null;
+        } | null;
+        secondoTurno?: {
+            id: string;
+            giorno: string;
+            orarioInizio: string;
+            sede?: { nome: string } | null;
+        } | null;
     } | null;
     squadra: SquadraPubblica | null;
 }
@@ -94,6 +108,9 @@ interface AtletaDisponibile {
     giocatoreId: string;
     stato: string;
     createdAt: string;
+    turnoId?: string | null;
+    secondoTurnoId?: string | null;
+    note?: string | null;
     giocatore: {
         id: string;
         nome: string;
@@ -102,6 +119,18 @@ interface AtletaDisponibile {
         mediaAttuale: number;
         sesso: string;
     };
+    turno?: {
+        id: string;
+        giorno: string;
+        orarioInizio: string;
+        sede?: { nome: string } | null;
+    } | null;
+    secondoTurno?: {
+        id: string;
+        giorno: string;
+        orarioInizio: string;
+        sede?: { nome: string } | null;
+    } | null;
 }
 
 const DettaglioTorneo: React.FC = () => {
@@ -134,6 +163,12 @@ const DettaglioTorneo: React.FC = () => {
     const [selectedSecondoTurnoId, setSelectedSecondoTurnoId] = useState('');
     const [salvataggioTurno, setSalvataggioTurno] = useState(false);
 
+    // Preferenze Turno Disponibilità Atleta
+    const [dispTurnoId, setDispTurnoId] = useState('');
+    const [dispSecondoTurnoId, setDispSecondoTurnoId] = useState('');
+    const [dispNote, setDispNote] = useState('');
+    const [modificaPreferenze, setModificaPreferenze] = useState(false);
+
     // Feedback
     const [feedback, setFeedback] = useState<{ tipo: 'success' | 'error'; testo: string } | null>(null);
     const [azioneInCorso, setAzioneInCorso] = useState(false);
@@ -142,6 +177,9 @@ const DettaglioTorneo: React.FC = () => {
         const resTorneo = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}`);
         const resDisp = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/disponibilita`);
         setDisponibilita(resDisp.data);
+        if (resDisp.data?.length > 0) {
+            setDispTurnoId(prev => prev || resDisp.data[0].id);
+        }
 
         try {
             const resIscr = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/iscritti`);
@@ -194,6 +232,11 @@ const DettaglioTorneo: React.FC = () => {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
             setMieSquadre(res.data);
+            if (res.data?.disponibilita) {
+                setDispTurnoId(res.data.disponibilita.turnoId || '');
+                setDispSecondoTurnoId(res.data.disponibilita.secondoTurnoId || '');
+                setDispNote(res.data.disponibilita.note || '');
+            }
             if (res.data?.giocatore) {
                 setErroreTessera('');
             }
@@ -265,11 +308,17 @@ const DettaglioTorneo: React.FC = () => {
         setErroreTessera('');
     };
 
-    // Azione Atleta: Dai Disponibilità
-    const handleDaiDisponibilita = async () => {
+    // Azione Atleta: Dai Disponibilità e Preferenze Turno
+    const handleDaiDisponibilita = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         const tesseraDaUsare = (tesseraAttiva || localStorage.getItem('allstar_tessera') || '').trim();
         if (!tesseraDaUsare && !token) {
             setFeedback({ tipo: 'error', testo: 'Inserisci il tuo numero di tessera prima di dare la disponibilità.' });
+            return;
+        }
+
+        if (disponibilita.length > 0 && !dispTurnoId) {
+            setFeedback({ tipo: 'error', testo: 'Seleziona il tuo turno di gioco preferito.' });
             return;
         }
 
@@ -278,10 +327,16 @@ const DettaglioTorneo: React.FC = () => {
         try {
             const res = await axios.post(
                 `${API_BASE_URL}/api/tornei/${id}/disponibilita`,
-                { numeroTessera: tesseraDaUsare },
+                {
+                    numeroTessera: tesseraDaUsare,
+                    turnoId: dispTurnoId || null,
+                    secondoTurnoId: dispSecondoTurnoId || null,
+                    note: dispNote || null
+                },
                 { headers: token ? { Authorization: `Bearer ${token}` } : {} }
             );
-            setFeedback({ tipo: 'success', testo: res.data.message || 'Disponibilità registrata!' });
+            setFeedback({ tipo: 'success', testo: res.data.message || 'Disponibilità e preferenze registrate!' });
+            setModificaPreferenze(false);
             await Promise.all([ricaricaMieSquadre(tesseraDaUsare), refetchTorneo()]);
         } catch (err: any) {
             setFeedback({
@@ -578,8 +633,8 @@ const DettaglioTorneo: React.FC = () => {
                                 </button>
                             </div>
 
-                            {/* STATO 1: L'atleta non ha ancora dato disponibilità e non è in squadra */}
-                            {!mieSquadre?.disponibilita && !mieSquadre?.squadra && (() => {
+                            {/* STATO 1: L'atleta non ha ancora dato disponibilità o vuole modificare le preferenze */}
+                            {(!mieSquadre?.disponibilita || modificaPreferenze) && !mieSquadre?.squadra && (() => {
                                 const costoQuota = Number(torneo.costoIscrizione || 0);
                                 const saldo = Number(mieSquadre.giocatore.saldoAttuale || 0);
                                 const isSaldoSufficiente = costoQuota <= 0 || saldo >= costoQuota;
@@ -592,23 +647,77 @@ const DettaglioTorneo: React.FC = () => {
                                 const canPartecipare = isCertificatoValido && isSaldoSufficiente;
 
                                 return (
-                                    <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 space-y-4">
+                                    <form onSubmit={handleDaiDisponibilita} className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 space-y-4">
                                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                             <div>
                                                 <p className="font-black text-sm uppercase text-white">
-                                                    Vuoi partecipare a questa gara di {torneo.tipologia.replace('_', ' ')}?
+                                                    {modificaPreferenze ? 'Modifica le tue Preferenze di Turno' : `Vuoi partecipare a questa gara di ${torneo.tipologia.replace('_', ' ')}?`}
                                                 </p>
                                                 <p className="text-xs text-slate-300 font-medium mt-1">
-                                                    Dai la tua disponibilità: verrai inserito nell'elenco per il Coach, che comporrà le formazioni ufficiali.
+                                                    {modificaPreferenze
+                                                        ? 'Aggiorna i turni in cui preferisci giocare: il Coach ne terrà conto per la formazione.'
+                                                        : 'Dai la tua disponibilità indicando subito il turno di gioco che preferisci: il Coach ne terrà conto per comporre le formazioni.'}
                                                 </p>
                                             </div>
 
+                                            {modificaPreferenze && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setModificaPreferenze(false)}
+                                                    className="px-3 py-1.5 text-xs text-slate-300 hover:text-white underline font-bold uppercase transition-colors shrink-0"
+                                                >
+                                                    Annulla modifica
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Selezione Preferenze Turni di Gioco */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                            <div className="space-y-1.5">
+                                                <label className="block text-[11px] font-black uppercase tracking-wider text-amber-300">
+                                                    Turno Preferito (Scelta Principale) *
+                                                </label>
+                                                <select
+                                                    value={dispTurnoId}
+                                                    onChange={(e) => setDispTurnoId(e.target.value)}
+                                                    required
+                                                    className="w-full bg-slate-950/80 border-2 border-white/20 focus:border-amber-400 rounded-xl px-4 py-3 text-xs text-white font-bold outline-none uppercase transition-colors"
+                                                >
+                                                    <option value="" disabled>Seleziona Turno Preferito...</option>
+                                                    {disponibilita.map(t => (
+                                                        <option key={t.id} value={t.id} className="bg-slate-900 text-white">
+                                                            {format(new Date(t.giorno.replace('Z', '')), 'EEE dd/MM', { locale: it })} ore {format(new Date(t.orarioInizio.replace('Z', '')), 'HH:mm')}{t.sede ? ` - ${t.sede.nome}` : ''} ({t.postiRimanenti} posti liberi)
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-300">
+                                                    Turno di Riserva (Opzionale / Consigliato)
+                                                </label>
+                                                <select
+                                                    value={dispSecondoTurnoId}
+                                                    onChange={(e) => setDispSecondoTurnoId(e.target.value)}
+                                                    className="w-full bg-slate-950/80 border-2 border-white/20 focus:border-amber-400 rounded-xl px-4 py-3 text-xs text-white font-bold outline-none uppercase transition-colors"
+                                                >
+                                                    <option value="" className="bg-slate-900 text-white">Nessun turno di riserva</option>
+                                                    {disponibilita.filter(t => t.id !== dispTurnoId).map(t => (
+                                                        <option key={t.id} value={t.id} className="bg-slate-900 text-white">
+                                                            {format(new Date(t.giorno.replace('Z', '')), 'EEE dd/MM', { locale: it })} ore {format(new Date(t.orarioInizio.replace('Z', '')), 'HH:mm')}{t.sede ? ` - ${t.sede.nome}` : ''} ({t.postiRimanenti} posti liberi)
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex justify-end pt-2">
                                             <button
-                                                onClick={handleDaiDisponibilita}
-                                                disabled={azioneInCorso || !canPartecipare}
+                                                type="submit"
+                                                disabled={azioneInCorso || !canPartecipare || (disponibilita.length > 0 && !dispTurnoId)}
                                                 className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-yellow-200 text-slate-950 font-black uppercase text-xs tracking-wider rounded-xl shadow-lg transition-all transform hover:scale-105 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                                             >
-                                                {azioneInCorso ? 'Registrazione...' : 'Do la mia disponibilità'}
+                                                {azioneInCorso ? 'Salvataggio...' : (modificaPreferenze ? 'Aggiorna Preferenze Turno' : 'Do la mia disponibilità con questo turno')}
                                             </button>
                                         </div>
 
@@ -642,13 +751,13 @@ const DettaglioTorneo: React.FC = () => {
                                                 Certificato Medico: <strong>{isCertificatoValido ? 'In regola' : 'Da rinnovare'}</strong>
                                             </span>
                                         </div>
-                                    </div>
+                                    </form>
                                 );
                             })()}
 
                             {/* STATO 2: Disponibilità data, in attesa del Coach */}
-                            {mieSquadre?.disponibilita?.stato === 'IN_ATTESA' && !mieSquadre?.squadra && (
-                                <div className="bg-amber-400/15 border border-amber-300/40 p-6 rounded-2xl space-y-3">
+                            {mieSquadre?.disponibilita?.stato === 'IN_ATTESA' && !mieSquadre?.squadra && !modificaPreferenze && (
+                                <div className="bg-amber-400/15 border border-amber-300/40 p-6 rounded-2xl space-y-4">
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                         <div className="flex items-center gap-3">
                                             <div className="p-3 bg-amber-400 text-slate-950 rounded-xl">
@@ -659,18 +768,54 @@ const DettaglioTorneo: React.FC = () => {
                                                     Disponibilità Registrata con Successo!
                                                 </h3>
                                                 <p className="text-xs text-slate-300 font-medium">
-                                                    Sei nella lista atleti disponibili. Il Coach sta componendo le squadre.
+                                                    Sei nella lista atleti disponibili. Il Coach terrà conto delle tue preferenze di turno per comporre le formazioni.
                                                 </p>
                                             </div>
                                         </div>
 
-                                        <button
-                                            onClick={handleRitiraDisponibilita}
-                                            disabled={azioneInCorso}
-                                            className="px-4 py-2 bg-white/10 hover:bg-red-500/20 text-red-300 border border-red-400/30 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
-                                        >
-                                            Ritira Disponibilità
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    setDispTurnoId(mieSquadre.disponibilita?.turnoId || (disponibilita[0]?.id || ''));
+                                                    setDispSecondoTurnoId(mieSquadre.disponibilita?.secondoTurnoId || '');
+                                                    setModificaPreferenze(true);
+                                                }}
+                                                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+                                            >
+                                                Modifica Turni
+                                            </button>
+                                            <button
+                                                onClick={handleRitiraDisponibilita}
+                                                disabled={azioneInCorso}
+                                                className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+                                            >
+                                                Ritira Disponibilità
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Riepilogo Preferenze Espresse */}
+                                    <div className="pt-3 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                        <div className="bg-slate-950/40 p-3 rounded-xl border border-white/10">
+                                            <span className="text-[10px] font-black uppercase text-amber-300 block mb-0.5">
+                                                Turno Preferito Scelto
+                                            </span>
+                                            <p className="font-bold text-white text-sm">
+                                                {mieSquadre.disponibilita.turno ? (
+                                                    `${format(new Date(mieSquadre.disponibilita.turno.giorno.replace('Z', '')), 'EEE dd/MM', { locale: it })} ore ${format(new Date(mieSquadre.disponibilita.turno.orarioInizio.replace('Z', '')), 'HH:mm')}${mieSquadre.disponibilita.turno.sede ? ` - ${mieSquadre.disponibilita.turno.sede.nome}` : ''}`
+                                                ) : 'Nessuna preferenza espressa'}
+                                            </p>
+                                        </div>
+                                        {mieSquadre.disponibilita.secondoTurno && (
+                                            <div className="bg-slate-950/40 p-3 rounded-xl border border-white/10">
+                                                <span className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">
+                                                    Turno di Riserva Scelto
+                                                </span>
+                                                <p className="font-bold text-slate-200 text-sm">
+                                                    {format(new Date(mieSquadre.disponibilita.secondoTurno.giorno.replace('Z', '')), 'EEE dd/MM', { locale: it })} ore {format(new Date(mieSquadre.disponibilita.secondoTurno.orarioInizio.replace('Z', '')), 'HH:mm')}{mieSquadre.disponibilita.secondoTurno.sede ? ` - ${mieSquadre.disponibilita.secondoTurno.sede.nome}` : ''}
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -976,24 +1121,39 @@ const DettaglioTorneo: React.FC = () => {
                             ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                     {candidatiDisponibili.map((c) => (
-                                        <div key={c.id} className="bg-gray-50/70 p-3.5 rounded-2xl border border-gray-100 flex items-center justify-between">
-                                            <div className="space-y-0.5">
-                                                <p className="font-black text-xs uppercase text-dark">
-                                                    {c.giocatore.cognome} {c.giocatore.nome}
-                                                </p>
-                                                <p className="text-[10px] font-bold text-gray-400 uppercase">
-                                                    Cat. {c.giocatore.categoria} • {c.giocatore.sesso}
-                                                </p>
+                                        <div key={c.id} className="bg-gray-50/70 p-3.5 rounded-2xl border border-gray-100 flex flex-col justify-between gap-2">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="space-y-0.5">
+                                                    <p className="font-black text-xs uppercase text-dark">
+                                                        {c.giocatore.cognome} {c.giocatore.nome}
+                                                    </p>
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase">
+                                                        Cat. {c.giocatore.categoria} • {c.giocatore.sesso}
+                                                    </p>
+                                                </div>
+                                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded shrink-0 ${
+                                                    c.stato === 'ASSEGNATO'
+                                                        ? 'bg-emerald-100 text-emerald-800'
+                                                        : c.stato === 'RISERVA'
+                                                        ? 'bg-amber-100 text-amber-800'
+                                                        : 'bg-blue-100 text-blue-800'
+                                                }`}>
+                                                    {c.stato === 'ASSEGNATO' ? 'In Squadra' : c.stato === 'RISERVA' ? 'Riserva' : 'In Attesa'}
+                                                </span>
                                             </div>
-                                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
-                                                c.stato === 'ASSEGNATO'
-                                                    ? 'bg-emerald-100 text-emerald-800'
-                                                    : c.stato === 'RISERVA'
-                                                    ? 'bg-amber-100 text-amber-800'
-                                                    : 'bg-blue-100 text-blue-800'
-                                            }`}>
-                                                {c.stato === 'ASSEGNATO' ? 'In Squadra' : c.stato === 'RISERVA' ? 'Riserva' : 'In Attesa'}
-                                            </span>
+                                            {c.turno && (
+                                                <div className="flex items-center gap-1.5 text-[10px] text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200/50">
+                                                    <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                                                    <span className="font-bold">
+                                                        Pref: {format(new Date(c.turno.orarioInizio.replace('Z', '')), 'EEE dd/MM HH:mm', { locale: it })}
+                                                    </span>
+                                                    {c.secondoTurno && (
+                                                        <span className="text-gray-500 font-medium">
+                                                            (Ris: {format(new Date(c.secondoTurno.orarioInizio.replace('Z', '')), 'HH:mm')})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
