@@ -450,20 +450,22 @@ const Tornei: React.FC = () => {
                                                             {grp.iscritti.map((isc, idx) => (
                                                                 <div key={idx} className="flex justify-between items-center text-xs">
                                                                     <span className="font-black uppercase text-dark">
-                                                                        {isc.giocatore.cognome} {isc.giocatore.nome}
+                                                                        {isc.giocatore?.cognome || ''} {isc.giocatore?.nome || ''}
                                                                         {isc.isRiserva && <span className="ml-1.5 text-[8px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-black">RISERVA</span>}
                                                                     </span>
                                                                     <span className="text-[10px] font-bold text-gray-400 uppercase">
-                                                                        {isc.giocatore.sesso}/{isc.giocatore.categoria}
+                                                                        {isc.giocatore?.sesso || ''}/{isc.giocatore?.categoria || ''}
                                                                     </span>
                                                                 </div>
                                                             ))}
                                                         </div>
-                                                        <div className="text-right pt-2 border-t border-gray-50">
-                                                            <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10 uppercase">
-                                                                {format(new Date(grp.turno?.orarioInizio || 0), 'dd/MM HH:mm')}
-                                                            </span>
-                                                        </div>
+                                                        {grp.turno?.orarioInizio && (
+                                                            <div className="text-right pt-2 border-t border-gray-50">
+                                                                <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10 uppercase">
+                                                                    {format(new Date(grp.turno.orarioInizio), 'dd/MM HH:mm')}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ));
                                             })()}

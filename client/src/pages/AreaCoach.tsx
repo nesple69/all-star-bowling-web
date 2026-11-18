@@ -9,6 +9,24 @@ import {
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 
+const safeFormatDate = (val: any, pattern: string): string => {
+    if (!val) return '';
+    try {
+        let d: Date;
+        if (typeof val === 'string') {
+            d = new Date(val.replace('Z', ''));
+        } else if (val instanceof Date) {
+            d = val;
+        } else {
+            d = new Date(val);
+        }
+        if (isNaN(d.getTime())) return '';
+        return format(d, pattern, { locale: it });
+    } catch {
+        return '';
+    }
+};
+
 interface GiocatoreDisponibile {
     id: string;
     nome: string;
@@ -542,9 +560,9 @@ const AreaCoach: React.FC = () => {
                                                 className="w-full bg-amber-50/60 border border-amber-200/80 rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-gray-700 outline-none uppercase cursor-pointer"
                                             >
                                                 <option value="TUTTI">Tutti i turni preferiti</option>
-                                                {torneoCorrente.turni.map((t: any) => (
+                                                {(torneoCorrente.turni || []).map((t: any) => (
                                                     <option key={t.id} value={t.id}>
-                                                        {format(new Date(t.giorno.replace('Z', '')), 'EEE dd/MM', { locale: it })} ore {format(new Date(t.orarioInizio.replace('Z', '')), 'HH:mm')}{t.sede ? ` - ${t.sede.nome}` : ''}
+                                                        {safeFormatDate(t.giorno, 'EEE dd/MM')} ore {safeFormatDate(t.orarioInizio, 'HH:mm')}{t.sede ? ` - ${t.sede.nome}` : ''}
                                                     </option>
                                                 ))}
                                             </select>
@@ -563,33 +581,33 @@ const AreaCoach: React.FC = () => {
                                             const g = d.giocatore;
                                             return (
                                                 <div
-                                                    key={g.id}
+                                                    key={g?.id || d.id}
                                                     className="bg-gray-50/70 hover:bg-gray-100/70 p-3 rounded-2xl border border-gray-100 flex items-center justify-between gap-3 transition-colors"
                                                 >
                                                     <div className="space-y-0.5">
                                                         <div className="flex items-center gap-1.5">
                                                             <span className="font-black text-xs uppercase text-dark">
-                                                                {g.cognome} {g.nome}
+                                                                {g?.cognome || ''} {g?.nome || ''}
                                                             </span>
                                                             <span className="text-[9px] font-black bg-primary/10 text-primary px-1.5 py-0.2 rounded">
-                                                                Cat. {g.categoria}
+                                                                Cat. {g?.categoria || '-'}
                                                             </span>
                                                             <span className="text-[9px] font-bold text-gray-400">
-                                                                {g.sesso}
+                                                                {g?.sesso || ''}
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-3 text-[10px] text-gray-500 font-medium">
-                                                            <span>Media: <strong>{g.mediaAttuale ? g.mediaAttuale.toFixed(1) : '-'}</strong></span>
+                                                            <span>Media: <strong>{g?.mediaAttuale ? g.mediaAttuale.toFixed(1) : '-'}</strong></span>
                                                         </div>
                                                         {d.turno && (
                                                             <div className="flex items-center gap-1.5 text-[9px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/70 mt-1">
                                                                 <Clock className="w-3 h-3 text-amber-600 shrink-0" />
                                                                 <span className="font-bold">
-                                                                    Pref: {format(new Date(d.turno.orarioInizio.replace('Z', '')), 'EEE dd/MM HH:mm', { locale: it })}
+                                                                    Pref: {safeFormatDate(d.turno.orarioInizio, 'EEE dd/MM HH:mm')}
                                                                 </span>
                                                                 {d.secondoTurno && (
                                                                     <span className="text-gray-500 font-normal">
-                                                                        (Ris: {format(new Date(d.secondoTurno.orarioInizio.replace('Z', '')), 'HH:mm')})
+                                                                        (Ris: {safeFormatDate(d.secondoTurno.orarioInizio, 'HH:mm')})
                                                                     </span>
                                                                 )}
                                                             </div>

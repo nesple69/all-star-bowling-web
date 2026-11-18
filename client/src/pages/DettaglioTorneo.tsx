@@ -12,6 +12,24 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { format, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 
+export const safeFormatDate = (val: any, pattern: string): string => {
+    if (!val) return '';
+    try {
+        let d: Date;
+        if (typeof val === 'string') {
+            d = new Date(val.replace('Z', ''));
+        } else if (val instanceof Date) {
+            d = val;
+        } else {
+            d = new Date(val);
+        }
+        if (isNaN(d.getTime())) return '';
+        return format(d, pattern, { locale: it });
+    } catch {
+        return '';
+    }
+};
+
 interface Torneo {
     id: string;
     nome: string;
@@ -174,45 +192,56 @@ const DettaglioTorneo: React.FC = () => {
     const [azioneInCorso, setAzioneInCorso] = useState(false);
 
     const fetchTorneoData = async () => {
-        const resTorneo = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}`);
-        const resDisp = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/disponibilita`);
-        setDisponibilita(resDisp.data);
-        if (resDisp.data?.length > 0) {
-            setDispTurnoId(prev => prev || resDisp.data[0].id);
-        }
-
         try {
-            const resIscr = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/iscritti`);
-            setIscritti(resIscr.data);
-        } catch (err) {
-            console.error('Errore iscritti:', err);
-        }
+            const [resTorneo, resDisp] = await Promise.all([
+                axios.get(`${API_BASE_URL}/api/tornei/public/${id}`),
+                axios.get(`${API_BASE_URL}/api/tornei/public/${id}/disponibilita`)
+            ]);
 
-        try {
-            const resCand = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/disponibilita-atleti`);
-            setCandidatiDisponibili(resCand.data);
-        } catch (err) {
-            console.error('Errore candidati:', err);
-        }
+            const dispData = Array.isArray(resDisp.data) ? resDisp.data : [];
+            setDisponibilita(dispData);
+            if (dispData.length > 0) {
+                setDispTurnoId(prev => prev || dispData[0].id);
+            }
 
-        try {
-            const resSquadre = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/squadre`);
-            setSquadreConfermate(resSquadre.data);
-        } catch (err) {
-            console.error('Errore formazioni:', err);
-        }
+            try {
+                const resIscr = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/iscritti`);
+                setIscritti(Array.isArray(resIscr.data) ? resIscr.data : []);
+            } catch (err) {
+                console.error('Errore iscritti:', err);
+            }
 
-        setIsLoading(false);
-        return {
-            torneo: resTorneo.data as Torneo,
-            disponibilita: resDisp.data as Disponibilita[]
-        };
+            try {
+                const resCand = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/disponibilita-atleti`);
+                setCandidatiDisponibili(Array.isArray(resCand.data) ? resCand.data : []);
+            } catch (err) {
+                console.error('Errore candidati:', err);
+            }
+
+            try {
+                const resSquadre = await axios.get(`${API_BASE_URL}/api/tornei/public/${id}/squadre`);
+                setSquadreConfermate(Array.isArray(resSquadre.data) ? resSquadre.data : []);
+            } catch (err) {
+                console.error('Errore formazioni:', err);
+            }
+
+            return {
+                torneo: resTorneo.data as Torneo,
+                disponibilita: dispData as Disponibilita[]
+            };
+        } catch (err) {
+            console.error('Errore caricamento dati torneo:', err);
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const { data, refetch: refetchTorneo } = useQuery({
+    const { data, isLoading: queryLoading, isError, refetch: refetchTorneo } = useQuery({
         queryKey: ['torneoDetail', id],
         queryFn: fetchTorneoData,
-        enabled: !!id
+        enabled: !!id,
+        staleTime: 10000
     });
 
     const torneo = data?.torneo;
@@ -405,8 +434,30 @@ const DettaglioTorneo: React.FC = () => {
         }
     };
 
-    if (isLoading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
-    if (!torneo) return <div className="text-center py-20 font-black uppercase text-gray-300">Torneo non trovato</div>;
+    if (isLoading && queryLoading) {
+        return (
+            <div className="flex justify-center items-center py-24">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
+
+    if (isError || !torneo) {
+        return (
+            <div className="max-w-xl mx-auto text-center py-20 px-4 space-y-4">
+                <div className="p-4 bg-red-50 text-red-700 rounded-2xl border border-red-200 font-black uppercase text-sm">
+                    Impossibile caricare le informazioni del torneo.
+                </div>
+                <Link
+                    to="/tornei"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-black uppercase text-xs tracking-wider shadow-md hover:scale-105 transition-all"
+                >
+                    <ChevronLeft className="w-4 h-4" />
+                    Torna all'elenco dei tornei
+                </Link>
+            </div>
+        );
+    }
 
     const isScaduto2Giorni = differenceInDays(new Date(torneo.dataInizio), new Date()) <= -2;
     const isTorneoASquadre = torneo.tipologia !== 'SINGOLO';
@@ -488,12 +539,12 @@ const DettaglioTorneo: React.FC = () => {
                             <div>
                                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Periodo Svolgimento</p>
                                 <p className="font-black text-gray-700 uppercase">
-                                    {format(new Date(torneo.dataInizio), 'dd MMMM', { locale: it })}
+                                    {safeFormatDate(torneo.dataInizio, 'dd MMMM')}
                                     {torneo.dataFine && torneo.dataFine !== torneo.dataInizio && (
-                                        <> - {format(new Date(torneo.dataFine), 'dd MMMM yyyy', { locale: it })}</>
+                                        <> - {safeFormatDate(torneo.dataFine, 'dd MMMM yyyy')}</>
                                     )}
                                     {(!torneo.dataFine || torneo.dataFine === torneo.dataInizio) && (
-                                        <> {format(new Date(torneo.dataInizio), 'yyyy', { locale: it })}</>
+                                        <> {safeFormatDate(torneo.dataInizio, 'yyyy')}</>
                                     )}
                                 </p>
                             </div>
@@ -686,7 +737,7 @@ const DettaglioTorneo: React.FC = () => {
                                                     <option value="" disabled>Seleziona Turno Preferito...</option>
                                                     {disponibilita.map(t => (
                                                         <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                                                            {format(new Date(t.giorno.replace('Z', '')), 'EEE dd/MM', { locale: it })} ore {format(new Date(t.orarioInizio.replace('Z', '')), 'HH:mm')}{t.sede ? ` - ${t.sede.nome}` : ''} ({t.postiRimanenti} posti liberi)
+                                                            {safeFormatDate(t.giorno, 'EEE dd/MM')} ore {safeFormatDate(t.orarioInizio, 'HH:mm')}{t.sede ? ` - ${t.sede.nome}` : ''} ({t.postiRimanenti} posti liberi)
                                                         </option>
                                                     ))}
                                                 </select>
@@ -704,7 +755,7 @@ const DettaglioTorneo: React.FC = () => {
                                                     <option value="" className="bg-slate-900 text-white">Nessun turno di riserva</option>
                                                     {disponibilita.filter(t => t.id !== dispTurnoId).map(t => (
                                                         <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                                                            {format(new Date(t.giorno.replace('Z', '')), 'EEE dd/MM', { locale: it })} ore {format(new Date(t.orarioInizio.replace('Z', '')), 'HH:mm')}{t.sede ? ` - ${t.sede.nome}` : ''} ({t.postiRimanenti} posti liberi)
+                                                            {safeFormatDate(t.giorno, 'EEE dd/MM')} ore {safeFormatDate(t.orarioInizio, 'HH:mm')}{t.sede ? ` - ${t.sede.nome}` : ''} ({t.postiRimanenti} posti liberi)
                                                         </option>
                                                     ))}
                                                 </select>
@@ -726,7 +777,7 @@ const DettaglioTorneo: React.FC = () => {
                                             <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-200 text-xs font-bold flex items-center gap-2">
                                                 <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
                                                 <span>
-                                                    Certificato medico scaduto o non registrato ({mieSquadre.giocatore.certificatoMedicoScadenza ? format(new Date(mieSquadre.giocatore.certificatoMedicoScadenza), 'dd/MM/yyyy') : 'assente'}). È necessario rinnovarlo prima di partecipare.
+                                                    Certificato medico scaduto o non registrato ({safeFormatDate(mieSquadre.giocatore?.certificatoMedicoScadenza, 'dd/MM/yyyy') || 'assente'}). È necessario rinnovarlo prima di partecipare.
                                                 </span>
                                             </div>
                                         )}
@@ -801,18 +852,18 @@ const DettaglioTorneo: React.FC = () => {
                                                 Turno Preferito Scelto
                                             </span>
                                             <p className="font-bold text-white text-sm">
-                                                {mieSquadre.disponibilita.turno ? (
-                                                    `${format(new Date(mieSquadre.disponibilita.turno.giorno.replace('Z', '')), 'EEE dd/MM', { locale: it })} ore ${format(new Date(mieSquadre.disponibilita.turno.orarioInizio.replace('Z', '')), 'HH:mm')}${mieSquadre.disponibilita.turno.sede ? ` - ${mieSquadre.disponibilita.turno.sede.nome}` : ''}`
+                                                {mieSquadre.disponibilita?.turno ? (
+                                                    `${safeFormatDate(mieSquadre.disponibilita.turno.giorno, 'EEE dd/MM')} ore ${safeFormatDate(mieSquadre.disponibilita.turno.orarioInizio, 'HH:mm')}${mieSquadre.disponibilita.turno.sede ? ` - ${mieSquadre.disponibilita.turno.sede.nome}` : ''}`
                                                 ) : 'Nessuna preferenza espressa'}
                                             </p>
                                         </div>
-                                        {mieSquadre.disponibilita.secondoTurno && (
+                                        {mieSquadre.disponibilita?.secondoTurno && (
                                             <div className="bg-slate-950/40 p-3 rounded-xl border border-white/10">
                                                 <span className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">
                                                     Turno di Riserva Scelto
                                                 </span>
                                                 <p className="font-bold text-slate-200 text-sm">
-                                                    {format(new Date(mieSquadre.disponibilita.secondoTurno.giorno.replace('Z', '')), 'EEE dd/MM', { locale: it })} ore {format(new Date(mieSquadre.disponibilita.secondoTurno.orarioInizio.replace('Z', '')), 'HH:mm')}{mieSquadre.disponibilita.secondoTurno.sede ? ` - ${mieSquadre.disponibilita.secondoTurno.sede.nome}` : ''}
+                                                    {safeFormatDate(mieSquadre.disponibilita.secondoTurno.giorno, 'EEE dd/MM')} ore {safeFormatDate(mieSquadre.disponibilita.secondoTurno.orarioInizio, 'HH:mm')}{mieSquadre.disponibilita.secondoTurno.sede ? ` - ${mieSquadre.disponibilita.secondoTurno.sede.nome}` : ''}
                                                 </p>
                                             </div>
                                         )}
@@ -857,13 +908,13 @@ const DettaglioTorneo: React.FC = () => {
 
                                     {/* Componenti della Formazione */}
                                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 pt-2">
-                                        {mieSquadre.squadra.iscrizioni.map((isc, idx) => (
+                                        {(mieSquadre.squadra.iscrizioni || []).map((isc, idx) => (
                                             <div key={idx} className="bg-white/10 p-3 rounded-xl border border-white/10 flex items-center justify-between">
                                                 <span className="font-black uppercase text-xs text-white">
-                                                    {isc.giocatore.cognome} {isc.giocatore.nome}
+                                                    {isc.giocatore?.cognome || ''} {isc.giocatore?.nome || ''}
                                                 </span>
                                                 <span className="text-[9px] font-bold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded">
-                                                    Cat. {isc.giocatore.categoria}
+                                                    Cat. {isc.giocatore?.categoria || '-'}
                                                 </span>
                                             </div>
                                         ))}
@@ -873,11 +924,11 @@ const DettaglioTorneo: React.FC = () => {
                                     {mieSquadre.squadra.turnoId ? (
                                         <div className="pt-3 border-t border-white/10 flex flex-wrap gap-x-6 gap-y-2 text-xs text-slate-200 font-medium">
                                             <span>
-                                                Turno Principale: <strong className="text-amber-300">{format(new Date(mieSquadre.squadra.turno?.orarioInizio || 0), 'EEEE dd MMMM HH:mm', { locale: it })}</strong>
+                                                Turno Principale: <strong className="text-amber-300">{safeFormatDate(mieSquadre.squadra.turno?.orarioInizio, 'EEEE dd MMMM HH:mm')}</strong>
                                             </span>
                                             {mieSquadre.squadra.secondoTurno && (
                                                 <span>
-                                                    Turno Riserva: <strong>{format(new Date(mieSquadre.squadra.secondoTurno.orarioInizio), 'dd/MM HH:mm')}</strong>
+                                                    Turno Riserva: <strong>{safeFormatDate(mieSquadre.squadra.secondoTurno.orarioInizio, 'dd/MM HH:mm')}</strong>
                                                 </span>
                                             )}
                                             {mieSquadre.squadra.confermataDa && (
@@ -995,16 +1046,16 @@ const DettaglioTorneo: React.FC = () => {
 
                                                 {/* Atleti della squadra */}
                                                 <div className="space-y-1.5">
-                                                    {sq.iscrizioni.map((isc, iIdx) => (
+                                                    {(sq.iscrizioni || []).map((isc, iIdx) => (
                                                         <div
                                                             key={iIdx}
                                                             className="flex items-center justify-between bg-white px-3.5 py-2 rounded-xl text-xs border border-gray-100"
                                                         >
                                                             <span className="font-black uppercase text-dark">
-                                                                {isc.giocatore.cognome} {isc.giocatore.nome}
+                                                                {isc.giocatore?.cognome || ''} {isc.giocatore?.nome || ''}
                                                             </span>
                                                             <span className="text-[10px] font-bold text-gray-500 uppercase">
-                                                                Cat. {isc.giocatore.categoria} ({isc.giocatore.sesso})
+                                                                Cat. {isc.giocatore?.categoria || '-'} ({isc.giocatore?.sesso || '-'})
                                                             </span>
                                                         </div>
                                                     ))}
@@ -1019,12 +1070,12 @@ const DettaglioTorneo: React.FC = () => {
                                                                 <span>Turno Confermato</span>
                                                             </div>
                                                             <p className="font-black text-slate-800">
-                                                                {format(new Date(sq.turno?.orarioInizio || 0), 'EEEE dd MMMM HH:mm', { locale: it })}
+                                                                {safeFormatDate(sq.turno?.orarioInizio, 'EEEE dd MMMM HH:mm')}
                                                                 {sq.turno?.sede ? ` (${sq.turno.sede.nome})` : ''}
                                                             </p>
                                                             {sq.secondoTurno && (
                                                                 <p className="text-[10px] text-gray-500 font-medium">
-                                                                    Riserva: {format(new Date(sq.secondoTurno.orarioInizio), 'dd/MM HH:mm')}
+                                                                    Riserva: {safeFormatDate(sq.secondoTurno.orarioInizio, 'dd/MM HH:mm')}
                                                                 </p>
                                                             )}
                                                             {sq.confermataDa && (
@@ -1064,10 +1115,10 @@ const DettaglioTorneo: React.FC = () => {
                                             <div className="flex justify-between items-start">
                                                 <div>
                                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                                        {format(new Date(t.giorno.replace('Z', '')), 'EEEE dd MMMM', { locale: it })}
+                                                        {safeFormatDate(t.giorno, 'EEEE dd MMMM')}
                                                     </p>
                                                     <p className="font-black text-lg text-dark">
-                                                        {format(new Date(t.orarioInizio.replace('Z', '')), 'HH:mm')}
+                                                        {safeFormatDate(t.orarioInizio, 'HH:mm')}
                                                     </p>
                                                     {t.sede && (
                                                         <p className="text-[10px] font-bold text-gray-500 uppercase mt-0.5">
@@ -1125,10 +1176,10 @@ const DettaglioTorneo: React.FC = () => {
                                             <div className="flex items-center justify-between gap-2">
                                                 <div className="space-y-0.5">
                                                     <p className="font-black text-xs uppercase text-dark">
-                                                        {c.giocatore.cognome} {c.giocatore.nome}
+                                                        {c.giocatore?.cognome || ''} {c.giocatore?.nome || ''}
                                                     </p>
                                                     <p className="text-[10px] font-bold text-gray-400 uppercase">
-                                                        Cat. {c.giocatore.categoria} • {c.giocatore.sesso}
+                                                        Cat. {c.giocatore?.categoria || '-'} • {c.giocatore?.sesso || '-'}
                                                     </p>
                                                 </div>
                                                 <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded shrink-0 ${
@@ -1145,11 +1196,11 @@ const DettaglioTorneo: React.FC = () => {
                                                 <div className="flex items-center gap-1.5 text-[10px] text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200/50">
                                                     <Clock className="w-3 h-3 text-amber-600 shrink-0" />
                                                     <span className="font-bold">
-                                                        Pref: {format(new Date(c.turno.orarioInizio.replace('Z', '')), 'EEE dd/MM HH:mm', { locale: it })}
+                                                        Pref: {safeFormatDate(c.turno.orarioInizio, 'EEE dd/MM HH:mm')}
                                                     </span>
                                                     {c.secondoTurno && (
                                                         <span className="text-gray-500 font-medium">
-                                                            (Ris: {format(new Date(c.secondoTurno.orarioInizio.replace('Z', '')), 'HH:mm')})
+                                                            (Ris: {safeFormatDate(c.secondoTurno.orarioInizio, 'HH:mm')})
                                                         </span>
                                                     )}
                                                 </div>
@@ -1172,10 +1223,10 @@ const DettaglioTorneo: React.FC = () => {
                                 {iscritti.map((isc: any, idx: number) => (
                                     <div key={idx} className="bg-gray-50/70 p-3.5 rounded-xl border border-gray-100 flex items-center justify-between">
                                         <p className="font-black text-xs uppercase text-dark">
-                                            {isc.giocatore.cognome} {isc.giocatore.nome}
+                                            {isc.giocatore?.cognome || ''} {isc.giocatore?.nome || ''}
                                         </p>
                                         <span className="text-[10px] font-bold text-gray-400 uppercase">
-                                            Cat. {isc.giocatore.categoria}
+                                            Cat. {isc.giocatore?.categoria || '-'}
                                         </span>
                                     </div>
                                 ))}
@@ -1224,7 +1275,7 @@ const DettaglioTorneo: React.FC = () => {
                                         const isEsaurito = postiLiberi < (mieSquadre.squadra?.iscrizioni?.length || 2);
                                         return (
                                             <option key={t.id} value={t.id} disabled={isEsaurito}>
-                                                {format(new Date(t.giorno.replace('Z', '')), 'EEE dd/MM', { locale: it })} ore {format(new Date(t.orarioInizio.replace('Z', '')), 'HH:mm')}
+                                                {safeFormatDate(t.giorno, 'EEE dd/MM')} ore {safeFormatDate(t.orarioInizio, 'HH:mm')}
                                                 {t.sede ? ` - ${t.sede.nome}` : ''} ({postiLiberi} posti liberi) {isEsaurito ? '- ESAURITO' : ''}
                                             </option>
                                         );
@@ -1245,7 +1296,7 @@ const DettaglioTorneo: React.FC = () => {
                                     <option value="">Nessun turno di riserva</option>
                                     {disponibilita.filter(t => t.id !== selectedTurnoId).map((t) => (
                                         <option key={t.id} value={t.id}>
-                                            {format(new Date(t.giorno.replace('Z', '')), 'EEE dd/MM', { locale: it })} ore {format(new Date(t.orarioInizio.replace('Z', '')), 'HH:mm')}
+                                            {safeFormatDate(t.giorno, 'EEE dd/MM')} ore {safeFormatDate(t.orarioInizio, 'HH:mm')}
                                             {t.sede ? ` - ${t.sede.nome}` : ''} ({t.postiRimanenti} posti)
                                         </option>
                                     ))}
