@@ -185,7 +185,6 @@ const DettaglioTorneo: React.FC = () => {
     const [dispTurnoId, setDispTurnoId] = useState('');
     const [dispSecondoTurnoId, setDispSecondoTurnoId] = useState('');
     const [dispNote, setDispNote] = useState('');
-    const [modificaPreferenze, setModificaPreferenze] = useState(false);
 
     // Feedback
     const [feedback, setFeedback] = useState<{ tipo: 'success' | 'error'; testo: string } | null>(null);
@@ -200,7 +199,7 @@ const DettaglioTorneo: React.FC = () => {
 
             const dispData = Array.isArray(resDisp.data) ? resDisp.data : [];
             setDisponibilita(dispData);
-            if (dispData.length > 0) {
+            if (dispData.length === 1) {
                 setDispTurnoId(prev => prev || dispData[0].id);
             }
 
@@ -321,6 +320,15 @@ const DettaglioTorneo: React.FC = () => {
                 setMieSquadre(res.data);
                 setTesseraAttiva(t);
                 localStorage.setItem('allstar_tessera', t);
+                if (res.data?.disponibilita) {
+                    setDispTurnoId(res.data.disponibilita.turnoId || (disponibilita.length === 1 ? disponibilita[0].id : ''));
+                    setDispSecondoTurnoId(res.data.disponibilita.secondoTurnoId || '');
+                    setDispNote(res.data.disponibilita.note || '');
+                } else {
+                    setDispTurnoId(disponibilita.length === 1 ? disponibilita[0].id : '');
+                    setDispSecondoTurnoId('');
+                    setDispNote('');
+                }
             }
         } catch (err: any) {
             setErroreTessera(err.response?.data?.message || 'Errore nella verifica del numero di tessera.');
@@ -335,6 +343,9 @@ const DettaglioTorneo: React.FC = () => {
         setTesseraInput('');
         setMieSquadre(null);
         setErroreTessera('');
+        setDispTurnoId(disponibilita.length === 1 ? disponibilita[0].id : '');
+        setDispSecondoTurnoId('');
+        setDispNote('');
     };
 
     // Azione Atleta: Dai Disponibilità e Preferenze Turno
@@ -347,7 +358,17 @@ const DettaglioTorneo: React.FC = () => {
         }
 
         if (disponibilita.length > 0 && !dispTurnoId) {
-            setFeedback({ tipo: 'error', testo: 'Seleziona il tuo turno di gioco preferito.' });
+            setFeedback({ tipo: 'error', testo: 'Seleziona il tuo 1° turno di gioco preferito.' });
+            return;
+        }
+
+        if (disponibilita.length > 1 && !dispSecondoTurnoId) {
+            setFeedback({ tipo: 'error', testo: 'Seleziona anche il 2° turno di gioco (riserva).' });
+            return;
+        }
+
+        if (disponibilita.length > 1 && dispTurnoId === dispSecondoTurnoId) {
+            setFeedback({ tipo: 'error', testo: 'Il 1° turno e il 2° turno devono essere diversi.' });
             return;
         }
 
@@ -365,7 +386,6 @@ const DettaglioTorneo: React.FC = () => {
                 { headers: token ? { Authorization: `Bearer ${token}` } : {} }
             );
             setFeedback({ tipo: 'success', testo: res.data.message || 'Disponibilità e preferenze registrate!' });
-            setModificaPreferenze(false);
             await Promise.all([ricaricaMieSquadre(tesseraDaUsare), refetchTorneo()]);
         } catch (err: any) {
             setFeedback({
@@ -684,8 +704,13 @@ const DettaglioTorneo: React.FC = () => {
                                 </button>
                             </div>
 
-                            {/* STATO 1: L'atleta non ha ancora dato disponibilità o vuole modificare le preferenze */}
-                            {(!mieSquadre?.disponibilita || modificaPreferenze) && !mieSquadre?.squadra && (() => {
+                            {/* STATO 1 & 2: Disponibilità e Scelta Turni (sempre visibile finché non assegnato a squadra) */}
+                            {!mieSquadre?.squadra && (() => {
+                                const isGiaDisponibile = mieSquadre?.disponibilita?.stato === 'IN_ATTESA';
+                                const hasTurniMancanti = isGiaDisponibile && (
+                                    (disponibilita.length > 0 && !mieSquadre?.disponibilita?.turnoId) ||
+                                    (disponibilita.length > 1 && !mieSquadre?.disponibilita?.secondoTurnoId)
+                                );
                                 const costoQuota = Number(torneo.costoIscrizione || 0);
                                 const saldo = Number(mieSquadre.giocatore.saldoAttuale || 0);
                                 const isSaldoSufficiente = costoQuota <= 0 || saldo >= costoQuota;
@@ -696,79 +721,191 @@ const DettaglioTorneo: React.FC = () => {
                                     : false;
 
                                 const canPartecipare = isCertificatoValido && isSaldoSufficiente;
+                                const isSelectionComplete =
+                                    (disponibilita.length === 0) ||
+                                    (disponibilita.length === 1 && !!dispTurnoId) ||
+                                    (disponibilita.length > 1 && !!dispTurnoId && !!dispSecondoTurnoId && dispTurnoId !== dispSecondoTurnoId);
 
                                 return (
-                                    <form onSubmit={handleDaiDisponibilita} className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 space-y-4">
+                                    <form
+                                        onSubmit={handleDaiDisponibilita}
+                                        className={`backdrop-blur-md p-6 rounded-2xl border space-y-5 ${
+                                            isGiaDisponibile
+                                                ? 'bg-amber-400/15 border-amber-300/40'
+                                                : 'bg-white/10 border-white/10'
+                                        }`}
+                                    >
+                                        {/* Intestazione Stato */}
                                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                                            <div>
-                                                <p className="font-black text-sm uppercase text-white">
-                                                    {modificaPreferenze ? 'Modifica le tue Preferenze di Turno' : `Vuoi partecipare a questa gara di ${torneo.tipologia.replace('_', ' ')}?`}
-                                                </p>
-                                                <p className="text-xs text-slate-300 font-medium mt-1">
-                                                    {modificaPreferenze
-                                                        ? 'Aggiorna i turni in cui preferisci giocare: il Coach ne terrà conto per la formazione.'
-                                                        : 'Dai la tua disponibilità indicando subito il turno di gioco che preferisci: il Coach ne terrà conto per comporre le formazioni.'}
-                                                </p>
+                                            <div className="flex items-center gap-3">
+                                                {isGiaDisponibile && (
+                                                    <div className={`p-3 rounded-xl shrink-0 ${hasTurniMancanti ? 'bg-amber-400 text-slate-950 animate-pulse' : 'bg-emerald-400 text-slate-950'}`}>
+                                                        <Clock className="w-6 h-6" />
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <p className={`font-black text-sm uppercase ${isGiaDisponibile ? (hasTurniMancanti ? 'text-amber-300' : 'text-emerald-300') : 'text-white'}`}>
+                                                        {isGiaDisponibile
+                                                            ? (hasTurniMancanti ? 'Completa le tue Preferenze di Turno!' : 'Disponibilità Registrata con Successo!')
+                                                            : `Vuoi partecipare a questa gara di ${torneo.tipologia.replace('_', ' ')}?`}
+                                                    </p>
+                                                    <p className="text-xs text-slate-300 font-medium mt-1">
+                                                        {disponibilita.length > 1
+                                                            ? 'Seleziona obbligatoriamente il 1° Turno Preferito e il 2° Turno (Riserva) cliccando sui pulsanti qui sotto.'
+                                                            : 'Seleziona il turno di gioco cliccando sul pulsante qui sotto e conferma la tua disponibilità.'}
+                                                    </p>
+                                                </div>
                                             </div>
 
-                                            {modificaPreferenze && (
+                                            {isGiaDisponibile && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => setModificaPreferenze(false)}
-                                                    className="px-3 py-1.5 text-xs text-slate-300 hover:text-white underline font-bold uppercase transition-colors shrink-0"
+                                                    onClick={handleRitiraDisponibilita}
+                                                    disabled={azioneInCorso}
+                                                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shrink-0"
                                                 >
-                                                    Annulla modifica
+                                                    Ritira Disponibilità
                                                 </button>
                                             )}
                                         </div>
 
-                                        {/* Selezione Preferenze Turni di Gioco */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                                            <div className="space-y-1.5">
-                                                <label className="block text-[11px] font-black uppercase tracking-wider text-amber-300">
-                                                    Turno Preferito (Scelta Principale) *
-                                                </label>
-                                                <select
-                                                    value={dispTurnoId}
-                                                    onChange={(e) => setDispTurnoId(e.target.value)}
-                                                    required
-                                                    className="w-full bg-slate-950/80 border-2 border-white/20 focus:border-amber-400 rounded-xl px-4 py-3 text-xs text-white font-bold outline-none uppercase transition-colors"
-                                                >
-                                                    <option value="" disabled>Seleziona Turno Preferito...</option>
-                                                    {disponibilita.map(t => (
-                                                        <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                                                            {safeFormatDate(t.giorno, 'EEE dd/MM')} ore {safeFormatDate(t.orarioInizio, 'HH:mm')}{t.sede ? ` - ${t.sede.nome}` : ''} ({t.postiRimanenti} posti liberi)
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
+                                        {/* Pulsanti Turni Disponibili */}
+                                        {disponibilita.length > 0 && (
+                                            <div className="space-y-5 pt-2">
+                                                {/* 1° Turno Preferito */}
+                                                <div className="space-y-2.5">
+                                                    <label className="block text-[11px] font-black uppercase tracking-wider text-amber-300">
+                                                        1° Turno Preferito (Obbligatorio) *
+                                                    </label>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                                        {disponibilita.map(t => {
+                                                            const isSelected = dispTurnoId === t.id;
+                                                            return (
+                                                                <button
+                                                                    key={t.id}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setDispTurnoId(t.id);
+                                                                        if (dispSecondoTurnoId === t.id) {
+                                                                            setDispSecondoTurnoId('');
+                                                                        }
+                                                                    }}
+                                                                    className={`text-left p-3.5 rounded-xl border-2 transition-all flex flex-col justify-between gap-2 ${
+                                                                        isSelected
+                                                                            ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-lg ring-2 ring-amber-300/40'
+                                                                            : 'bg-slate-950/60 text-white border-white/15 hover:border-amber-400/60 hover:bg-slate-900'
+                                                                    }`}
+                                                                >
+                                                                    <div className="flex items-start justify-between gap-2">
+                                                                        <div>
+                                                                            <span className={`text-[10px] font-black uppercase tracking-wider block ${isSelected ? 'text-slate-800' : 'text-amber-300'}`}>
+                                                                                {safeFormatDate(t.giorno, 'EEE dd/MM')}
+                                                                            </span>
+                                                                            <span className="text-base font-black block">
+                                                                                ore {safeFormatDate(t.orarioInizio, 'HH:mm')}
+                                                                            </span>
+                                                                        </div>
+                                                                        {isSelected && (
+                                                                            <span className="p-1 bg-slate-950 text-amber-400 rounded-full shrink-0">
+                                                                                <Check className="w-3.5 h-3.5" />
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex items-center justify-between gap-2 text-[10px] font-bold">
+                                                                        <span className={`truncate ${isSelected ? 'text-slate-800' : 'text-slate-300'}`}>
+                                                                            {t.sede ? t.sede.nome : 'Sede unica'}
+                                                                        </span>
+                                                                        <span className={`px-2 py-0.5 rounded-md shrink-0 ${isSelected ? 'bg-slate-950/15 text-slate-900' : 'bg-white/10 text-slate-300'}`}>
+                                                                            {t.postiRimanenti} posti
+                                                                        </span>
+                                                                    </div>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
 
-                                            <div className="space-y-1.5">
-                                                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-300">
-                                                    Turno di Riserva (Opzionale / Consigliato)
-                                                </label>
-                                                <select
-                                                    value={dispSecondoTurnoId}
-                                                    onChange={(e) => setDispSecondoTurnoId(e.target.value)}
-                                                    className="w-full bg-slate-950/80 border-2 border-white/20 focus:border-amber-400 rounded-xl px-4 py-3 text-xs text-white font-bold outline-none uppercase transition-colors"
-                                                >
-                                                    <option value="" className="bg-slate-900 text-white">Nessun turno di riserva</option>
-                                                    {disponibilita.filter(t => t.id !== dispTurnoId).map(t => (
-                                                        <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                                                            {safeFormatDate(t.giorno, 'EEE dd/MM')} ore {safeFormatDate(t.orarioInizio, 'HH:mm')}{t.sede ? ` - ${t.sede.nome}` : ''} ({t.postiRimanenti} posti liberi)
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                {/* 2° Turno / Riserva (obbligatorio se il torneo ha più di 1 turno) */}
+                                                {disponibilita.length > 1 && (
+                                                    <div className="space-y-2.5 pt-2 border-t border-white/10">
+                                                        <label className="block text-[11px] font-black uppercase tracking-wider text-sky-300">
+                                                            2° Turno / Riserva (Obbligatorio) *
+                                                        </label>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                                            {disponibilita.map(t => {
+                                                                const isFirstChoice = dispTurnoId === t.id;
+                                                                const isSelected = dispSecondoTurnoId === t.id;
+                                                                return (
+                                                                    <button
+                                                                        key={t.id}
+                                                                        type="button"
+                                                                        disabled={isFirstChoice}
+                                                                        onClick={() => setDispSecondoTurnoId(t.id)}
+                                                                        className={`text-left p-3.5 rounded-xl border-2 transition-all flex flex-col justify-between gap-2 ${
+                                                                            isFirstChoice
+                                                                                ? 'bg-slate-950/30 text-slate-500 border-white/5 opacity-45 cursor-not-allowed'
+                                                                                : isSelected
+                                                                                ? 'bg-sky-400 text-slate-950 border-sky-300 shadow-lg ring-2 ring-sky-300/40'
+                                                                                : 'bg-slate-950/60 text-white border-white/15 hover:border-sky-400/60 hover:bg-slate-900'
+                                                                        }`}
+                                                                    >
+                                                                        <div className="flex items-start justify-between gap-2">
+                                                                            <div>
+                                                                                <span className={`text-[10px] font-black uppercase tracking-wider block ${isFirstChoice ? 'text-slate-500' : isSelected ? 'text-slate-800' : 'text-sky-300'}`}>
+                                                                                    {safeFormatDate(t.giorno, 'EEE dd/MM')}
+                                                                                </span>
+                                                                                <span className="text-base font-black block">
+                                                                                    ore {safeFormatDate(t.orarioInizio, 'HH:mm')}
+                                                                                </span>
+                                                                            </div>
+                                                                            {isSelected && (
+                                                                                <span className="p-1 bg-slate-950 text-sky-400 rounded-full shrink-0">
+                                                                                    <Check className="w-3.5 h-3.5" />
+                                                                                </span>
+                                                                            )}
+                                                                            {isFirstChoice && (
+                                                                                <span className="text-[9px] font-black uppercase bg-white/10 text-slate-400 px-1.5 py-0.5 rounded">
+                                                                                    1° Scelta
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="flex items-center justify-between gap-2 text-[10px] font-bold">
+                                                                            <span className={`truncate ${isFirstChoice ? 'text-slate-500' : isSelected ? 'text-slate-800' : 'text-slate-300'}`}>
+                                                                                {t.sede ? t.sede.nome : 'Sede unica'}
+                                                                            </span>
+                                                                            <span className={`px-2 py-0.5 rounded-md shrink-0 ${isSelected ? 'bg-slate-950/15 text-slate-900' : 'bg-white/10 text-slate-300'}`}>
+                                                                                {t.postiRimanenti} posti
+                                                                            </span>
+                                                                        </div>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
-                                        </div>
+                                        )}
 
-                                        <div className="flex justify-end pt-2">
+                                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                                            <div className="text-[11px] font-bold text-amber-200/90">
+                                                {!isSelectionComplete && (
+                                                    <span>
+                                                        {!dispTurnoId
+                                                            ? '⚠️ Seleziona il 1° turno preferito.'
+                                                            : '⚠️ Seleziona anche il 2° turno (riserva) per procedere.'}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <button
                                                 type="submit"
-                                                disabled={azioneInCorso || !canPartecipare || (disponibilita.length > 0 && !dispTurnoId)}
+                                                disabled={azioneInCorso || !canPartecipare || !isSelectionComplete}
                                                 className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-yellow-200 text-slate-950 font-black uppercase text-xs tracking-wider rounded-xl shadow-lg transition-all transform hover:scale-105 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                                             >
-                                                {azioneInCorso ? 'Salvataggio...' : (modificaPreferenze ? 'Aggiorna Preferenze Turno' : 'Do la mia disponibilità con questo turno')}
+                                                {azioneInCorso
+                                                    ? 'Salvataggio...'
+                                                    : isGiaDisponibile
+                                                    ? 'Salva / Aggiorna Preferenze Turno'
+                                                    : 'Conferma la mia Disponibilità'}
                                             </button>
                                         </div>
 
@@ -805,71 +942,6 @@ const DettaglioTorneo: React.FC = () => {
                                     </form>
                                 );
                             })()}
-
-                            {/* STATO 2: Disponibilità data, in attesa del Coach */}
-                            {mieSquadre?.disponibilita?.stato === 'IN_ATTESA' && !mieSquadre?.squadra && !modificaPreferenze && (
-                                <div className="bg-amber-400/15 border border-amber-300/40 p-6 rounded-2xl space-y-4">
-                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-3 bg-amber-400 text-slate-950 rounded-xl">
-                                                <Clock className="w-6 h-6" />
-                                            </div>
-                                            <div>
-                                                <h3 className="font-black text-sm uppercase text-amber-300">
-                                                    Disponibilità Registrata con Successo!
-                                                </h3>
-                                                <p className="text-xs text-slate-300 font-medium">
-                                                    Sei nella lista atleti disponibili. Il Coach terrà conto delle tue preferenze di turno per comporre le formazioni.
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => {
-                                                    setDispTurnoId(mieSquadre.disponibilita?.turnoId || (disponibilita[0]?.id || ''));
-                                                    setDispSecondoTurnoId(mieSquadre.disponibilita?.secondoTurnoId || '');
-                                                    setModificaPreferenze(true);
-                                                }}
-                                                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
-                                            >
-                                                Modifica Turni
-                                            </button>
-                                            <button
-                                                onClick={handleRitiraDisponibilita}
-                                                disabled={azioneInCorso}
-                                                className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-400/30 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
-                                            >
-                                                Ritira Disponibilità
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Riepilogo Preferenze Espresse */}
-                                    <div className="pt-3 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                                        <div className="bg-slate-950/40 p-3 rounded-xl border border-white/10">
-                                            <span className="text-[10px] font-black uppercase text-amber-300 block mb-0.5">
-                                                Turno Preferito Scelto
-                                            </span>
-                                            <p className="font-bold text-white text-sm">
-                                                {mieSquadre.disponibilita?.turno ? (
-                                                    `${safeFormatDate(mieSquadre.disponibilita.turno.giorno, 'EEE dd/MM')} ore ${safeFormatDate(mieSquadre.disponibilita.turno.orarioInizio, 'HH:mm')}${mieSquadre.disponibilita.turno.sede ? ` - ${mieSquadre.disponibilita.turno.sede.nome}` : ''}`
-                                                ) : 'Nessuna preferenza espressa'}
-                                            </p>
-                                        </div>
-                                        {mieSquadre.disponibilita?.secondoTurno && (
-                                            <div className="bg-slate-950/40 p-3 rounded-xl border border-white/10">
-                                                <span className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">
-                                                    Turno di Riserva Scelto
-                                                </span>
-                                                <p className="font-bold text-slate-200 text-sm">
-                                                    {safeFormatDate(mieSquadre.disponibilita.secondoTurno.giorno, 'EEE dd/MM')} ore {safeFormatDate(mieSquadre.disponibilita.secondoTurno.orarioInizio, 'HH:mm')}{mieSquadre.disponibilita.secondoTurno.sede ? ` - ${mieSquadre.disponibilita.secondoTurno.sede.nome}` : ''}
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
 
                             {/* STATO 3: Assegnato a una Squadra Confermata dal Coach */}
                             {mieSquadre?.squadra && (

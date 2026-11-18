@@ -83,6 +83,8 @@ export const daiDisponibilita = async (req: AuthRequest, res: Response) => {
                 return res.status(400).json({ message: 'Il turno di riserva selezionato non appartiene a questo torneo.' });
             }
             validSecondoTurnoId = secondoTurnoTrovato.id;
+        } else if (torneo.turni && torneo.turni.length > 1) {
+            return res.status(400).json({ message: 'Seleziona anche il secondo turno di gioco (riserva).' });
         }
 
         // 1. Controllo Certificato Medico
