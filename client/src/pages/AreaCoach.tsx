@@ -132,6 +132,7 @@ const AreaCoach: React.FC = () => {
     const [riserveIds, setRiserveIds] = useState<string[]>([]);
     const [filtroCategoria, setFiltroCategoria] = useState<string>('TUTTE');
     const [filtroTurno, setFiltroTurno] = useState<string>('TUTTI');
+    const [filtroPreferenzaTurno, setFiltroPreferenzaTurno] = useState<'ENTRAMBE' | 'PRIMA' | 'SECONDA'>('ENTRAMBE');
     const [cercaAtleta, setCercaAtleta] = useState<string>('');
 
     const [salvataggioInCorso, setSalvataggioInCorso] = useState(false);
@@ -233,14 +234,52 @@ const AreaCoach: React.FC = () => {
         return !atletiAssegnatiPubblicati.has(id) && !atletiAssegnatiInBozza.has(id);
     });
 
-    const atletiFiltrati = atletiLiberi.filter(d => {
-        const matchCat = filtroCategoria === 'TUTTE' || d.giocatore.categoria === filtroCategoria;
-        const matchSearch =
-            d.giocatore.nome.toLowerCase().includes(cercaAtleta.toLowerCase()) ||
-            d.giocatore.cognome.toLowerCase().includes(cercaAtleta.toLowerCase());
-        const matchTurno = filtroTurno === 'TUTTI' || d.turnoId === filtroTurno || d.secondoTurnoId === filtroTurno;
-        return matchCat && matchSearch && matchTurno;
-    });
+    const getTurnoTime = (orario?: string) => (orario ? new Date(orario).getTime() : Number.MAX_SAFE_INTEGER);
+
+    const atletiFiltrati = atletiLiberi
+        .filter(d => {
+            const matchCat = filtroCategoria === 'TUTTE' || d.giocatore.categoria === filtroCategoria;
+            const matchSearch =
+                d.giocatore.nome.toLowerCase().includes(cercaAtleta.toLowerCase()) ||
+                d.giocatore.cognome.toLowerCase().includes(cercaAtleta.toLowerCase());
+
+            let matchTurno = true;
+            if (filtroTurno === 'TUTTI') {
+                if (filtroPreferenzaTurno === 'PRIMA') {
+                    matchTurno = !!d.turnoId;
+                } else if (filtroPreferenzaTurno === 'SECONDA') {
+                    matchTurno = !!d.secondoTurnoId;
+                }
+            } else {
+                if (filtroPreferenzaTurno === 'PRIMA') {
+                    matchTurno = d.turnoId === filtroTurno;
+                } else if (filtroPreferenzaTurno === 'SECONDA') {
+                    matchTurno = d.secondoTurnoId === filtroTurno;
+                } else {
+                    matchTurno = d.turnoId === filtroTurno || d.secondoTurnoId === filtroTurno;
+                }
+            }
+
+            return matchCat && matchSearch && matchTurno;
+        })
+        .sort((a, b) => {
+            if (filtroTurno !== 'TUTTI') {
+                // Con un turno specifico selezionato, mostra prima chi lo ha come 1ª scelta e poi come 2ª scelta
+                const aIsPrima = a.turnoId === filtroTurno ? 0 : 1;
+                const bIsPrima = b.turnoId === filtroTurno ? 0 : 1;
+                if (aIsPrima !== bIsPrima) return aIsPrima - bIsPrima;
+            }
+
+            if (filtroPreferenzaTurno === 'SECONDA') {
+                const diffSeconda = getTurnoTime(a.secondoTurno?.orarioInizio) - getTurnoTime(b.secondoTurno?.orarioInizio);
+                if (diffSeconda !== 0) return diffSeconda;
+                return getTurnoTime(a.turno?.orarioInizio) - getTurnoTime(b.turno?.orarioInizio);
+            }
+
+            const diffPrima = getTurnoTime(a.turno?.orarioInizio) - getTurnoTime(b.turno?.orarioInizio);
+            if (diffPrima !== 0) return diffPrima;
+            return getTurnoTime(a.secondoTurno?.orarioInizio) - getTurnoTime(b.secondoTurno?.orarioInizio);
+        });
 
     // Funzione: Crea nuova bozza squadra
     const handleCreaNuovaBozza = () => {
@@ -552,20 +591,42 @@ const AreaCoach: React.FC = () => {
                                     </div>
 
                                     {torneoCorrente?.turni && torneoCorrente.turni.length > 0 && (
-                                        <div className="flex items-center gap-2 pt-1">
-                                            <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                            <select
-                                                value={filtroTurno}
-                                                onChange={(e) => setFiltroTurno(e.target.value)}
-                                                className="w-full bg-amber-50/60 border border-amber-200/80 rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-gray-700 outline-none uppercase cursor-pointer"
-                                            >
-                                                <option value="TUTTI">Tutti i turni preferiti</option>
-                                                {(torneoCorrente.turni || []).map((t: any) => (
-                                                    <option key={t.id} value={t.id}>
-                                                        {safeFormatDate(t.giorno, 'EEE dd/MM')} ore {safeFormatDate(t.orarioInizio, 'HH:mm')}{t.sede ? ` - ${t.sede.nome}` : ''}
-                                                    </option>
+                                        <div className="space-y-1.5 pt-1">
+                                            <div className="flex items-center gap-2">
+                                                <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                                <select
+                                                    value={filtroTurno}
+                                                    onChange={(e) => setFiltroTurno(e.target.value)}
+                                                    className="w-full bg-amber-50/60 border border-amber-200/80 rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-gray-700 outline-none uppercase cursor-pointer"
+                                                >
+                                                    <option value="TUTTI">Tutti i turni preferiti</option>
+                                                    {(torneoCorrente.turni || []).map((t: any) => (
+                                                        <option key={t.id} value={t.id}>
+                                                            {safeFormatDate(t.giorno, 'EEE dd/MM')} ore {safeFormatDate(t.orarioInizio, 'HH:mm')}{t.sede ? ` - ${t.sede.nome}` : ''}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1">
+                                                {[
+                                                    { value: 'ENTRAMBE', label: '1ª + 2ª Scelta' },
+                                                    { value: 'PRIMA', label: 'Solo 1ª Scelta' },
+                                                    { value: 'SECONDA', label: 'Solo 2ª Scelta' }
+                                                ].map(opt => (
+                                                    <button
+                                                        key={opt.value}
+                                                        type="button"
+                                                        onClick={() => setFiltroPreferenzaTurno(opt.value as 'ENTRAMBE' | 'PRIMA' | 'SECONDA')}
+                                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                                                            filtroPreferenzaTurno === opt.value
+                                                                ? 'bg-amber-500 text-white shadow-xs'
+                                                                : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                                                        }`}
+                                                    >
+                                                        {opt.label}
+                                                    </button>
                                                 ))}
-                                            </select>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -599,15 +660,17 @@ const AreaCoach: React.FC = () => {
                                                         <div className="flex items-center gap-3 text-[10px] text-gray-500 font-medium">
                                                             <span>Media: <strong>{g?.mediaAttuale ? g.mediaAttuale.toFixed(1) : '-'}</strong></span>
                                                         </div>
-                                                        {d.turno && (
+                                                        {(d.turno || d.secondoTurno) && (
                                                             <div className="flex items-center gap-1.5 text-[9px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/70 mt-1">
                                                                 <Clock className="w-3 h-3 text-amber-600 shrink-0" />
-                                                                <span className="font-bold">
-                                                                    Pref: {safeFormatDate(d.turno.orarioInizio, 'EEE dd/MM HH:mm')}
-                                                                </span>
+                                                                {d.turno && (
+                                                                    <span className="font-bold">
+                                                                        1ª: {safeFormatDate(d.turno.orarioInizio, 'EEE dd/MM HH:mm')}
+                                                                    </span>
+                                                                )}
                                                                 {d.secondoTurno && (
                                                                     <span className="text-gray-500 font-normal">
-                                                                        (Ris: {safeFormatDate(d.secondoTurno.orarioInizio, 'HH:mm')})
+                                                                        (2ª: {safeFormatDate(d.secondoTurno.orarioInizio, 'EEE dd/MM HH:mm')})
                                                                     </span>
                                                                 )}
                                                             </div>
