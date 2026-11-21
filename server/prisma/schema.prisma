@@ -86,6 +86,11 @@ model Torneo {
   torneoOrigineId String?
   torneoOrigine   Torneo?             @relation("FasiCollegate", fields: [torneoOrigineId], references: [id])
   fasiSuccessive  Torneo[]            @relation("FasiCollegate")
+  isFinaleItaliana      Boolean       @default(false)
+  torneiOrigineIds      String[]      @default([])
+  formazioniQualificate Int?
+  formazioniDisponibili Int?
+  coachTerminato        Boolean       @default(false)
 
   @@index([stagioneId, dataInizio])
 }
@@ -208,6 +213,7 @@ model SquadraTorneo {
   id             String              @id @default(uuid())
   torneoId       String
   nomeSquadra    String
+  tipoFormazione TipoFormazione      @default(QUALIFICATA)
   turnoId        String?
   secondoTurnoId String?
   sedeId         String?
@@ -298,4 +304,9 @@ enum StatoIscrizione {
   CONFERMATA
   MODIFICATA
   RIFIUTATA
+}
+
+enum TipoFormazione {
+  QUALIFICATA
+  DISPONIBILE
 }

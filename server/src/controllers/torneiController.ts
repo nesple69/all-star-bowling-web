@@ -227,6 +227,34 @@ export const getTorneoById = async (req: Request, res: Response) => {
     }
 };
 
+const parseFinaleItalianaFields = (body: any) => {
+    const isFinale = String(body.isFinaleItaliana) === 'true' || body.isFinaleItaliana === true;
+    let torneiOrigineIdsData: string[] = [];
+    if (body.torneiOrigineIds) {
+        try {
+            torneiOrigineIdsData = typeof body.torneiOrigineIds === 'string'
+                ? JSON.parse(body.torneiOrigineIds)
+                : body.torneiOrigineIds;
+            if (!Array.isArray(torneiOrigineIdsData)) torneiOrigineIdsData = [];
+        } catch {
+            torneiOrigineIdsData = [];
+        }
+    }
+    const qualificate = body.formazioniQualificate !== undefined && body.formazioniQualificate !== '' && body.formazioniQualificate !== null
+        ? parseInt(String(body.formazioniQualificate), 10)
+        : null;
+    const disponibili = body.formazioniDisponibili !== undefined && body.formazioniDisponibili !== '' && body.formazioniDisponibili !== null
+        ? parseInt(String(body.formazioniDisponibili), 10)
+        : null;
+
+    return {
+        isFinaleItaliana: isFinale,
+        torneiOrigineIds: isFinale ? torneiOrigineIdsData : [],
+        formazioniQualificate: isFinale && !isNaN(Number(qualificate)) ? qualificate : null,
+        formazioniDisponibili: isFinale && !isNaN(Number(disponibili)) ? disponibili : null,
+    };
+};
+
 // POST /api/tornei (crea torneo)
 export const createTorneo = async (req: Request, res: Response) => {
     console.log('--- CREATE TORNEO START ---');
@@ -288,6 +316,7 @@ export const createTorneo = async (req: Request, res: Response) => {
                 dataFine: dataFineParsed,
                 mostraBottoneIscrizione: (String(mostraBottoneIscrizione) === 'true' || mostraBottoneIscrizione === true),
                 torneoOrigineId: torneoOrigineId || null,
+                ...parseFinaleItalianaFields(req.body),
                 categorie: categorieData,
                 sedi: {
                     create: sediData.map((s: any) => ({
@@ -370,6 +399,7 @@ export const updateTorneo = async (req: Request, res: Response) => {
             completato: completato === 'true' || completato === true,
             mostraBottoneIscrizione: (String(mostraBottoneIscrizione) === 'true' || mostraBottoneIscrizione === true),
             torneoOrigineId: torneoOrigineId !== undefined ? (torneoOrigineId || null) : undefined,
+            ...(req.body.isFinaleItaliana !== undefined ? parseFinaleItalianaFields(req.body) : {}),
             categorie: categorieData
         };
 

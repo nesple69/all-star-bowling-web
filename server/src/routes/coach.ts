@@ -9,6 +9,7 @@ router.use(authenticateToken, isCoachOrAdmin);
 
 router.get('/tornei/:id/formazioni', coachController.getFormazioniCoach);
 router.post('/tornei/:id/conferma-squadre', coachController.confermaSquadreCoach);
+router.post('/tornei/:id/termina', coachController.terminaComposizioneCoach);
 router.delete('/squadre/:squadraId', coachController.annullaSquadraCoach);
 
 export default router;

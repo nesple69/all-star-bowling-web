@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../config';
 import {
     Users, Trophy, CheckCircle2, AlertCircle, Plus, Trash2,
-    ShieldCheck, Clock, RefreshCw, Eye, Edit3
+    ShieldCheck, Clock, RefreshCw, Eye, Edit3, Mail, Copy, Check, Flag, X
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -68,6 +68,7 @@ interface DisponibilitaItem {
 interface SquadraFormata {
     id: string;
     nomeSquadra: string;
+    tipoFormazione?: 'QUALIFICATA' | 'DISPONIBILE';
     turnoId?: string | null;
     secondoTurnoId?: string | null;
     confermatoIl?: string | null;
@@ -98,6 +99,7 @@ interface SquadraFormata {
 interface TorneoCoach {
     id: string;
     nome: string;
+    sede?: string;
     tipologia: 'SINGOLO' | 'DOPPIO' | 'TRIS' | 'SQUADRA_4';
     costoIscrizione: number;
     dataInizio: string;
@@ -105,11 +107,17 @@ interface TorneoCoach {
     turni: any[];
     torneoOrigineId?: string | null;
     torneoOrigine?: { id: string; nome: string } | null;
+    isFinaleItaliana?: boolean;
+    torneiOrigineIds?: string[];
+    formazioniQualificate?: number | null;
+    formazioniDisponibili?: number | null;
+    coachTerminato?: boolean;
 }
 
 interface BozzaSquadra {
     tempId: string;
     nomeSquadra: string;
+    tipoFormazione: 'QUALIFICATA' | 'DISPONIBILE';
     giocatoreIds: string[];
 }
 
@@ -137,6 +145,11 @@ const AreaCoach: React.FC = () => {
 
     const [salvataggioInCorso, setSalvataggioInCorso] = useState(false);
     const [messaggioFeedback, setMessaggioFeedback] = useState<{ tipo: 'success' | 'error'; testo: string } | null>(null);
+    const [showEmailModal, setShowEmailModal] = useState(false);
+    const [emailOggetto, setEmailOggetto] = useState('');
+    const [emailCorpo, setEmailCorpo] = useState('');
+    const [copiedField, setCopiedField] = useState<'oggetto' | 'corpo' | null>(null);
+    const [terminando, setTerminando] = useState(false);
 
     // 1. Carica lista tornei a squadre che richiedono la composizione del Coach (esclude le 2^ prove/fasi successive)
     useEffect(() => {
@@ -161,7 +174,10 @@ const AreaCoach: React.FC = () => {
                 };
 
                 const torneiDaComporre = (res.data || []).filter(
-                    (t: TorneoCoach) => t.tipologia !== 'SINGOLO' && !t.completato && !isSecondaFase(t)
+                    (t: TorneoCoach) =>
+                        (t.tipologia !== 'SINGOLO' || t.isFinaleItaliana) &&
+                        !t.completato &&
+                        (!isSecondaFase(t) || t.isFinaleItaliana)
                 );
                 setTornei(torneiDaComporre);
                 if (torneiDaComporre.length > 0) {
@@ -215,6 +231,7 @@ const AreaCoach: React.FC = () => {
     // Numero atleti richiesti per squadra
     const getTargetCount = () => {
         if (!torneoCorrente) return 2;
+        if (torneoCorrente.tipologia === 'SINGOLO') return 1;
         if (torneoCorrente.tipologia === 'DOPPIO') return 2;
         if (torneoCorrente.tipologia === 'TRIS') return 3;
         if (torneoCorrente.tipologia === 'SQUADRA_4') return 4;
@@ -282,15 +299,23 @@ const AreaCoach: React.FC = () => {
         });
 
     // Funzione: Crea nuova bozza squadra
-    const handleCreaNuovaBozza = () => {
+    const handleCreaNuovaBozza = (tipoDefault: 'QUALIFICATA' | 'DISPONIBILE' = 'QUALIFICATA') => {
         const numeroProssima = squadrePubblicate.length + bozzaSquadre.length + 1;
-        const prefisso = torneoCorrente?.tipologia === 'DOPPIO' ? 'Doppio' : torneoCorrente?.tipologia === 'TRIS' ? 'Tris' : 'Squadra';
+        const prefisso =
+            torneoCorrente?.tipologia === 'SINGOLO' ? 'Singolo' :
+            torneoCorrente?.tipologia === 'DOPPIO' ? 'Doppio' :
+            torneoCorrente?.tipologia === 'TRIS' ? 'Tris' : 'Squadra';
         const nuovaBozza: BozzaSquadra = {
             tempId: `temp_${Date.now()}`,
             nomeSquadra: `All Star ${prefisso} ${numeroProssima}`,
+            tipoFormazione: tipoDefault,
             giocatoreIds: []
         };
         setBozzaSquadre([...bozzaSquadre, nuovaBozza]);
+    };
+
+    const handleModificaTipoFormazione = (tempId: string, tipoFormazione: 'QUALIFICATA' | 'DISPONIBILE') => {
+        setBozzaSquadre(prev => prev.map(sq => sq.tempId === tempId ? { ...sq, tipoFormazione } : sq));
     };
 
     // Funzione: Aggiungi atleta a una squadra in bozza
@@ -362,6 +387,7 @@ const AreaCoach: React.FC = () => {
             const payload = {
                 squadre: bozzaSquadre.map(b => ({
                     nomeSquadra: b.nomeSquadra.trim(),
+                    tipoFormazione: b.tipoFormazione,
                     giocatoreIds: b.giocatoreIds
                 })),
                 riserveIds
@@ -388,6 +414,81 @@ const AreaCoach: React.FC = () => {
             });
         } finally {
             setSalvataggioInCorso(false);
+        }
+    };
+
+    // Generazione testo Email di Conferma per Responsabile Regionale
+    const formatAtletaRiga = (g: { categoria: string; cognome: string; nome: string }) =>
+        `- ${g.categoria}, ${g.cognome} ${g.nome}, All Star Team`;
+
+    const apriEmailConferma = () => {
+        if (!torneoCorrente) return;
+        const titolo = `Conferme per il torneo ${torneoCorrente.nome} dell'Associazione Sportiva All Star Team`;
+
+        const qualificate = squadrePubblicate.filter(s => s.tipoFormazione !== 'DISPONIBILE');
+        const disponibiliList = squadrePubblicate.filter(s => s.tipoFormazione === 'DISPONIBILE');
+        const isSingolo = torneoCorrente.tipologia === 'SINGOLO';
+
+        const formatGruppo = (lista: SquadraFormata[]) => {
+            if (lista.length === 0) return 'Nessuna';
+            return lista.map(sq => {
+                const righeAtleti = sq.iscrizioni.map(isc => formatAtletaRiga(isc.giocatore)).join('\n');
+                if (isSingolo) return righeAtleti;
+                return `${sq.nomeSquadra}:\n${righeAtleti}`;
+            }).join('\n\n');
+        };
+
+        const corpo = [
+            titolo,
+            '',
+            isSingolo ? 'SINGOLI CONFERMATI:' : 'SQUADRE CONFERMATE:',
+            formatGruppo(qualificate),
+            '',
+            isSingolo ? 'SINGOLI DISPONIBILI:' : 'SQUADRE DISPONIBILI:',
+            formatGruppo(disponibiliList),
+            '',
+            'Il Presidente All Star Team',
+            'Nedo Daniele Splendiani'
+        ].join('\n');
+
+        setEmailOggetto(titolo);
+        setEmailCorpo(corpo);
+        setCopiedField(null);
+        setShowEmailModal(true);
+    };
+
+    const handleTerminaComposizione = async () => {
+        if (!torneoCorrente) return;
+        setTerminando(true);
+        try {
+            await axios.post(
+                `${API_BASE_URL}/api/coach/tornei/${torneoCorrente.id}/termina`,
+                { terminato: true },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setTorneoCorrente(prev => prev ? { ...prev, coachTerminato: true } : prev);
+            setMessaggioFeedback({
+                tipo: 'success',
+                testo: 'Composizione contrassegnata come terminata! Ora puoi copiare la mail di conferma.'
+            });
+            apriEmailConferma();
+        } catch (err: any) {
+            setMessaggioFeedback({
+                tipo: 'error',
+                testo: err.response?.data?.message || 'Errore durante il completamento della composizione.'
+            });
+        } finally {
+            setTerminando(false);
+        }
+    };
+
+    const handleCopyText = async (text: string, field: 'oggetto' | 'corpo') => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopiedField(field);
+            setTimeout(() => setCopiedField(null), 2000);
+        } catch {
+            // Fallback silenzioso
         }
     };
 
@@ -494,6 +595,60 @@ const AreaCoach: React.FC = () => {
                 </div>
             ) : (
                 <div className="space-y-6">
+                    {/* Banner Riepilogo Finale Italiana */}
+                    {torneoCorrente.isFinaleItaliana && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-amber-800 text-xs font-black uppercase tracking-widest">
+                                    <Flag className="w-4 h-4" />
+                                    <span>Finale Italiana</span>
+                                    {torneoCorrente.coachTerminato && (
+                                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px]">
+                                            Terminata dal Coach
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs font-bold text-amber-900">
+                                    Sede: {torneoCorrente.sede || '-'} — Data: {safeFormatDate(torneoCorrente.dataInizio, 'dd/MM/yyyy')}
+                                </p>
+                                <div className="flex flex-wrap gap-3 pt-1 text-xs font-black uppercase">
+                                    <span className="bg-white border border-emerald-200 text-emerald-700 px-3 py-1 rounded-xl">
+                                        Qualificate: {squadrePubblicate.filter(s => s.tipoFormazione !== 'DISPONIBILE').length}
+                                        {torneoCorrente.formazioniQualificate !== null && torneoCorrente.formazioniQualificate !== undefined
+                                            ? ` / ${torneoCorrente.formazioniQualificate}`
+                                            : ''}
+                                    </span>
+                                    <span className="bg-white border border-amber-200 text-amber-700 px-3 py-1 rounded-xl">
+                                        Disponibili (Ripescaggio): {squadrePubblicate.filter(s => s.tipoFormazione === 'DISPONIBILE').length}
+                                        {torneoCorrente.formazioniDisponibili !== null && torneoCorrente.formazioniDisponibili !== undefined
+                                            ? ` / ${torneoCorrente.formazioniDisponibili}`
+                                            : ''}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                                {squadrePubblicate.length > 0 && (
+                                    <button
+                                        onClick={apriEmailConferma}
+                                        className="flex items-center gap-1.5 px-4 py-2 bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 rounded-xl text-xs font-black uppercase tracking-wider transition-colors"
+                                    >
+                                        <Mail className="w-4 h-4" />
+                                        <span>Prepara / Copia Mail</span>
+                                    </button>
+                                )}
+                                <button
+                                    onClick={handleTerminaComposizione}
+                                    disabled={terminando || squadrePubblicate.length === 0}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-colors disabled:opacity-50"
+                                >
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    <span>{terminando ? 'Salvataggio...' : torneoCorrente.coachTerminato ? 'Terminato (Riapri Mail)' : 'Terminato'}</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Statistiche Rapide Torneo (senza cifre in denaro) */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                         <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
@@ -727,7 +882,7 @@ const AreaCoach: React.FC = () => {
                                         </p>
                                     </div>
                                     <button
-                                        onClick={handleCreaNuovaBozza}
+                                        onClick={() => handleCreaNuovaBozza('QUALIFICATA')}
                                         className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-primary/90 transition-all shadow-md shrink-0 self-start sm:self-auto"
                                     >
                                         <Plus className="w-4 h-4" />
@@ -766,6 +921,20 @@ const AreaCoach: React.FC = () => {
                                                                 className="bg-white border border-gray-200 rounded-lg px-2.5 py-1 text-xs font-black uppercase text-dark w-full max-w-[240px] focus:outline-none focus:ring-1 focus:ring-primary"
                                                                 placeholder="Nome Squadra..."
                                                             />
+                                                            {torneoCorrente.isFinaleItaliana && (
+                                                                <select
+                                                                    value={b.tipoFormazione}
+                                                                    onChange={(e) => handleModificaTipoFormazione(b.tempId, e.target.value as 'QUALIFICATA' | 'DISPONIBILE')}
+                                                                    className={`text-[10px] font-black uppercase rounded-lg px-2 py-1 border outline-none cursor-pointer ${
+                                                                        b.tipoFormazione === 'DISPONIBILE'
+                                                                            ? 'bg-amber-50 border-amber-300 text-amber-800'
+                                                                            : 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                                                                    }`}
+                                                                >
+                                                                    <option value="QUALIFICATA">Qualificata</option>
+                                                                    <option value="DISPONIBILE">Disponibile (Ripescaggio)</option>
+                                                                </select>
+                                                            )}
                                                         </div>
 
                                                         <div className="flex items-center gap-2">
@@ -884,9 +1053,20 @@ const AreaCoach: React.FC = () => {
                                             >
                                                 <div className="flex justify-between items-start gap-2 pb-2 border-b border-gray-200">
                                                     <div>
-                                                        <h3 className="font-black text-base uppercase text-primary tracking-tight">
-                                                            {sq.nomeSquadra}
-                                                        </h3>
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <h3 className="font-black text-base uppercase text-primary tracking-tight">
+                                                                {sq.nomeSquadra}
+                                                            </h3>
+                                                            {torneoCorrente.isFinaleItaliana && (
+                                                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                                                    sq.tipoFormazione === 'DISPONIBILE'
+                                                                        ? 'bg-amber-100 text-amber-800'
+                                                                        : 'bg-emerald-100 text-emerald-800'
+                                                                }`}>
+                                                                    {sq.tipoFormazione === 'DISPONIBILE' ? 'Disponibile' : 'Qualificata'}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <span className="text-[10px] text-gray-400 font-bold uppercase">
                                                             {sq.iscrizioni.length} Atleti
                                                         </span>
@@ -955,6 +1135,89 @@ const AreaCoach: React.FC = () => {
                             )}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Modal Generazione / Copia Email Responsabile Regionale */}
+            {showEmailModal && (
+                <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl space-y-5 border border-gray-100">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                            <div className="flex items-center gap-2 text-primary">
+                                <Mail className="w-5 h-5" />
+                                <h3 className="text-lg font-black uppercase tracking-tight">
+                                    Mail di Conferma Responsabile Regionale
+                                </h3>
+                            </div>
+                            <button
+                                onClick={() => setShowEmailModal(false)}
+                                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                        Oggetto Email
+                                    </label>
+                                    <button
+                                        onClick={() => handleCopyText(emailOggetto, 'oggetto')}
+                                        className="flex items-center gap-1 text-[10px] font-black uppercase text-primary hover:underline"
+                                    >
+                                        {copiedField === 'oggetto' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                        <span>{copiedField === 'oggetto' ? 'Oggetto Copiato!' : 'Copia Oggetto'}</span>
+                                    </button>
+                                </div>
+                                <input
+                                    type="text"
+                                    value={emailOggetto}
+                                    onChange={(e) => setEmailOggetto(e.target.value)}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-primary/20"
+                                />
+                            </div>
+
+                            <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                        Testo Email (pronto da incollare nel browser)
+                                    </label>
+                                    <button
+                                        onClick={() => handleCopyText(emailCorpo, 'corpo')}
+                                        className="flex items-center gap-1 text-[10px] font-black uppercase text-primary hover:underline"
+                                    >
+                                        {copiedField === 'corpo' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                        <span>{copiedField === 'corpo' ? 'Testo Copiato!' : 'Copia Testo'}</span>
+                                    </button>
+                                </div>
+                                <textarea
+                                    rows={12}
+                                    value={emailCorpo}
+                                    onChange={(e) => setEmailCorpo(e.target.value)}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 text-xs font-mono text-gray-800 outline-none focus:ring-2 focus:ring-primary/20"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap justify-end gap-3 pt-2 border-t border-gray-100">
+                            <a
+                                href={`mailto:?subject=${encodeURIComponent(emailOggetto)}&body=${encodeURIComponent(emailCorpo)}`}
+                                className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-black uppercase tracking-wider transition-colors"
+                            >
+                                <Mail className="w-4 h-4" />
+                                <span>Apri in Mail</span>
+                            </a>
+                            <button
+                                onClick={() => handleCopyText(emailCorpo, 'corpo')}
+                                className="flex items-center gap-1.5 px-5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md transition-colors"
+                            >
+                                {copiedField === 'corpo' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                <span>{copiedField === 'corpo' ? 'Copiato negli appunti!' : 'Copia Corpo Mail'}</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

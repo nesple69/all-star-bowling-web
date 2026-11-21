@@ -487,7 +487,7 @@ export const getFormazioniCoach = async (req: AuthRequest, res: Response) => {
         }
 
         // Tutti gli atleti con disponibilità per questo torneo
-        const disponibili = await prisma.disponibilitaTorneo.findMany({
+        const disponibiliRaw = await prisma.disponibilitaTorneo.findMany({
             where: { torneoId },
             include: {
                 giocatore: {
@@ -515,6 +515,72 @@ export const getFormazioniCoach = async (req: AuthRequest, res: Response) => {
                 { giocatore: { cognome: 'asc' } }
             ]
         });
+
+        let disponibili: any[] = [...disponibiliRaw];
+
+        // Per le Finali Italiane, includi tutti gli atleti che hanno partecipato ai tornei di origine
+        if (torneo.isFinaleItaliana) {
+            const origineIds = Array.from(new Set([
+                ...(torneo.torneiOrigineIds || []),
+                ...(torneo.torneoOrigineId ? [torneo.torneoOrigineId] : [])
+            ])).filter(Boolean);
+
+            if (origineIds.length > 0) {
+                const giocatoreSelect = {
+                    id: true,
+                    nome: true,
+                    cognome: true,
+                    categoria: true,
+                    mediaAttuale: true,
+                    sesso: true,
+                    isSenior: true,
+                    fasciaSenior: true,
+                    saldo: { select: { saldoAttuale: true } }
+                };
+
+                const [risultatiOrigine, iscrizioniOrigine] = await Promise.all([
+                    prisma.risultatoTorneo.findMany({
+                        where: { torneoId: { in: origineIds } },
+                        select: { giocatore: { select: giocatoreSelect } }
+                    }),
+                    prisma.iscrizioneTorneo.findMany({
+                        where: { torneoId: { in: origineIds }, stato: { not: 'RIFIUTATA' } },
+                        select: { giocatore: { select: giocatoreSelect } }
+                    })
+                ]);
+
+                const presentiIds = new Set(disponibili.map(d => d.giocatore.id));
+                const partecipantiMap = new Map<string, any>();
+
+                for (const r of risultatiOrigine) {
+                    if (r.giocatore && !presentiIds.has(r.giocatore.id)) {
+                        partecipantiMap.set(r.giocatore.id, r.giocatore);
+                    }
+                }
+                for (const i of iscrizioniOrigine) {
+                    if (i.giocatore && !presentiIds.has(i.giocatore.id) && !partecipantiMap.has(i.giocatore.id)) {
+                        partecipantiMap.set(i.giocatore.id, i.giocatore);
+                    }
+                }
+
+                const extraPartecipanti = Array.from(partecipantiMap.values()).map(g => ({
+                    id: `origine_${g.id}`,
+                    stato: 'IN_ATTESA',
+                    note: 'Partecipante fase precedente',
+                    turnoId: null,
+                    secondoTurnoId: null,
+                    turno: null,
+                    secondoTurno: null,
+                    giocatore: g
+                }));
+
+                disponibili = [...disponibili, ...extraPartecipanti].sort((a, b) => {
+                    const catDiff = (a.giocatore.categoria || '').localeCompare(b.giocatore.categoria || '');
+                    if (catDiff !== 0) return catDiff;
+                    return (a.giocatore.cognome || '').localeCompare(b.giocatore.cognome || '');
+                });
+            }
+        }
 
         // Tutte le squadre già composte per questo torneo
         const squadre = await prisma.squadraTorneo.findMany({
@@ -562,6 +628,7 @@ export const confermaSquadreCoach = async (req: AuthRequest, res: Response) => {
     const { squadre, riserveIds } = req.body as {
         squadre: Array<{
             nomeSquadra: string;
+            tipoFormazione?: 'QUALIFICATA' | 'DISPONIBILE';
             giocatoreIds: string[];
         }>;
         riserveIds?: string[];
@@ -583,8 +650,9 @@ export const confermaSquadreCoach = async (req: AuthRequest, res: Response) => {
         if (torneo.tipologia === 'DOPPIO') requiredPerTeam = 2;
         else if (torneo.tipologia === 'TRIS') requiredPerTeam = 3;
         else if (torneo.tipologia === 'SQUADRA_4') requiredPerTeam = 4;
+        else if (torneo.isFinaleItaliana && torneo.tipologia === 'SINGOLO') requiredPerTeam = 1;
         else {
-            return res.status(400).json({ message: 'La composizione squadre è valida solo per gare di Doppio, Tris o Squadra.' });
+            return res.status(400).json({ message: 'La composizione squadre è valida solo per gare di Doppio, Tris, Squadra o Finali Italiane.' });
         }
 
         // Verifica validità e unicità atleti
@@ -616,11 +684,15 @@ export const confermaSquadreCoach = async (req: AuthRequest, res: Response) => {
             const createdSquadre = [];
 
             for (const sq of squadre) {
+                const tipoFormazione = sq.tipoFormazione === 'DISPONIBILE' ? 'DISPONIBILE' : 'QUALIFICATA';
+                const addebitaQuota = costoQuota > 0 && tipoFormazione !== 'DISPONIBILE';
+
                 // 1. Crea la SquadraTorneo
                 const nuovaSquadra = await tx.squadraTorneo.create({
                     data: {
                         torneoId,
-                        nomeSquadra: sq.nomeSquadra.trim()
+                        nomeSquadra: sq.nomeSquadra.trim(),
+                        tipoFormazione
                     }
                 });
 
@@ -635,8 +707,8 @@ export const confermaSquadreCoach = async (req: AuthRequest, res: Response) => {
                         throw new Error(`Atleta con ID ${pId} non trovato.`);
                     }
 
-                    // Se c'è una quota di iscrizione, addebitala
-                    if (costoQuota > 0) {
+                    // Se c'è una quota di iscrizione e non è una formazione disponibile (riserva ripescaggio), addebitala
+                    if (addebitaQuota) {
                         const saldoAttuale = Number(giocatore.saldo?.saldoAttuale || 0);
                         if (saldoAttuale < costoQuota) {
                             throw new Error(`L'atleta ${giocatore.nome} ${giocatore.cognome} non ha saldo sufficiente (€${saldoAttuale.toFixed(2)} / €${costoQuota.toFixed(2)}).`);
@@ -723,6 +795,30 @@ export const confermaSquadreCoach = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// POST /api/coach/tornei/:id/termina (Coach segna come terminata la composizione della Finale Italiana)
+export const terminaComposizioneCoach = async (req: AuthRequest, res: Response) => {
+    const torneoId = req.params.id as string;
+    const terminato = req.body?.terminato !== false;
+
+    try {
+        const torneo = await prisma.torneo.update({
+            where: { id: torneoId },
+            data: { coachTerminato: terminato },
+            select: { id: true, nome: true, coachTerminato: true }
+        });
+
+        res.json({
+            message: terminato
+                ? 'Composizione contrassegnata come terminata.'
+                : 'Composizione riaperta per modifiche.',
+            torneo
+        });
+    } catch (err: any) {
+        console.error('Errore terminaComposizioneCoach:', err);
+        res.status(500).json({ message: 'Errore durante l\'aggiornamento dello stato di completamento.' });
+    }
+};
+
 // DELETE /api/coach/squadre/:squadraId (Coach o Admin annulla una squadra e rimborsa i giocatori)
 export const annullaSquadraCoach = async (req: AuthRequest, res: Response) => {
     const squadraId = req.params.squadraId as string;
@@ -742,11 +838,12 @@ export const annullaSquadraCoach = async (req: AuthRequest, res: Response) => {
         }
 
         const costoQuota = Number(squadra.torneo.costoIscrizione || 0);
+        const deveRimborsare = costoQuota > 0 && squadra.tipoFormazione !== 'DISPONIBILE';
 
         await prisma.$transaction(async (tx) => {
             for (const iscr of squadra.iscrizioni) {
-                // Rimborso quota se presente
-                if (costoQuota > 0) {
+                // Rimborso quota se presente e se la formazione era stata addebitata
+                if (deveRimborsare) {
                     await tx.saldoBorsellino.upsert({
                         where: { giocatoreId: iscr.giocatoreId },
                         create: {

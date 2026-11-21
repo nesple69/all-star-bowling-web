@@ -31,7 +31,11 @@ const FormTorneo: React.FC = () => {
         completato: false,
         mostraBottoneIscrizione: true,
         categorie: [] as string[],
-        torneoOrigineId: ''
+        torneoOrigineId: '',
+        isFinaleItaliana: false,
+        torneiOrigineIds: [] as string[],
+        formazioniQualificate: '',
+        formazioniDisponibili: ''
     });
 
     const [turni, setTurni] = useState<any[]>([]);
@@ -80,7 +84,11 @@ const FormTorneo: React.FC = () => {
                         completato: t.completato,
                         mostraBottoneIscrizione: t.mostraBottoneIscrizione !== false,
                         categorie: t.categorie || [],
-                        torneoOrigineId: t.torneoOrigineId || ''
+                        torneoOrigineId: t.torneoOrigineId || '',
+                        isFinaleItaliana: !!t.isFinaleItaliana,
+                        torneiOrigineIds: t.torneiOrigineIds || [],
+                        formazioniQualificate: t.formazioniQualificate !== null && t.formazioniQualificate !== undefined ? String(t.formazioniQualificate) : '',
+                        formazioniDisponibili: t.formazioniDisponibili !== null && t.formazioniDisponibili !== undefined ? String(t.formazioniDisponibili) : ''
                     });
                     setTurni(t.turni || []);
                     setSedi(t.sedi?.map((s: any) => ({
@@ -177,7 +185,7 @@ const FormTorneo: React.FC = () => {
         const data = new FormData();
         Object.entries(formData).forEach(([key, value]) => {
             if (value !== null && value !== undefined) {
-                if (key === 'categorie') {
+                if (key === 'categorie' || key === 'torneiOrigineIds') {
                     data.append(key, JSON.stringify(value));
                 } else {
                     data.append(key, value.toString());
@@ -315,7 +323,99 @@ const FormTorneo: React.FC = () => {
                                     </select>
                                 </div>
 
-                                {formData.tipologia !== 'SINGOLO' && (
+                                {/* Finale Italiana (Composizione Coach da Fase Precedente) */}
+                                <div className="md:col-span-2 p-5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-4">
+                                    <label className="flex items-center gap-3 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.isFinaleItaliana}
+                                            onChange={e => setFormData({
+                                                ...formData,
+                                                isFinaleItaliana: e.target.checked,
+                                                torneoOrigineId: e.target.checked ? '' : formData.torneoOrigineId
+                                            })}
+                                            className="w-5 h-5 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                                        />
+                                        <div>
+                                            <span className="block text-xs font-black text-amber-900 uppercase tracking-widest">
+                                                Finale Italiana (Composizione Coach)
+                                            </span>
+                                            <span className="block text-[10px] font-bold text-amber-700">
+                                                Il Coach potrà pescare solo gli atleti che hanno partecipato ai tornei di origine selezionati e preparare le formazioni Qualificate e Disponibili.
+                                            </span>
+                                        </div>
+                                    </label>
+
+                                    {formData.isFinaleItaliana && (
+                                        <div className="space-y-4 pt-2 border-t border-amber-200/80">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-[10px] font-black text-amber-900 uppercase tracking-widest mb-1.5">
+                                                        N° {formData.tipologia === 'SINGOLO' ? 'Singoli Qualificati' : 'Formazioni Qualificate'}
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        className="w-full px-4 py-2.5 bg-white border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none font-bold text-sm"
+                                                        value={formData.formazioniQualificate}
+                                                        onChange={e => setFormData({ ...formData, formazioniQualificate: e.target.value })}
+                                                        placeholder="Es. 2"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-black text-amber-900 uppercase tracking-widest mb-1.5">
+                                                        N° {formData.tipologia === 'SINGOLO' ? 'Singoli Disponibili (Ripescaggio)' : 'Formazioni Disponibili (Ripescaggio)'}
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        className="w-full px-4 py-2.5 bg-white border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none font-bold text-sm"
+                                                        value={formData.formazioniDisponibili}
+                                                        onChange={e => setFormData({ ...formData, formazioniDisponibili: e.target.value })}
+                                                        placeholder="Es. 1"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[10px] font-black text-amber-900 uppercase tracking-widest mb-2">
+                                                    Tornei di Origine (da cui pescare gli atleti partecipanti)
+                                                </label>
+                                                <div className="max-h-44 overflow-y-auto bg-white border border-amber-200 rounded-xl p-2 space-y-1">
+                                                    {listaTornei
+                                                        .filter((t: any) => t.id !== id && t.tipologia === formData.tipologia && (!formData.stagioneId || t.stagioneId === formData.stagioneId))
+                                                        .map((t: any) => {
+                                                            const checked = formData.torneiOrigineIds.includes(t.id);
+                                                            return (
+                                                                <label key={t.id} className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-amber-50 cursor-pointer text-xs font-bold text-gray-800">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={checked}
+                                                                        onChange={() => {
+                                                                            const next = checked
+                                                                                ? formData.torneiOrigineIds.filter(x => x !== t.id)
+                                                                                : [...formData.torneiOrigineIds, t.id];
+                                                                            setFormData({ ...formData, torneiOrigineIds: next });
+                                                                        }}
+                                                                        className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                                                                    />
+                                                                    <span>{t.nome}</span>
+                                                                    <span className="text-[10px] text-gray-400 font-semibold">({t.stagione?.nome || 'Stagione'})</span>
+                                                                </label>
+                                                            );
+                                                        })}
+                                                    {listaTornei.filter((t: any) => t.id !== id && t.tipologia === formData.tipologia && (!formData.stagioneId || t.stagioneId === formData.stagioneId)).length === 0 && (
+                                                        <p className="text-[11px] text-gray-400 p-2 font-medium">
+                                                            Nessun torneo {formData.tipologia} trovato nella stagione selezionata.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {formData.tipologia !== 'SINGOLO' && !formData.isFinaleItaliana && (
                                     <div className="md:col-span-2 p-5 bg-blue-50/60 border border-blue-100 rounded-2xl space-y-2">
                                         <div className="flex items-center gap-2">
                                             <Info className="w-4 h-4 text-blue-600" />
