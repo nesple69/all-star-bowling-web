@@ -85,6 +85,7 @@ interface SquadraFormata {
     } | null;
     iscrizioni: {
         id: string;
+        isRiserva?: boolean;
         giocatore: {
             id: string;
             nome: string;
@@ -119,6 +120,7 @@ interface BozzaSquadra {
     nomeSquadra: string;
     tipoFormazione: 'QUALIFICATA' | 'DISPONIBILE';
     giocatoreIds: string[];
+    riservaId?: string | null;
 }
 
 const AreaCoach: React.FC = () => {
@@ -239,9 +241,12 @@ const AreaCoach: React.FC = () => {
     };
 
     const targetAtletiPerSquadra = getTargetCount();
+    const supportsRiserva = torneoCorrente?.tipologia === 'TRIS' || torneoCorrente?.tipologia === 'SQUADRA_4';
 
     // Atleti disponibili che non sono ancora assegnati a squadre pubblicate né in bozza
-    const atletiAssegnatiInBozza = new Set(bozzaSquadre.flatMap(b => b.giocatoreIds));
+    const atletiAssegnatiInBozza = new Set(
+        bozzaSquadre.flatMap(b => (b.riservaId ? [...b.giocatoreIds, b.riservaId] : b.giocatoreIds))
+    );
     const atletiAssegnatiPubblicati = new Set(
         squadrePubblicate.flatMap(s => s.iscrizioni.map(i => i.giocatore.id))
     );
@@ -309,7 +314,8 @@ const AreaCoach: React.FC = () => {
             tempId: `temp_${Date.now()}`,
             nomeSquadra: `All Star ${prefisso} ${numeroProssima}`,
             tipoFormazione: tipoDefault,
-            giocatoreIds: []
+            giocatoreIds: [],
+            riservaId: null
         };
         setBozzaSquadre([...bozzaSquadre, nuovaBozza]);
     };
@@ -318,23 +324,37 @@ const AreaCoach: React.FC = () => {
         setBozzaSquadre(prev => prev.map(sq => sq.tempId === tempId ? { ...sq, tipoFormazione } : sq));
     };
 
-    // Funzione: Aggiungi atleta a una squadra in bozza
-    const handleAggiungiAtletaASquadra = (tempId: string, giocatoreId: string) => {
+    // Funzione: Aggiungi atleta a una squadra in bozza (titolare o riserva)
+    const handleAggiungiAtletaASquadra = (tempId: string, giocatoreId: string, comeRiserva: boolean = false) => {
         setBozzaSquadre(prev => prev.map(sq => {
             if (sq.tempId === tempId) {
+                if (comeRiserva) {
+                    if (!supportsRiserva || sq.riservaId || sq.giocatoreIds.includes(giocatoreId)) return sq;
+                    return { ...sq, riservaId: giocatoreId };
+                }
                 if (sq.giocatoreIds.length >= targetAtletiPerSquadra) return sq;
-                if (sq.giocatoreIds.includes(giocatoreId)) return sq;
+                if (sq.giocatoreIds.includes(giocatoreId) || sq.riservaId === giocatoreId) return sq;
                 return { ...sq, giocatoreIds: [...sq.giocatoreIds, giocatoreId] };
             }
             return sq;
         }));
     };
 
-    // Funzione: Rimuovi atleta da una bozza
+    // Funzione: Rimuovi atleta titolare da una bozza
     const handleRimuoviAtletaDaBozza = (tempId: string, giocatoreId: string) => {
         setBozzaSquadre(prev => prev.map(sq => {
             if (sq.tempId === tempId) {
                 return { ...sq, giocatoreIds: sq.giocatoreIds.filter(id => id !== giocatoreId) };
+            }
+            return sq;
+        }));
+    };
+
+    // Funzione: Rimuovi riserva da una bozza
+    const handleRimuoviRiservaDaBozza = (tempId: string) => {
+        setBozzaSquadre(prev => prev.map(sq => {
+            if (sq.tempId === tempId) {
+                return { ...sq, riservaId: null };
             }
             return sq;
         }));
@@ -354,12 +374,12 @@ const AreaCoach: React.FC = () => {
     const handleConfermaEPubblica = async () => {
         if (!torneoCorrente || bozzaSquadre.length === 0) return;
 
-        // Validazione: tutte le squadre devono essere complete
+        // Validazione: ogni squadra deve avere almeno 1 atleta titolare (consentite formazioni ridotte/scompagnati)
         for (const b of bozzaSquadre) {
-            if (b.giocatoreIds.length !== targetAtletiPerSquadra) {
+            if (b.giocatoreIds.length < 1) {
                 setMessaggioFeedback({
                     tipo: 'error',
-                    testo: `La squadra "${b.nomeSquadra}" è incompleta: ha ${b.giocatoreIds.length} atleti su ${targetAtletiPerSquadra} richiesti.`
+                    testo: `La squadra "${b.nomeSquadra}" è vuota: inserisci almeno 1 atleta.`
                 });
                 return;
             }
@@ -372,10 +392,18 @@ const AreaCoach: React.FC = () => {
             }
         }
 
-        const totaleAtleti = bozzaSquadre.length * targetAtletiPerSquadra;
+        const totaleTitolari = bozzaSquadre.reduce((acc, b) => acc + b.giocatoreIds.length, 0);
+        const totaleRiserve = supportsRiserva ? bozzaSquadre.filter(b => !!b.riservaId).length : 0;
+        const squadreRidotte = bozzaSquadre.filter(b => b.giocatoreIds.length < targetAtletiPerSquadra);
+        const riepilogoAtleti = totaleRiserve > 0
+            ? `${totaleTitolari} titolari + ${totaleRiserve} ${totaleRiserve === 1 ? 'riserva' : 'riserve'}`
+            : `${totaleTitolari} atleti in totale`;
+        const notaRidotte = squadreRidotte.length > 0
+            ? `\n\nNota: ${squadreRidotte.length} ${squadreRidotte.length === 1 ? 'formazione ha' : 'formazioni hanno'} meno di ${targetAtletiPerSquadra} atleti.`
+            : '';
 
         const conferma = window.confirm(
-            `Confermi la pubblicazione di ${bozzaSquadre.length} formazioni (${totaleAtleti} atleti in totale)?\n\nLe formazioni saranno subito visibili online per gli atleti e per la scelta dei turni!`
+            `Confermi la pubblicazione di ${bozzaSquadre.length} formazioni (${riepilogoAtleti})?${notaRidotte}\n\nLe formazioni saranno subito visibili online per gli atleti e per la scelta dei turni!`
         );
 
         if (!conferma) return;
@@ -388,7 +416,8 @@ const AreaCoach: React.FC = () => {
                 squadre: bozzaSquadre.map(b => ({
                     nomeSquadra: b.nomeSquadra.trim(),
                     tipoFormazione: b.tipoFormazione,
-                    giocatoreIds: b.giocatoreIds
+                    giocatoreIds: b.giocatoreIds,
+                    riservaId: supportsRiserva ? (b.riservaId || null) : null
                 })),
                 riserveIds
             };
@@ -418,8 +447,8 @@ const AreaCoach: React.FC = () => {
     };
 
     // Generazione testo Email di Conferma per Responsabile Regionale
-    const formatAtletaRiga = (g: { categoria: string; cognome: string; nome: string }) =>
-        `- ${g.categoria}, ${g.cognome} ${g.nome}, All Star Team`;
+    const formatAtletaRiga = (g: { categoria: string; cognome: string; nome: string }, isRiserva?: boolean) =>
+        `- ${g.categoria}, ${g.cognome} ${g.nome}, All Star Team${isRiserva ? ' (Riserva)' : ''}`;
 
     const apriEmailConferma = () => {
         if (!torneoCorrente) return;
@@ -432,7 +461,7 @@ const AreaCoach: React.FC = () => {
         const formatGruppo = (lista: SquadraFormata[]) => {
             if (lista.length === 0) return 'Nessuna';
             return lista.map(sq => {
-                const righeAtleti = sq.iscrizioni.map(isc => formatAtletaRiga(isc.giocatore)).join('\n');
+                const righeAtleti = sq.iscrizioni.map(isc => formatAtletaRiga(isc.giocatore, isc.isRiserva)).join('\n');
                 if (isSingolo) return righeAtleti;
                 return `${sq.nomeSquadra}:\n${righeAtleti}`;
             }).join('\n\n');
@@ -654,7 +683,9 @@ const AreaCoach: React.FC = () => {
                         <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
                             <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 block">Formato Torneo</span>
                             <span className="text-lg font-black text-primary uppercase">{torneoCorrente.tipologia.replace('_', ' ')}</span>
-                            <span className="text-[10px] text-gray-500 font-medium block">({targetAtletiPerSquadra} atleti per squadra)</span>
+                            <span className="text-[10px] text-gray-500 font-medium block">
+                                ({targetAtletiPerSquadra} atleti{supportsRiserva ? ' + 1 riserva opz.' : ' per squadra'})
+                            </span>
                         </div>
                         <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
                             <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 block">Candidati Totali</span>
@@ -838,7 +869,8 @@ const AreaCoach: React.FC = () => {
                                                             <select
                                                                 onChange={(e) => {
                                                                     if (e.target.value) {
-                                                                        handleAggiungiAtletaASquadra(e.target.value, g.id);
+                                                                        const [tempId, ruolo] = e.target.value.split('::');
+                                                                        handleAggiungiAtletaASquadra(tempId, g.id, ruolo === 'RISERVA');
                                                                         e.target.value = '';
                                                                     }
                                                                 }}
@@ -847,13 +879,22 @@ const AreaCoach: React.FC = () => {
                                                             >
                                                                 <option value="" disabled>+ Assegna a...</option>
                                                                 {bozzaSquadre.map((b, bIdx) => (
-                                                                    <option
-                                                                        key={b.tempId}
-                                                                        value={b.tempId}
-                                                                        disabled={b.giocatoreIds.length >= targetAtletiPerSquadra}
-                                                                    >
-                                                                        Sq. {bIdx + 1} ({b.giocatoreIds.length}/{targetAtletiPerSquadra})
-                                                                    </option>
+                                                                    <React.Fragment key={b.tempId}>
+                                                                        <option
+                                                                            value={`${b.tempId}::TITOLARE`}
+                                                                            disabled={b.giocatoreIds.length >= targetAtletiPerSquadra}
+                                                                        >
+                                                                            Sq. {bIdx + 1} ({b.giocatoreIds.length}/{targetAtletiPerSquadra})
+                                                                        </option>
+                                                                        {supportsRiserva && (
+                                                                            <option
+                                                                                value={`${b.tempId}::RISERVA`}
+                                                                                disabled={!!b.riservaId}
+                                                                            >
+                                                                                Sq. {bIdx + 1} - Riserva ({b.riservaId ? '1/1' : '0/1'})
+                                                                            </option>
+                                                                        )}
+                                                                    </React.Fragment>
                                                                 ))}
                                                             </select>
                                                         </div>
@@ -900,13 +941,16 @@ const AreaCoach: React.FC = () => {
                                     <div className="space-y-4">
                                         {bozzaSquadre.map((b, bIdx) => {
                                             const isCompleta = b.giocatoreIds.length === targetAtletiPerSquadra;
+                                            const isRidotta = b.giocatoreIds.length > 0 && b.giocatoreIds.length < targetAtletiPerSquadra;
                                             return (
                                                 <div
                                                     key={b.tempId}
                                                     className={`p-4 rounded-2xl border transition-all space-y-3 ${
                                                         isCompleta
                                                             ? 'bg-emerald-50/40 border-emerald-200'
-                                                            : 'bg-gray-50/70 border-gray-200'
+                                                            : isRidotta
+                                                                ? 'bg-sky-50/40 border-sky-200'
+                                                                : 'bg-gray-50/70 border-gray-200'
                                                     }`}
                                                 >
                                                     <div className="flex items-center justify-between gap-3">
@@ -939,9 +983,13 @@ const AreaCoach: React.FC = () => {
 
                                                         <div className="flex items-center gap-2">
                                                             <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
-                                                                isCompleta ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                                                isCompleta
+                                                                    ? 'bg-emerald-100 text-emerald-700'
+                                                                    : isRidotta
+                                                                        ? 'bg-sky-100 text-sky-700'
+                                                                        : 'bg-amber-100 text-amber-700'
                                                             }`}>
-                                                                {b.giocatoreIds.length} / {targetAtletiPerSquadra} atleti
+                                                                {b.giocatoreIds.length} / {targetAtletiPerSquadra} atleti{isRidotta ? ' (ridotta)' : ''}{b.riservaId ? ' + 1 ris.' : ''}
                                                             </span>
                                                             <button
                                                                 onClick={() => handleEliminaBozza(b.tempId)}
@@ -994,6 +1042,50 @@ const AreaCoach: React.FC = () => {
                                                                 </div>
                                                             );
                                                         })}
+
+                                                        {/* Slot Riserva Opzionale (solo per TRIS e SQUADRA_4) */}
+                                                        {supportsRiserva && (() => {
+                                                            const riservaDisp = b.riservaId
+                                                                ? disponibili.find(d => d.giocatore.id === b.riservaId)
+                                                                : null;
+
+                                                            return (
+                                                                <div
+                                                                    className={`sm:col-span-2 p-2.5 rounded-xl border flex items-center justify-between text-xs ${
+                                                                        riservaDisp
+                                                                            ? 'bg-amber-50/70 border-amber-300'
+                                                                            : 'bg-amber-50/30 border-dashed border-amber-300/80 text-amber-700/70'
+                                                                    }`}
+                                                                >
+                                                                    {riservaDisp ? (
+                                                                        <>
+                                                                            <div className="truncate flex items-center gap-1.5">
+                                                                                <span className="text-[8px] font-black uppercase bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded shrink-0">
+                                                                                    Riserva
+                                                                                </span>
+                                                                                <span className="font-black uppercase text-dark truncate">
+                                                                                    {riservaDisp.giocatore.cognome} {riservaDisp.giocatore.nome}
+                                                                                </span>
+                                                                                <span className="text-[9px] font-bold text-gray-500 shrink-0">
+                                                                                    ({riservaDisp.giocatore.categoria})
+                                                                                </span>
+                                                                            </div>
+                                                                            <button
+                                                                                onClick={() => handleRimuoviRiservaDaBozza(b.tempId)}
+                                                                                className="text-gray-400 hover:text-red-500 ml-1 p-0.5"
+                                                                                title="Rimuovi riserva"
+                                                                            >
+                                                                                ×
+                                                                            </button>
+                                                                        </>
+                                                                    ) : (
+                                                                        <span className="text-[10px] font-bold uppercase tracking-wider italic">
+                                                                            Riserva (opzionale) — slot vuoto
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                             );
@@ -1068,7 +1160,11 @@ const AreaCoach: React.FC = () => {
                                                             )}
                                                         </div>
                                                         <span className="text-[10px] text-gray-400 font-bold uppercase">
-                                                            {sq.iscrizioni.length} Atleti
+                                                            {(() => {
+                                                                const titolari = sq.iscrizioni.filter(i => !i.isRiserva).length;
+                                                                const riserve = sq.iscrizioni.filter(i => i.isRiserva).length;
+                                                                return `${titolari} Atleti${riserve > 0 ? ` + ${riserve} Riserva` : ''}`;
+                                                            })()}
                                                         </span>
                                                     </div>
 
@@ -1086,11 +1182,22 @@ const AreaCoach: React.FC = () => {
                                                     {sq.iscrizioni.map((isc, iIdx) => (
                                                         <div
                                                             key={iIdx}
-                                                            className="flex items-center justify-between bg-white px-3 py-2 rounded-xl text-xs border border-gray-100"
+                                                            className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs border ${
+                                                                isc.isRiserva
+                                                                    ? 'bg-amber-50/60 border-amber-200'
+                                                                    : 'bg-white border-gray-100'
+                                                            }`}
                                                         >
-                                                            <span className="font-black uppercase text-dark">
-                                                                {isc.giocatore.cognome} {isc.giocatore.nome}
-                                                            </span>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="font-black uppercase text-dark">
+                                                                    {isc.giocatore.cognome} {isc.giocatore.nome}
+                                                                </span>
+                                                                {isc.isRiserva && (
+                                                                    <span className="text-[8px] font-black uppercase bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
+                                                                        RISERVA
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <span className="text-[10px] font-bold text-gray-500 uppercase">
                                                                 Cat. {isc.giocatore.categoria} ({isc.giocatore.sesso})
                                                             </span>

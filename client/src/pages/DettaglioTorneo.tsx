@@ -78,6 +78,7 @@ interface SquadraPubblica {
     } | null;
     iscrizioni: {
         id: string;
+        isRiserva?: boolean;
         giocatore: {
             id: string;
             nome: string;
@@ -981,11 +982,22 @@ const DettaglioTorneo: React.FC = () => {
                                     {/* Componenti della Formazione */}
                                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 pt-2">
                                         {(mieSquadre.squadra.iscrizioni || []).map((isc, idx) => (
-                                            <div key={idx} className="bg-white/10 p-3 rounded-xl border border-white/10 flex items-center justify-between">
-                                                <span className="font-black uppercase text-xs text-white">
-                                                    {isc.giocatore?.cognome || ''} {isc.giocatore?.nome || ''}
-                                                </span>
-                                                <span className="text-[9px] font-bold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded">
+                                            <div key={idx} className={`p-3 rounded-xl border flex items-center justify-between gap-2 ${
+                                                isc.isRiserva
+                                                    ? 'bg-amber-400/15 border-amber-400/40'
+                                                    : 'bg-white/10 border-white/10'
+                                            }`}>
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <span className="font-black uppercase text-xs text-white truncate">
+                                                        {isc.giocatore?.cognome || ''} {isc.giocatore?.nome || ''}
+                                                    </span>
+                                                    {isc.isRiserva && (
+                                                        <span className="text-[8px] font-black uppercase bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded shrink-0">
+                                                            RISERVA
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <span className="text-[9px] font-bold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded shrink-0">
                                                     Cat. {isc.giocatore?.categoria || '-'}
                                                 </span>
                                             </div>
@@ -1112,7 +1124,11 @@ const DettaglioTorneo: React.FC = () => {
                                                         {sq.nomeSquadra}
                                                     </h3>
                                                     <span className="text-[10px] font-black uppercase bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">
-                                                        {sq.iscrizioni.length} Atleti
+                                                        {(() => {
+                                                            const titolari = sq.iscrizioni.filter(i => !i.isRiserva).length;
+                                                            const riserve = sq.iscrizioni.filter(i => i.isRiserva).length;
+                                                            return `${titolari} Atleti${riserve > 0 ? ` + ${riserve} Ris.` : ''}`;
+                                                        })()}
                                                     </span>
                                                 </div>
 
@@ -1121,11 +1137,22 @@ const DettaglioTorneo: React.FC = () => {
                                                     {(sq.iscrizioni || []).map((isc, iIdx) => (
                                                         <div
                                                             key={iIdx}
-                                                            className="flex items-center justify-between bg-white px-3.5 py-2 rounded-xl text-xs border border-gray-100"
+                                                            className={`flex items-center justify-between px-3.5 py-2 rounded-xl text-xs border ${
+                                                                isc.isRiserva
+                                                                    ? 'bg-amber-50/70 border-amber-200'
+                                                                    : 'bg-white border-gray-100'
+                                                            }`}
                                                         >
-                                                            <span className="font-black uppercase text-dark">
-                                                                {isc.giocatore?.cognome || ''} {isc.giocatore?.nome || ''}
-                                                            </span>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="font-black uppercase text-dark">
+                                                                    {isc.giocatore?.cognome || ''} {isc.giocatore?.nome || ''}
+                                                                </span>
+                                                                {isc.isRiserva && (
+                                                                    <span className="text-[8px] font-black uppercase bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
+                                                                        RISERVA
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <span className="text-[10px] font-bold text-gray-500 uppercase">
                                                                 Cat. {isc.giocatore?.categoria || '-'} ({isc.giocatore?.sesso || '-'})
                                                             </span>
@@ -1344,7 +1371,8 @@ const DettaglioTorneo: React.FC = () => {
                                     <option value="" disabled>Seleziona Turno...</option>
                                     {disponibilita.map((t) => {
                                         const postiLiberi = t.postiRimanenti;
-                                        const isEsaurito = postiLiberi < (mieSquadre.squadra?.iscrizioni?.length || 2);
+                                        const titolariCount = (mieSquadre.squadra?.iscrizioni || []).filter(i => !i.isRiserva).length || 2;
+                                        const isEsaurito = postiLiberi < titolariCount;
                                         return (
                                             <option key={t.id} value={t.id} disabled={isEsaurito}>
                                                 {safeFormatDate(t.giorno, 'EEE dd/MM')} ore {safeFormatDate(t.orarioInizio, 'HH:mm')}

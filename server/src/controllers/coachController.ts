@@ -379,6 +379,7 @@ export const autoSincronizzaFaseSuccessiva = async (torneoId: string) => {
                             giocatoreId: iscr.giocatoreId,
                             squadraId: nuovaSquadra.id,
                             nomeSquadra: sqOrigine.nomeSquadra,
+                            isRiserva: iscr.isRiserva,
                             stato: 'CONFERMATA',
                             turnoId: null,
                             secondoTurnoId: null
@@ -386,6 +387,7 @@ export const autoSincronizzaFaseSuccessiva = async (torneoId: string) => {
                         update: {
                             squadraId: nuovaSquadra.id,
                             nomeSquadra: sqOrigine.nomeSquadra,
+                            isRiserva: iscr.isRiserva,
                             stato: 'CONFERMATA'
                         }
                     });
@@ -444,7 +446,8 @@ export const getSquadreTorneoPublic = async (req: Request, res: Response) => {
                                 sesso: true
                             }
                         }
-                    }
+                    },
+                    orderBy: { isRiserva: 'asc' }
                 }
             },
             orderBy: { createdAt: 'asc' }
@@ -604,7 +607,8 @@ export const getFormazioniCoach = async (req: AuthRequest, res: Response) => {
                                 sesso: true
                             }
                         }
-                    }
+                    },
+                    orderBy: { isRiserva: 'asc' }
                 }
             },
             orderBy: { createdAt: 'asc' }
@@ -630,6 +634,7 @@ export const confermaSquadreCoach = async (req: AuthRequest, res: Response) => {
             nomeSquadra: string;
             tipoFormazione?: 'QUALIFICATA' | 'DISPONIBILE';
             giocatoreIds: string[];
+            riservaId?: string | null;
         }>;
         riserveIds?: string[];
     };
@@ -655,6 +660,8 @@ export const confermaSquadreCoach = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'La composizione squadre è valida solo per gare di Doppio, Tris, Squadra o Finali Italiane.' });
         }
 
+        const supportsRiserva = torneo.tipologia === 'TRIS' || torneo.tipologia === 'SQUADRA_4';
+
         // Verifica validità e unicità atleti
         const allPlayerIds = new Set<string>();
         for (let i = 0; i < squadre.length; i++) {
@@ -662,9 +669,9 @@ export const confermaSquadreCoach = async (req: AuthRequest, res: Response) => {
             if (!sq.nomeSquadra || sq.nomeSquadra.trim() === '') {
                 return res.status(400).json({ message: `La Squadra ${i + 1} deve avere un nome valido.` });
             }
-            if (!Array.isArray(sq.giocatoreIds) || sq.giocatoreIds.length !== requiredPerTeam) {
+            if (!Array.isArray(sq.giocatoreIds) || sq.giocatoreIds.length < 1 || sq.giocatoreIds.length > requiredPerTeam) {
                 return res.status(400).json({
-                    message: `La squadra "${sq.nomeSquadra}" deve avere esattamente ${requiredPerTeam} atleti (attualmente ne ha ${sq.giocatoreIds?.length || 0}).`
+                    message: `La squadra "${sq.nomeSquadra}" deve avere da 1 a ${requiredPerTeam} atleti titolari (attualmente ne ha ${sq.giocatoreIds?.length || 0}).`
                 });
             }
             for (const pId of sq.giocatoreIds) {
@@ -674,6 +681,21 @@ export const confermaSquadreCoach = async (req: AuthRequest, res: Response) => {
                     });
                 }
                 allPlayerIds.add(pId);
+            }
+
+            const riservaClean = typeof sq.riservaId === 'string' ? sq.riservaId.trim() : '';
+            if (riservaClean) {
+                if (!supportsRiserva) {
+                    return res.status(400).json({
+                        message: 'La riserva di squadra è consentita solo per tornei di Tris o Squadra.'
+                    });
+                }
+                if (allPlayerIds.has(riservaClean)) {
+                    return res.status(400).json({
+                        message: `L'atleta riserva con ID ${riservaClean} è già stato inserito in una formazione!`
+                    });
+                }
+                allPlayerIds.add(riservaClean);
             }
         }
 
@@ -757,12 +779,55 @@ export const confermaSquadreCoach = async (req: AuthRequest, res: Response) => {
                             giocatoreId: pId,
                             squadraId: nuovaSquadra.id,
                             nomeSquadra: sq.nomeSquadra.trim(),
+                            isRiserva: false,
                             stato: 'CONFERMATA',
                             turnoId: null
                         },
                         update: {
                             squadraId: nuovaSquadra.id,
                             nomeSquadra: sq.nomeSquadra.trim(),
+                            isRiserva: false,
+                            stato: 'CONFERMATA'
+                        }
+                    });
+                }
+
+                // 2b. Se è presente una riserva opzionale (TRIS / SQUADRA_4): iscrizione isRiserva=true senza addebito quota
+                const riservaId = supportsRiserva && typeof sq.riservaId === 'string' ? sq.riservaId.trim() : '';
+                if (riservaId) {
+                    const giocatoreRiserva = await tx.giocatore.findUnique({
+                        where: { id: riservaId }
+                    });
+
+                    if (!giocatoreRiserva) {
+                        throw new Error(`Atleta riserva con ID ${riservaId} non trovato.`);
+                    }
+
+                    await tx.disponibilitaTorneo.updateMany({
+                        where: { torneoId, giocatoreId: riservaId },
+                        data: { stato: 'ASSEGNATO' }
+                    });
+
+                    await tx.iscrizioneTorneo.upsert({
+                        where: {
+                            torneoId_giocatoreId: {
+                                torneoId,
+                                giocatoreId: riservaId
+                            }
+                        },
+                        create: {
+                            torneoId,
+                            giocatoreId: riservaId,
+                            squadraId: nuovaSquadra.id,
+                            nomeSquadra: sq.nomeSquadra.trim(),
+                            isRiserva: true,
+                            stato: 'CONFERMATA',
+                            turnoId: null
+                        },
+                        update: {
+                            squadraId: nuovaSquadra.id,
+                            nomeSquadra: sq.nomeSquadra.trim(),
+                            isRiserva: true,
                             stato: 'CONFERMATA'
                         }
                     });
@@ -842,8 +907,8 @@ export const annullaSquadraCoach = async (req: AuthRequest, res: Response) => {
 
         await prisma.$transaction(async (tx) => {
             for (const iscr of squadra.iscrizioni) {
-                // Rimborso quota se presente e se la formazione era stata addebitata
-                if (deveRimborsare) {
+                // Rimborso quota se presente, se la formazione era stata addebitata e l'atleta non è una riserva
+                if (deveRimborsare && !iscr.isRiserva) {
                     await tx.saldoBorsellino.upsert({
                         where: { giocatoreId: iscr.giocatoreId },
                         create: {
@@ -962,15 +1027,17 @@ export const scegliTurnoSquadra = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'Il turno selezionato non è valido per questo torneo.' });
         }
 
-        // Verifica disponibilità posti nel turno principale
+        // Verifica disponibilità posti nel turno principale (solo atleti titolari, le riserve non occupano piste)
         const occupati = await prisma.iscrizioneTorneo.count({
             where: {
                 turnoId,
+                isRiserva: false,
                 squadraId: { not: squadraId } // Escludiamo i membri di questa squadra se già presenti
             }
         });
 
-        const postiNecessari = squadra.iscrizioni.length;
+        const titolariSquadra = squadra.iscrizioni.filter(i => !i.isRiserva);
+        const postiNecessari = titolariSquadra.length;
         const postiRimanenti = turno.postiDisponibili - occupati;
 
         if (postiRimanenti < postiNecessari) {
@@ -984,11 +1051,11 @@ export const scegliTurnoSquadra = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'Il turno di riserva deve essere diverso dal turno principale.' });
         }
 
-        // Controllo Quote e Borsellino per tutti i componenti (OPZIONE A)
+        // Controllo Quote e Borsellino per tutti i componenti titolari (OPZIONE A)
         const costoQuota = Number(squadra.torneo.costoIscrizione || 0);
 
         if (costoQuota > 0) {
-            for (const iscr of squadra.iscrizioni) {
+            for (const iscr of titolariSquadra) {
                 // Controlla se la quota per questo torneo è già stata scalata
                 const alreadyPaid = await prisma.movimentoContabile.findFirst({
                     where: {
@@ -1036,9 +1103,9 @@ export const scegliTurnoSquadra = async (req: AuthRequest, res: Response) => {
                 }
             });
 
-            // Addebito quote borsellino per chi non ha ancora pagato questo torneo (Opzione A)
+            // Addebito quote borsellino per i titolari che non hanno ancora pagato questo torneo (Opzione A)
             if (costoQuota > 0) {
-                for (const iscr of squadra.iscrizioni) {
+                for (const iscr of titolariSquadra) {
                     const alreadyPaid = await tx.movimentoContabile.findFirst({
                         where: {
                             giocatoreId: iscr.giocatoreId,
@@ -1163,7 +1230,8 @@ export const getMieSquadreTorneo = async (req: AuthRequest, res: Response) => {
                                         sesso: true
                                     }
                                 }
-                            }
+                            },
+                            orderBy: { isRiserva: 'asc' }
                         }
                     }
                 }
